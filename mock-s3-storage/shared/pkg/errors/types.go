@@ -28,6 +28,10 @@ const (
 	ErrorTypeNetwork             ErrorType = "NETWORK_ERROR"
 	ErrorTypeThirdParty          ErrorType = "THIRD_PARTY_ERROR"
 	
+	// 配置错误类型
+	ErrorTypeConfig              ErrorType = "CONFIG_ERROR"
+	ErrorTypeConfigValidation    ErrorType = "CONFIG_VALIDATION"
+	
 	// 业务逻辑错误
 	ErrorTypeBucketExists        ErrorType = "BUCKET_ALREADY_EXISTS"
 	ErrorTypeBucketNotFound      ErrorType = "BUCKET_NOT_FOUND"
@@ -207,4 +211,66 @@ func Storage(code, message string) *ErrorBuilder {
 
 func Database(code, message string) *ErrorBuilder {
 	return NewError(ErrorTypeDatabase, code, message).WithSeverity(SeverityError)
+}
+
+func Config(code, message string) *ErrorBuilder {
+	return NewError(ErrorTypeConfig, code, message).WithSeverity(SeverityError)
+}
+
+func ConfigValidation(code, message string) *ErrorBuilder {
+	return NewError(ErrorTypeConfigValidation, code, message).WithSeverity(SeverityWarning)
+}
+
+// ConfigFieldError 配置字段错误
+type ConfigFieldError struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
+	Value   any    `json:"value,omitempty"`
+}
+
+// ConfigValidationError 配置验证错误，包含多个字段错误
+type ConfigValidationError struct {
+	*AppError
+	FieldErrors []ConfigFieldError `json:"field_errors"`
+}
+
+// NewConfigValidationError 创建配置验证错误
+func NewConfigValidationError(service, operation string) *ConfigValidationError {
+	return &ConfigValidationError{
+		AppError: NewError(ErrorTypeConfigValidation, "CONFIG_VALIDATION_FAILED", "配置验证失败").
+			WithService(service).
+			WithOperation(operation).
+			WithSeverity(SeverityWarning).
+			Build(),
+		FieldErrors: make([]ConfigFieldError, 0),
+	}
+}
+
+// AddFieldError 添加字段错误
+func (e *ConfigValidationError) AddFieldError(field, message string, value ...any) {
+	fieldErr := ConfigFieldError{
+		Field:   field,
+		Message: message,
+	}
+	if len(value) > 0 {
+		fieldErr.Value = value[0]
+	}
+	e.FieldErrors = append(e.FieldErrors, fieldErr)
+}
+
+// HasErrors 是否有字段错误
+func (e *ConfigValidationError) HasErrors() bool {
+	return len(e.FieldErrors) > 0
+}
+
+// Error 重写错误消息，包含字段错误信息
+func (e *ConfigValidationError) Error() string {
+	if len(e.FieldErrors) == 0 {
+		return e.AppError.Error()
+	}
+	if len(e.FieldErrors) == 1 {
+		return fmt.Sprintf("%s: %s in field '%s'", e.AppError.Error(), e.FieldErrors[0].Message, e.FieldErrors[0].Field)
+	}
+	return fmt.Sprintf("%s: %d field errors, first: %s in field '%s'", 
+		e.AppError.Error(), len(e.FieldErrors), e.FieldErrors[0].Message, e.FieldErrors[0].Field)
 }
