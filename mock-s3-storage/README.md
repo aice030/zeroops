@@ -332,7 +332,6 @@ mock-s3-storage/
 │       └── README.md
 │
 ├── shared/                              # 共享库和工具
-│   ├── pkg/
 │   │   ├── httpclient/                 # HTTP客户端工具包
 │   │   │   ├── client.go              # HTTP客户端封装
 │   │   │   ├── retry.go               # 重试机制
