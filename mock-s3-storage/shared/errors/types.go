@@ -11,23 +11,23 @@ type ErrorType string
 
 const (
 	// 客户端错误类型
-	ErrorTypeBadRequest          ErrorType = "BAD_REQUEST"
-	ErrorTypeUnauthorized        ErrorType = "UNAUTHORIZED"
-	ErrorTypeForbidden           ErrorType = "FORBIDDEN"
-	ErrorTypeNotFound            ErrorType = "NOT_FOUND"
-	ErrorTypeConflict            ErrorType = "CONFLICT"
-	ErrorTypeValidation          ErrorType = "VALIDATION"
-	ErrorTypeRateLimit           ErrorType = "RATE_LIMIT"
-	
+	ErrorTypeBadRequest   ErrorType = "BAD_REQUEST"
+	ErrorTypeUnauthorized ErrorType = "UNAUTHORIZED"
+	ErrorTypeForbidden    ErrorType = "FORBIDDEN"
+	ErrorTypeNotFound     ErrorType = "NOT_FOUND"
+	ErrorTypeConflict     ErrorType = "CONFLICT"
+	ErrorTypeValidation   ErrorType = "VALIDATION"
+	ErrorTypeRateLimit    ErrorType = "RATE_LIMIT"
+
 	// 服务端错误类型
-	ErrorTypeInternal            ErrorType = "INTERNAL_ERROR"
-	ErrorTypeServiceUnavailable  ErrorType = "SERVICE_UNAVAILABLE"
-	ErrorTypeTimeout             ErrorType = "TIMEOUT"
-	ErrorTypeDatabase            ErrorType = "DATABASE_ERROR"
-	ErrorTypeStorage             ErrorType = "STORAGE_ERROR"
-	ErrorTypeNetwork             ErrorType = "NETWORK_ERROR"
-	ErrorTypeThirdParty          ErrorType = "THIRD_PARTY_ERROR"
-	
+	ErrorTypeInternal           ErrorType = "INTERNAL_ERROR"
+	ErrorTypeServiceUnavailable ErrorType = "SERVICE_UNAVAILABLE"
+	ErrorTypeTimeout            ErrorType = "TIMEOUT"
+	ErrorTypeDatabase           ErrorType = "DATABASE_ERROR"
+	ErrorTypeStorage            ErrorType = "STORAGE_ERROR"
+	ErrorTypeNetwork            ErrorType = "NETWORK_ERROR"
+	ErrorTypeThirdParty         ErrorType = "THIRD_PARTY_ERROR"
+
 	// 业务逻辑错误
 	ErrorTypeBucketExists        ErrorType = "BUCKET_ALREADY_EXISTS"
 	ErrorTypeBucketNotFound      ErrorType = "BUCKET_NOT_FOUND"
@@ -48,17 +48,17 @@ const (
 
 // AppError 应用程序统一错误结构
 type AppError struct {
-	Type       ErrorType                `json:"type"`
-	Code       string                   `json:"code"`
-	Message    string                   `json:"message"`
-	Details    string                   `json:"details,omitempty"`
-	Severity   ErrorSeverity            `json:"severity"`
-	Timestamp  time.Time                `json:"timestamp"`
-	RequestID  string                   `json:"request_id,omitempty"`
-	Service    string                   `json:"service,omitempty"`
-	Operation  string                   `json:"operation,omitempty"`
-	Metadata   map[string]any           `json:"metadata,omitempty"`
-	Cause      error                    `json:"-"` // 原始错误，不序列化
+	Type      ErrorType      `json:"type"`
+	Code      string         `json:"code"`
+	Message   string         `json:"message"`
+	Details   string         `json:"details,omitempty"`
+	Severity  ErrorSeverity  `json:"severity"`
+	Timestamp time.Time      `json:"timestamp"`
+	RequestID string         `json:"request_id,omitempty"`
+	Service   string         `json:"service,omitempty"`
+	Operation string         `json:"operation,omitempty"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
+	Cause     error          `json:"-"` // 原始错误，不序列化
 }
 
 // Error 实现error接口
