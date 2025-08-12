@@ -86,7 +86,6 @@ type TracingConfig struct {
 	SamplingRate float64 `json:"sampling_rate" yaml:"sampling_rate" default:"1.0"`
 }
 
-
 // ConsulConfig Consul配置
 type ConsulConfig struct {
 	Address    string        `json:"address" yaml:"address" default:"localhost:8500"`
