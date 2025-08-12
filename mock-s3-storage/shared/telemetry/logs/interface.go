@@ -18,27 +18,27 @@ const (
 // LogCollector  定义日志记录器接口
 type LogCollector interface {
 	// Info 记录信息级别日志
-	Info(ctx context.Context, message string, fields map[string]interface{})
+	Info(ctx context.Context, message string, fields map[string]any)
 
 	// Error 记录错误级别日志
-	Error(ctx context.Context, message string, err error, fields map[string]interface{})
+	Error(ctx context.Context, message string, err error, fields map[string]any)
 
 	// Debug 记录调试级别日志
-	Debug(ctx context.Context, message string, fields map[string]interface{})
+	Debug(ctx context.Context, message string, fields map[string]any)
 
 	// Warn 记录警告级别日志
-	Warn(ctx context.Context, message string, fields map[string]interface{})
+	Warn(ctx context.Context, message string, fields map[string]any)
 
 	// Log 通用日志接口，支持自定义级别
-	Log(ctx context.Context, level LogLevel, message string, fields map[string]interface{})
+	Log(ctx context.Context, level LogLevel, message string, fields map[string]any)
 }
 
 // LogEntry 结构化日志对象
 type LogEntry struct {
-	Timestamp time.Time              // 时间戳，UnixNano
-	Level     LogLevel               // 日志级别，如 info, error
-	Message   string                 // 日志内容
-	Fields    map[string]interface{} // 额外字段，如 trace_id、请求ID等
+	Timestamp time.Time      // 时间戳，UnixNano
+	Level     LogLevel       // 日志级别，如 info, error
+	Message   string         // 日志内容
+	Fields    map[string]any // 额外字段，如 trace_id、请求ID等
 }
 
 // LogExporter 负责将日志数据推送到 Elasticsearch 或其他日志存储系统

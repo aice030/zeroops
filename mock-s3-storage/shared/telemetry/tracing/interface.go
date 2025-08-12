@@ -8,8 +8,8 @@ import (
 // Span 代表一个链路跨度，封装底层 tracing 细节
 type Span interface {
 	End(options ...SpanEndOption)
-	AddEvent(name string, attributes map[string]interface{})
-	SetAttribute(key string, value interface{})
+	AddEvent(name string, attributes map[string]any)
+	SetAttribute(key string, value any)
 	SetStatus(code StatusCode, description string)
 	Context() context.Context
 }
@@ -43,10 +43,10 @@ type Tracer interface {
 	StartSpan(ctx context.Context, name string, opts ...SpanOption) (context.Context, Span)
 
 	// Inject 用于跨进程传播 TraceContext（HTTP Header等）
-	Inject(ctx context.Context, carrier interface{}) error
+	Inject(ctx context.Context, carrier any) error
 
 	// Extract 从跨进程载体中提取 TraceContext
-	Extract(ctx context.Context, carrier interface{}) (context.Context, error)
+	Extract(ctx context.Context, carrier any) (context.Context, error)
 }
 
 // SpanOption Span 选项占位符（可扩展）
