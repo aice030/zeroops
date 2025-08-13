@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"file-storage-service/internal/service"
+	"storage-service/internal/service"
 )
 
 // S3Storage S3存储实现（示例）

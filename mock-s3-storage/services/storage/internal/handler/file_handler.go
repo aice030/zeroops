@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"file-storage-service/internal/service"
 	"github.com/google/uuid"
+	"storage-service/internal/service"
 )
 
 // FileHandler 文件处理器

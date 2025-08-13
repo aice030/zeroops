@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"file-storage-service/internal/handler"
-	"file-storage-service/internal/impl"
+	"storage-service/internal/handler"
+	"storage-service/internal/impl"
 )
 
 const (
@@ -63,8 +63,12 @@ func main() {
 	// 创建文件处理器
 	fileHandler := handler.NewFileHandler(storageService)
 
+	// 创建故障处理器
+	faultService := impl.NewFaultServiceImpl()
+	faultHandler := handler.NewFaultHandler(faultService)
+
 	// 创建路由处理器
-	router := handler.NewRouter(fileHandler)
+	router := handler.NewRouter(fileHandler, faultHandler)
 
 	// 创建HTTP服务器
 	server := &http.Server{
@@ -86,6 +90,11 @@ func main() {
 		log.Printf("  - 文件删除: DELETE /api/files/{fileID}")
 		log.Printf("  - 文件信息: GET /api/files/{fileID}/info")
 		log.Printf("  - 文件列表: GET /api/files")
+
+		log.Printf("  - 故障启动: POST /fault/start/{name}")
+		log.Printf("  - 故障停止: POST /fault/stop/{name}")
+		log.Printf("  - 故障状态: GET /fault/status/{name}")
+		log.Printf("  - 故障列表: GET /fault/list")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("服务器启动失败: %v", err)

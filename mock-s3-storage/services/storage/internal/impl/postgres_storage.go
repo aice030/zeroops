@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"file-storage-service/internal/service"
+	"storage-service/internal/service"
 
 	_ "github.com/lib/pq"
 )

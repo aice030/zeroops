@@ -7,13 +7,15 @@ import (
 
 // Router 路由处理器
 type Router struct {
-	fileHandler *FileHandler
+	fileHandler  *FileHandler
+	faultHandler *FaultHandler
 }
 
 // NewRouter 创建路由处理器
-func NewRouter(fileHandler *FileHandler) *Router {
+func NewRouter(fileHandler *FileHandler, faultHandler *FaultHandler) *Router {
 	return &Router{
-		fileHandler: fileHandler,
+		fileHandler:  fileHandler,
+		faultHandler: faultHandler,
 	}
 }
 
@@ -58,6 +60,23 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 文件列表
 	case path == "/api/files" && method == "GET":
 		r.fileHandler.ListFiles(w, req)
+
+	// ------------------------------------------
+	// 故障启动
+	case strings.HasPrefix(path, "/fault/start/") && method == http.MethodPost:
+		r.faultHandler.StartFault(w, req)
+
+	// 故障停止
+	case strings.HasPrefix(path, "/fault/stop/") && method == http.MethodPost:
+		r.faultHandler.StopFault(w, req)
+
+	// 故障状态
+	case strings.HasPrefix(path, "/fault/status/") && method == http.MethodGet:
+		r.faultHandler.GetFaultStatus(w, req)
+
+	// 故障列表
+	case path == "/fault/list" && method == http.MethodGet:
+		r.faultHandler.ListFaults(w, req)
 
 	// 默认路由
 	default:

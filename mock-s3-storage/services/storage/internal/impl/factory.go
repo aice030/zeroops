@@ -1,8 +1,8 @@
 package impl
 
 import (
-	"file-storage-service/internal/service"
 	"fmt"
+	"storage-service/internal/service"
 )
 
 // StorageType 存储类型
