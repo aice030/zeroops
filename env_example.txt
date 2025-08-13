@@ -1,0 +1,86 @@
+# ZeroOps 环境变量配置示例
+# Copy this file to .env and fill in your actual API keys and configurations
+
+# =============================================================================
+# 必需配置 - 必须设置以下环境变量
+# =============================================================================
+
+# OpenAI API Key (必需)
+# 获取地址: https://platform.openai.com/api-keys
+OPENAI_API_KEY=your_openai_api_key_here
+
+# 评估器模型配置 (必需)
+# 选项: gpt:model_name, manual, fake, http://endpoint
+# 推荐: gpt:gpt-oss-20b (生产), fake (测试)
+EVALUATOR_LLM=gpt:gpt-oss-20b
+
+# =============================================================================
+# 可选配置 - 根据需要设置以下环境变量
+# =============================================================================
+
+# Qiniu API Configuration (OpenAI 替代方案)
+# 适用于国内用户，访问速度更快
+# QINIU_API_KEY=your_qiniu_api_key_here
+# QINIU_ENDPOINT=https://openai.qiniu.com/v1
+
+# 搜索后端配置
+# 默认: DuckDuckGo
+# 支持: 任何兼容的搜索后端
+SEARCH_BACKEND=DuckDuckGo
+
+# 终端显示配置
+# 控制是否强制使用终端样式
+# 选项: true, false
+NO_FORCE_TERMINAL=false
+
+# =============================================================================
+# 模型配置示例 - 取消注释使用相应模型
+# =============================================================================
+
+# OpenAI 官方模型
+# EVALUATOR_LLM=gpt:gpt-4o
+# EVALUATOR_LLM=gpt:gpt-4-turbo
+# EVALUATOR_LLM=gpt:gpt-3.5-turbo
+# EVALUATOR_LLM=gpt:gpt-3.5-turbo-16k
+
+# 开源大模型
+# EVALUATOR_LLM=gpt:gpt-oss-120b
+# EVALUATOR_LLM=gpt:gpt-oss-20b
+# EVALUATOR_LLM=gpt:deepseek-v3
+# EVALUATOR_LLM=gpt:glm-4.5
+# EVALUATOR_LLM=gpt:glm-4.5-air
+# EVALUATOR_LLM=gpt:qwen-turbo
+# EVALUATOR_LLM=gpt:qwen-max-2025-01-25
+# EVALUATOR_LLM=gpt:qwen3-32b
+# EVALUATOR_LLM=gpt:kimi-k2
+# EVALUATOR_LLM=gpt:MiniMax-M1
+# EVALUATOR_LLM=gpt:nvidia/llama-3.3-nemotron-super-49b-v1.5
+
+# 特殊模式
+# EVALUATOR_LLM=fake          # 测试模式，返回固定响应
+# EVALUATOR_LLM=manual        # 手动模式，用户输入响应
+# EVALUATOR_LLM=http://your-api-endpoint.com/v1  # 自定义端点
+
+# =============================================================================
+# 环境配置示例 - 根据使用场景选择
+# =============================================================================
+
+# QINIU_API_KEY=your_qiniu_key_here
+# QINIU_ENDPOINT=https://openai.qiniu.com/v1
+# EVALUATOR_LLM=gpt-oss-20b
+
+# =============================================================================
+# 使用说明
+# =============================================================================
+
+# 1. 复制此文件为 .env: copy env_example.txt .env
+# 2. 编辑 .env 文件，填入真实的 API 密钥
+# 3. 根据需要配置评估器模型和工作模式
+# 4. 保存文件到项目根目录
+# 5. 重启应用程序或终端
+
+# 注意事项:
+# - 永远不要将 .env 文件提交到版本控制
+# - 定期轮换 API 密钥
+# - 在生产环境中使用环境变量而非文件
+# - 使用最小权限原则配置 API 密钥
