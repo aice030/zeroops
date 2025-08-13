@@ -14,7 +14,7 @@ type faultServiceImpl struct {
 func NewFaultServiceImpl() service.FaultService {
 	m := faults.NewFaultManager()
 	// 注册所有故障实例
-	m.Register(memory.NewMemLeakFault(100*1024*1024, 1000*time.Millisecond))
+	m.Register(memory.NewMemLeakFault(1*1024*1024, 15000*time.Millisecond))
 	return &faultServiceImpl{
 		manager: m,
 	}

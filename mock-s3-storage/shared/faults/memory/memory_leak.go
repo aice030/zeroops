@@ -31,6 +31,7 @@ func (m *MemLeakFault) Name() string {
 }
 
 func (m *MemLeakFault) Start() error {
+	// 首先判断运行状态，防止重复调用
 	if !atomic.CompareAndSwapInt32(&m.running, 0, 1) {
 		return fmt.Errorf("MemLeakFault already running")
 	}

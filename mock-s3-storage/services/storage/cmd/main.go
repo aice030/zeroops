@@ -12,11 +12,14 @@ import (
 
 	"storage-service/internal/handler"
 	"storage-service/internal/impl"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
 	// 服务配置
 	defaultPort = "8080"
+	metricsPort = "1080"
 	defaultHost = "127.0.0.1"
 
 	// PostgreSQL配置
@@ -98,6 +101,14 @@ func main() {
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("服务器启动失败: %v", err)
+		}
+	}()
+
+	go func() {
+		log.Printf("Prometheus metrics endpoint running at :%s/metrics\n", metricsPort)
+		http.Handle("/metrics", promhttp.Handler())
+		if err := http.ListenAndServe(":"+metricsPort, nil); err != nil {
+			log.Fatalf("Prometheus metrics 服务启动失败: %v", err)
 		}
 	}()
 
