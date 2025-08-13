@@ -36,8 +36,8 @@ type SQLDatabase interface {
 	BeginTx(ctx context.Context) (*sql.Tx, error)
 }
 
-// RedisDatabase Redis数据库接口
-type RedisDatabase interface {
+// RedisCache 缓存接口
+type RedisCache interface {
 	Database
 
 	// Get 获取值
@@ -59,14 +59,40 @@ type RedisDatabase interface {
 	HGetAll(ctx context.Context, key string) (map[string]string, error)
 }
 
+// RedisQueue 队列操作接口
+type RedisQueue interface {
+	Database
+
+	// Enqueue 入队
+	Enqueue(ctx context.Context, queueName string, item any) error
+
+	// Dequeue 出队 (非阻塞)
+	Dequeue(ctx context.Context, queueName string) (string, error)
+
+	// DequeueBlocking 阻塞式出队
+	DequeueBlocking(ctx context.Context, timeout time.Duration, queueNames ...string) (queueName string, item string, err error)
+
+	// Size 获取队列大小
+	Size(ctx context.Context, queueName string) (int64, error)
+
+	// Peek 查看队列内容 (不移除)
+	Peek(ctx context.Context, queueName string, start, end int64) ([]string, error)
+}
+
 // NewSQL 创建SQL数据库连接
 func NewSQL(config config.DatabaseConfig) (SQLDatabase, error) {
 	// TODO: 实现PostgreSQL连接
 	return nil, nil
 }
 
-// NewRedis 创建Redis数据库连接
-func NewRedis(config config.DatabaseConfig) (RedisDatabase, error) {
-	// TODO: 实现Redis连接
+// NewCache 创建Redis缓存
+func NewCache(config config.DatabaseConfig) (RedisCache, error) {
+	// TODO: 实现Redis缓存
+	return nil, nil
+}
+
+// NewQueue 创建Redis队列
+func NewQueue(config config.DatabaseConfig) (RedisQueue, error) {
+	// TODO: 实现Redis队列
 	return nil, nil
 }
