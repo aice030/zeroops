@@ -261,7 +261,7 @@ class LLM(KwargsInitializable):
             headers = {"Content-Type": "application/json"}
             if isinstance(messages, list):
                 json_data = {
-                    "model": "ck",
+                    "model": "zo",
                     "stop": ["<|eot_id|>", "<|eom_id|>", "<|im_end|>"],
                     "messages": messages,
                 }

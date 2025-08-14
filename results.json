@@ -1,0 +1,1 @@
+{"id": "task0000", "task": "What is 2 + 2?", "file": null, "answer": null, "_orig": {"info": {"question": "What is 2 + 2?"}}, "skip_hard": false, "eval": {"pred": "4", "gold": "None", "corr": 0}}

@@ -11,6 +11,9 @@ requests>=2.31.0                  # HTTP library for API calls
 # Rich terminal output
 rich>=14.1.0                      # Rich terminal formatting
 
+# Search functionality
+duckduckgo-search>=4.1.0          # DuckDuckGo search API
+
 # Note: Removed langchain dependencies as they were only used for Azure integration
 # If you need langchain functionality in the future, you can add:
 # langchain>=0.2.0                # LangChain framework

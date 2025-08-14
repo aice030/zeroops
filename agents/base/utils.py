@@ -7,7 +7,7 @@ import random
 # Load .env file if it exists
 def load_dotenv():
     """Load environment variables from .env file"""
-    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
     if os.path.exists(env_path):
         try:
             with open(env_path, 'r', encoding='utf-8') as f:
@@ -333,7 +333,7 @@ class CodeExecutor:
 
     def _exec(self, code, null_stdin, timeout):
         original_stdin = sys.stdin  # original stdin
-        if timeout > 0:
+        if timeout > 0 and hasattr(signal, 'SIGALRM'):  # Only use SIGALRM on Unix-like systems
             signal.signal(signal.SIGALRM, timeout_handler)
             signal.alarm(timeout)
         try:
@@ -344,7 +344,7 @@ class CodeExecutor:
         finally:
             if null_stdin:  # change stdin
                 sys.stdin = original_stdin
-            if timeout > 0:
+            if timeout > 0 and hasattr(signal, 'SIGALRM'):  # Only use SIGALRM on Unix-like systems
                 signal.alarm(0)  # Disable the alarm
             # simply remove global vars to avoid pickle errors for multiprocessing running!
             # self.globals.clear()  # note: simply create a new executor for each run!
