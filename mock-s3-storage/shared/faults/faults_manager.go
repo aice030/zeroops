@@ -2,18 +2,22 @@ package faults
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
+	"time"
 )
 
 // FaultManager 统一管理所有故障实例
 type FaultManager struct {
 	mu       sync.RWMutex
 	faultMap map[string]Fault
+	rnd      *rand.Rand // 随机数生成器，用于概率注入
 }
 
 func NewFaultManager() *FaultManager {
 	return &FaultManager{
 		faultMap: make(map[string]Fault),
+		rnd:      rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -66,4 +70,17 @@ func (m *FaultManager) List() ([]string, error) {
 		keys = append(keys, k)
 	}
 	return keys, nil
+}
+
+// ShouldInject 根据概率判断是否应该注入故障
+func (m *FaultManager) ShouldInject(rate float64) bool {
+	if rate <= 0 {
+		return false
+	}
+	if rate >= 1.0 {
+		return true
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.rnd.Float64() <= rate
 }
