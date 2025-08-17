@@ -7,7 +7,7 @@ from functools import partial
 import multiprocessing as mp
 
 from ..base.agent import MultiStepAgent, register_template, AgentResult
-from ..base.tool import StopTool, AskLLMTool, SimpleSearchTool
+from ..base.tool import StopTool, AskLLMTool, SimpleSearchTool, QueryErrorLogsTool, QueryDependencyTool
 from ..base.utils import zwarn, GET_ENV_VAR
 # Removed web_agent imports
 # Removed file_agent imports
@@ -20,13 +20,15 @@ class ZOAgent(MultiStepAgent):
         # sub-agents - removed web_agent and file_agent initialization
         self.tool_ask_llm = AskLLMTool()
         self.tool_simple_search = SimpleSearchTool()
+        self.tool_query_error_logs = QueryErrorLogsTool()
+        self.tool_query_dependency = QueryDependencyTool()
         feed_kwargs = dict(
             name="zo_agent",
             description="Cognitive Kernel, an initial autopilot system.",
             templates={"plan": "zo_plan", "action": "zo_action", "end": "zo_end", "aggr": "zo_aggr"},  # template names (no need of END here since we do NOT use __call__ for this)
-            active_functions=["stop", "ask_llm", "simple_web_search"],  # removed web_agent and file_agent
+            active_functions=["stop", "ask_llm", "simple_web_search", "query_error_logs", "query_dependency"],  # removed web_agent and file_agent
             sub_agent_names=[],  # removed web_agent and file_agent
-            tools=[StopTool(agent=self), self.tool_ask_llm, self.tool_simple_search],  # add related tools
+            tools=[StopTool(agent=self), self.tool_ask_llm, self.tool_simple_search, self.tool_query_error_logs, self.tool_query_dependency],  # add related tools
             max_steps=16,  # still give it more steps
             max_time_limit=4200,  # 70 minutes
             exec_timeout_with_call=1000,  # if calling sub-agent
@@ -42,6 +44,8 @@ class ZOAgent(MultiStepAgent):
         super().__init__(**feed_kwargs)
         self.tool_ask_llm.set_llm(self.model)  # another tricky part, we need to assign LLM later
         self.tool_simple_search.set_llm(self.model)
+        self.tool_query_error_logs.set_llm(self.model)
+        self.tool_query_dependency.set_llm(self.model)
         # --
 
     def get_function_definition(self, short: bool):

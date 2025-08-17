@@ -27,8 +27,10 @@ _ZO_STRATEGY = """
         - **Explicitly Specify Requirements**: Sub-agents operate independently and do not share context or access external information. Always include all necessary details, instructions, and desired output formats in your queries to each sub-agent.
         - **Define Output Formats**: Clearly state the required output format when requesting information to ensure consistency and facilitate downstream processing.
     - **Typical Workflows**:
-        - Example 1, Searching for Information: Use `simple_web_search` to find relevant information and then use `ask_llm` to process and analyze the results.
-        - Example 2, Complex Analysis: For more complex scenarios, you may need to interleave calls to different tools. Always specify a clear, step-by-step plan.
+        - Example 1, Error Log Identification: Use query_error_logs to quickly locate error logs from service operations on specified machines during a defined time period (retrieving raw error information), then process and analyze the results using ask_llm.
+        - Example 2, Obtaining Service Dependencies: Use query_dependency to retrieve all upstream/downstream service relationship chains for the target service (this returns an ordered multi-dimensional array/list), then process and analyze the results using ask_llm. (This tool is used when no root cause is found in the target service to obtain its dependency list)
+        - Complex Tasks: For more complex scenarios, you may need to interleave calls to different sub-agents and tools. Always specify a clear, step-by-step plan.
+
     - **Important Notes**:
         - Each sub-agent call is independent; once a call returns, its state is discarded.
         - The only channels for sharing information are the input and output of each sub-agent call (and the local file system).
@@ -86,7 +88,7 @@ _ZO_ACTION_SYS = """You are a strategic assistant responsible for the action mod
 """ + _ZO_STRATEGY + """
 ## Example
 ### Task:
-Search for information about LLM research and provide a summary
+Summarize a random paper about LLM research from the Web
 
 ### Step 1
 Thought: Begin by searching the web for recent research papers related to large language models (LLMs).

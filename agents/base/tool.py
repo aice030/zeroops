@@ -157,3 +157,223 @@ def simple_web_search(query: str) -> str:
         else:
             ret = "Search Results:\n" + "\n".join([f"- title={repr(vv['title'])}, link={repr(vv['link'])}, content={repr(vv['content'])}" for ii, vv in enumerate(search_results)])
         return ret
+
+class QueryErrorLogsTool(Tool):
+    def __init__(self, llm=None):
+        super().__init__(name="query_error_logs")
+        self.llm = llm
+
+    def set_llm(self, llm):
+        self.llm = llm
+
+    def get_function_definition(self, short: bool):
+        if short:
+            return """- def query_error_logs(host: str, start_time: str, end_time: str) -> list::  # Queries and retrieves IMPORTANT logs (ERROR, WARN, FATAL) for a specific host within a time range."""
+        else:
+            return """- query_error_logs
+    ```python
+    def query_error_logs(host: str, start_time: str, end_time: str) -> list:
+        \"""
+        Queries and retrieves IMPORTANT logs (ERROR, WARN, FATAL) for a specific host within a given time range.
+
+        Args:
+            host (str): The target hostname/IP to query logs from
+            start_time (str): Start time of the query range (ISO 8601 format)
+            end_time (str): End time of the query range (ISO 8601 format)
+
+        Returns:
+            list: An array of raw IMPORTANT log strings (levels: ERROR, WARN, FATAL), empty if none found.
+            
+            Example outputs:
+            [
+                '2025-08-15T14:10:27Z WARN  [GoroutineLeakDetector] Detected goroutine leak: 15432 goroutines active (expected < 500)',
+                '2025-08-15T14:12:33Z FATAL [Runtime] fatal error: runtime: out of memory',
+                '2025-08-15T14:12:33Z ERROR [Main] request failed after retries: context deadline exceeded'
+            ]
+            
+            or when no important logs:
+            []
+
+        Notes:
+            1. Time format must be ISO 8601 compliant (YYYY-MM-DDThh:mm:ssZ).
+            2. Returns only levels in {"ERROR", "WARN", "FATAL"}; INFO/DEBUG/TRACE are excluded.
+            3. Logs are returned in chronological order (oldest first).
+            4. The complete raw log line is preserved including timestamps.
+            5. Time range is inclusive (logs exactly at start/end time are included).
+            6. Maximum query range is 30 days (returns error if exceeded).
+            7. Host must exist in the monitoring system.
+            8. Returns empty array [] when no matching logs found.
+            9. When multiple lines share the same timestamp, the original source order is preserved if available.
+
+        Examples:
+            >>> query_error_logs(
+            ...     'web-server-01',
+            ...     '2025-08-15T00:00:00Z',
+            ...     '2025-08-15T23:59:59Z'
+            ... )
+            [
+                '2025-08-15T03:45:22Z WARN  [nginx] upstream server temporarily disabled for 30s',
+                '2025-08-15T14:10:27Z WARN  [GoroutineLeakDetector] Detected goroutine leak: 15432 goroutines active (expected < 500)',
+                '2025-08-15T14:12:33Z FATAL [Runtime] fatal error: runtime: out of memory'
+            ]
+
+            >>> query_error_logs(
+            ...     'db-server-01',
+            ...     '2025-08-01T00:00:00Z',
+            ...     '2025-08-31T00:00:00Z'
+            ... )
+            []  # No important logs during this period
+        \"""
+    ```"""
+
+
+    def __call__(self, host: str, start_time: str, end_time: str):
+        """
+        Implementation of the query_error_logs tool.
+        This is a mock implementation that returns sample error logs.
+        In a real implementation, this would connect to a logging system.
+        """
+        import re
+        from datetime import datetime, timedelta
+        
+        # Validate input parameters
+        if not host or not isinstance(host, str):
+            raise ValueError("Host must be a non-empty string")
+        
+        if not start_time or not isinstance(start_time, str):
+            raise ValueError("Start time must be a non-empty string")
+            
+        if not end_time or not isinstance(end_time, str):
+            raise ValueError("End time must be a non-empty string")
+        
+        # Validate ISO 8601 time format
+        try:
+            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+            end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+        except ValueError:
+            raise ValueError("Time format must be ISO 8601 compliant (YYYY-MM-DDThh:mm:ssZ)")
+        
+        # Check if time range exceeds 30 days
+        if (end_dt - start_dt).days > 30:
+            raise ValueError("Maximum query range is 30 days")
+        
+        # Check if start time is before end time
+        if start_dt >= end_dt:
+            raise ValueError("Start time must be before end time")
+        
+        # Mock implementation - in real scenario, this would query actual log systems
+        # like Elasticsearch, Splunk, or other logging platforms
+        mock_logs = [
+            "2025-08-15T14:10:27Z WARN  [GoroutineLeakDetector] Detected goroutine leak: 15432 goroutines active (expected < 500)",
+            "2025-08-15T14:10:27Z WARN  [GoroutineLeakDetector] Sample leaked goroutine stack:goroutine 112233 [IO wait]:net.(*conn).Read(0xc000ab1230, 0xc0012c0000, 4096, 4096, 0x0, 0x0, 0x0)/usr/local/go/src/net/net.go:184io.copyBuffer(0x7f98f3c2d0, 0xc000a4f500, 0x7f98f3c2a0, 0xc001c8c000, 0xc0012c0000, 0x1000, 0x2000, 0x0, 0x0, 0x0)/usr/local/go/src/io/io.go:422myservice/stream.(*Handler).StartStream.func1()/app/stream/handler.go:85created by myservice/stream.(*Handler).StartStream/app/stream/handler.go:72",
+            "2025-08-15T14:12:33Z FATAL [Runtime] fatal error: runtime: out of memory"
+        ]
+        
+        return mock_logs
+    
+class QueryDependencyTool(Tool):
+    def __init__(self, llm=None):
+        super().__init__(name="query_dependency")
+        self.llm = llm
+    
+    def set_llm(self, llm):
+        self.llm = llm
+
+    def get_function_definition(self, short: bool):
+        if short:
+            return "- def query_dependency(target_service: str) -> list[list[str]]:  # Finds complete upstream-downstream call chains for a target service and returns all possible paths as a nested array."
+        else:
+            return """- query_dependency
+```python
+def query_dependency(target_service: str) -> list[list[str]]:
+
+    \"""
+    Finds complete upstream-downstream call chains for a target service and returns all possible paths as a nested array.
+
+    Args:
+        target_service: The service name to query (e.g., 'C' in the example)
+
+    Returns:
+        A nested list where each sublist represents a complete call chain from the most upstream 
+        to the most downstream service (e.g., [['A','B','C','D','E'], ['A','B','C','F','G']])
+
+    Example:
+        >>> find_service_relation_chains('C')
+        [['A', 'B', 'C', 'D', 'E'], ['A', 'B', 'C', 'F', 'G']]
+
+    Notes:
+        1. The returned chains include the target service itself (e.g., 'C' in the example)
+        2. Each chain represents a complete end-to-end path (from root service to terminal service)
+        3. Returns empty list if no related chains are found
+        4. Service names are case-sensitive
+        5. The order within each chain reflects actual invocation sequence
+        6. May return multiple independent chains when bifurcations exist downstream
+    Examples:
+        >>> chains = find_service_relation_chains('C')
+        >>> print(chains)  # Output shows all possible call chains through service C
+        [['A', 'B', 'C', 'D', 'E'], ['A', 'B', 'C', 'F', 'G']]
+        
+        >>> chains = find_service_relation_chains('B')
+        >>> print(chains)  # Output shows all chains through service B (including bifurcations)
+        [['A', 'B', 'C', 'D', 'E'], ['A', 'B', 'C', 'F', 'G'], ['X', 'B', 'Y']]
+    \"""
+```
+            """
+        
+    def __call__(self, target_service: str):
+        """
+        Implementation of the query_dependency tool.
+        This is a mock implementation that returns sample dependency chains.
+        In a real implementation, this would query a service dependency graph.
+        """
+        # Validate input parameters
+        if not target_service or not isinstance(target_service, str):
+            raise ValueError("Target service must be a non-empty string")
+        
+        # Mock implementation - in real scenario, this would query actual service dependency systems
+        # like Jaeger, Zipkin, or other distributed tracing platforms
+        
+        # Sample dependency chains for different services
+        mock_dependencies = {
+             "C": [
+                 ["A", "B", "C", "D", "E"],
+                 ["A", "B", "C", "F", "G"]
+             ],
+             "B": [
+                 ["A", "B", "C", "D", "E"],
+                 ["A", "B", "C", "F", "G"],
+                 ["X", "B", "Y"]
+             ],
+             "A": [
+                 ["A", "B", "C", "D", "E"],
+                 ["A", "B", "C", "F", "G"],
+                 ["A", "H", "I"]
+             ],
+             "D": [
+                 ["A", "B", "C", "D", "E"]
+             ],
+             "E": [
+                 ["A", "B", "C", "D", "E"]
+             ],
+             "F": [
+                 ["A", "B", "C", "F", "G"]
+             ],
+             "G": [
+                 ["A", "B", "C", "F", "G"]
+             ],
+             "H": [
+                 ["A", "H", "I"]
+             ],
+             "I": [
+                 ["A", "H", "I"]
+             ],
+             "X": [
+                 ["X", "B", "Y"]
+             ],
+             "Y": [
+                 ["X", "B", "Y"]
+             ]
+         }
+        
+        # Return dependency chains for the target service, or empty list if not found
+        return mock_dependencies.get(target_service, [])
