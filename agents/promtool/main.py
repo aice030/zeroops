@@ -249,7 +249,7 @@ def test_environment_configuration():
         
         # 测试PromEnv创建
         print("\n📋 PromEnv测试")
-        from ck_pro.prom_tool.utils import PromEnv
+        from agents.promtool.utils import PromEnv
         prom_env = PromEnv(starting=False)
         print(f"   ✅ PromEnv创建成功")
         print(f"   📊 目标URL: {prom_env.get_target_url()}")
