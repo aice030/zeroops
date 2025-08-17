@@ -7,12 +7,13 @@ import urllib.request
 import json
 from contextlib import contextmanager
 import time
+import pandas as pd
 
 from ..base.agent import MultiStepAgent, register_template, ActionResult
 from ..base.model import LLM
 from ..base.utils import zwarn, rprint, have_images_in_messages
 from ..base.tool import SimpleSearchTool
-from .utils import AnomalyDetectionAPI
+from .utils import AnomalyDetector
 
 from .utils import PromEnv
 from .prompts import PROMPTS as PROM_PROMPTS
@@ -22,7 +23,7 @@ class Prom_ToolAgent(MultiStepAgent):
     def __init__(self, **kwargs):
         # note: this is a little tricky since things will get re-init again in super().__init__
         feed_kwargs = dict(
-            name="pro_tool_agent",
+            name="prom_agent",
             description="A Prometheus agent helping to get and analyze prometheus metrics and return the results.",
             templates={"plan": "prom_plan", "action": "prom_action", "end": "prom_end"},  # template names
             max_steps=5,
@@ -30,102 +31,72 @@ class Prom_ToolAgent(MultiStepAgent):
         feed_kwargs.update(kwargs)
         self.prom_env_kwargs = {}  # kwargs for prometheus env
         self.use_multimodal = "auto"  # no: always no, yes: always yes, auto: let the agent decide
-        self.model = LLM(_default_init=True)  # llm model
         # --
         register_template(PROM_PROMPTS)  # add web prompts
         super().__init__(**feed_kwargs)
+        # 重新设置model为fake模式，避免用户输入
+        self.model = LLM(call_target="gpt:gpt-oss-20b")  # llm model for testing
         self.prom_envs = {}  # session_id -> ENV
         # Define Prometheus-specific functions
         self.ACTIVE_FUNCTIONS.update(
-            fetch_prometheus_data=self._fetch_prometheus_data,  # 抓取Prometheus数据
-            analyze_prometheus_data=self._analyze_prometheus_data,  # 分析Prometheus数据
+            fetch_and_analyze_prometheus_data=self._fetch_and_analyze_prometheus_data,  # 抓取并分析Prometheus数据
             stop=self._my_stop,
             save=self._my_save
         )
         # --
 
-    # Prometheus data functions
-    def _fetch_prometheus_data(self, query: str, start_time: str = None, end_time: str = None, step: str = None, return_data: bool = True):
+    # Prometheus data functions - 合并版本
+    def _fetch_and_analyze_prometheus_data(self, query: str, start_time: str = None, end_time: str = None, 
+                                          step: str = None, analysis_type: str = "general", 
+                                          return_data: bool = True):
         """
-        抓取Prometheus数据
+        抓取并分析Prometheus数据（合并版本）
         Args:
             query: Prometheus查询语句
             start_time: 开始时间
             end_time: 结束时间
             step: 步长
-            return_data: 是否返回数据（True返回数据，False返回文件路径）
+            analysis_type: 分析类型 ("general", "trend_analysis", "anomaly_detection")
+            return_data: 是否返回原始数据
         Returns:
-            ActionResult: 包含数据或文件路径的结果
-        """
-        # 调用你的抓取函数，这里需要根据实际情况修改
-        # data = your_fetch_function(query, start_time, end_time, step)
-        
-        # 模拟抓取过程 - 这里应该调用实际的Prometheus查询函数
-        # 示例数据结构
-        fetched_data = {
-            "query": query,
-            "start_time": start_time,
-            "end_time": end_time,
-            "step": step,
-            "data_points": [
-                {"timestamp": "2024-01-01T00:00:00Z", "value": 45.2},
-                {"timestamp": "2024-01-01T00:01:00Z", "value": 46.1},
-                {"timestamp": "2024-01-01T00:02:00Z", "value": 47.8}
-            ],
-            "metadata": {
-                "total_points": 3,
-                "query_duration": "1.2s",
-                "status": "success"
-            }
-        }
-        
-
-        result = f"Successfully fetched Prometheus data for query: {query}"
-        if start_time and end_time:
-            result += f" from {start_time} to {end_time}"
-        if step:
-            result += f" with step {step}"
-        result += f". Data points: {len(fetched_data['data_points'])}"
-        
-        self._last_fetched_data = fetched_data
-        
-        return ActionResult("fetch_prometheus_data", result, data=fetched_data)
-
-
-    def _analyze_prometheus_data(self, data=None, data_file: str = None, analysis_type: str = "general"):
-        """
-        分析Prometheus数据
-        Args:
-            data: 直接传入的数据对象（优先使用）
-            data_file: 数据文件路径（兼容模式）
-            analysis_type: 分析类型
-        Returns:
-            ActionResult: 包含分析结果的结果
+            ActionResult: 包含抓取结果、分析结果和自然语言解读的完整结果
         """
         try:
-            # 优先使用直接传入的数据
-            if data is not None:
-                data_to_analyze = data
-                data_source = "direct_data"
-            elif data_file is not None:
-                # 兼容模式：从文件读取数据
-                import json
-                with open(data_file, 'r') as f:
-                    data_to_analyze = json.load(f)
-                data_source = f"file: {data_file}"
-            elif hasattr(self, '_last_fetched_data'):
-                # 使用上次抓取的数据
-                data_to_analyze = self._last_fetched_data
-                data_source = "last_fetched_data"
-            else:
-                return ActionResult("analyze_prometheus_data", "No data provided for analysis")
-
-            # 调用你的分析函数，这里需要根据实际情况修改
-            # analysis_result = your_analysis_function(data_to_analyze, analysis_type)
+            # 步骤1: 抓取Prometheus数据
+            print(f"🔍 开始抓取Prometheus数据: {query}")
             
-            # 模拟分析过程
+            # 模拟抓取过程 - 这里应该调用实际的Prometheus查询函数
+            csv_file_path = "agents/promtool/tmp/heap_memory_filtered.csv"
+            df = pd.read_csv(csv_file_path)
+            
+            fetched_data = {
+                "query": query,
+                "start_time": start_time,
+                "end_time": end_time,
+                "step": step,
+                "data_points": df.to_dict('records'),
+                "metadata": {
+                    "total_points": len(df),
+                    "query_duration": "1.2s",
+                    "status": "success"
+                }
+            }
+            
+            fetch_result = f"Successfully fetched Prometheus data for query: {query}"
+            if start_time and end_time:
+                fetch_result += f" from {start_time} to {end_time}"
+            if step:
+                fetch_result += f" with step {step}"
+            fetch_result += f". Data points: {len(fetched_data['data_points'])}"
+            
+            print(f"✅ 数据抓取完成: {len(fetched_data['data_points'])} 个数据点")
+            
+            # 步骤2: 分析数据
+            print(f"📈 开始分析数据，分析类型: {analysis_type}")
+            
+            # 执行分析
             if analysis_type == "trend_analysis":
-                values = [point["value"] for point in data_to_analyze.get("data_points", [])]
+                values = [point["value"] for point in fetched_data.get("data_points", [])]
                 if values:
                     avg_value = sum(values) / len(values)
                     trend = "上升" if values[-1] > values[0] else "下降" if values[-1] < values[0] else "稳定"
@@ -133,35 +104,52 @@ class Prom_ToolAgent(MultiStepAgent):
                 else:
                     analysis_result = "无数据点可分析"
             elif analysis_type == "anomaly_detection":
-                # 这里调用你的异常检测API
+                # 调用异常检测API
                 try:
-                    api = AnomalyDetectionAPI('yzh_mirror_data.csv')
-                    report = api.get_anomaly_summary()
+                    detector = AnomalyDetector('agents/promtool/tmp/heap_memory_filtered.csv')
+                    report = detector.process_file('agents/promtool/tmp/heap_memory_filtered.csv')
                     analysis_result = f"异常检测报告: {report}"
                 except Exception as e:
                     analysis_result = f"异常检测失败: {e}"
             else:
-                analysis_result = f"通用分析完成，数据点数量: {len(data_to_analyze.get('data_points', []))}"
+                analysis_result = f"通用分析完成，数据点数量: {len(fetched_data.get('data_points', []))}"
 
-            # 新增：使用LLM解读分析结果并转换为自然语言
+            print(f"✅ 数据分析完成: {analysis_result}")
+
+            # 步骤3: 使用LLM解读分析结果
+            print("🤖 开始LLM解读分析结果")
             natural_language_result = self._interpret_analysis_with_llm(
                 analysis_result, 
-                data_to_analyze, 
+                fetched_data, 
                 analysis_type
             )
+            print(f"✅ LLM解读完成")
 
-            result = f"Successfully analyzed Prometheus data from: {data_source}"
-            if analysis_type != "general":
-                result += f" with analysis type: {analysis_type}"
-            result += f". Analysis result: {analysis_result}"
-            result += f"\n\n自然语言解读: {natural_language_result}"
+            # 步骤4: 构建完整结果
+            complete_result = f"=== Prometheus数据抓取与分析报告 ===\n\n"
+            complete_result += f"📊 数据抓取:\n{fetch_result}\n\n"
+            complete_result += f"📈 数据分析:\n{analysis_result}\n\n"
+            complete_result += f"🤖 自然语言解读:\n{natural_language_result}"
             
-            return ActionResult("analyze_prometheus_data", result, 
-                              analysis_result=analysis_result,
-                              natural_language_result=natural_language_result)
+            # 保存最后抓取的数据（向后兼容）
+            self._last_fetched_data = fetched_data
+            
+            # 返回完整结果
+            return ActionResult(
+                "fetch_and_analyze_prometheus_data", 
+                complete_result,
+                data=fetched_data if return_data else None,
+                analysis_result=analysis_result,
+                natural_language_result=natural_language_result,
+                fetch_result=fetch_result
+            )
             
         except Exception as e:
-            return ActionResult("analyze_prometheus_data", f"Failed to analyze data: {e}")
+            error_msg = f"Failed to fetch and analyze Prometheus data: {e}"
+            print(f"❌ 错误: {error_msg}")
+            return ActionResult("fetch_and_analyze_prometheus_data", error_msg)
+
+
 
     def _interpret_analysis_with_llm(self, analysis_result, data, analysis_type):
         """
@@ -252,7 +240,7 @@ class Prom_ToolAgent(MultiStepAgent):
             return """- prom_agent
 ```python
 def prom_agent(task: str) -> dict:
-    \""" Fetches Prometheus metrics data and analyzes it to return results.
+    \""" Fetches fetch real‑time Prometheus metrics data and analyzes it to return results.
     Args:
         task (str): A detailed description of the task to perform. This may include:
             - The specific Prometheus metrics to fetch (query, time range, etc.)
@@ -278,7 +266,11 @@ def prom_agent(task: str) -> dict:
 
     # allow *args styled calling
     def __call__(self, task: str, **kwargs):  # allow *args styled calling
-        return super().__call__(task, **kwargs)
+        result = super().__call__(task, **kwargs)
+        # Print the result in a format that can be parsed by the main agent
+        print(f"PROM_AGENT_RESULT_OUTPUT: {result.output}")
+        print(f"PROM_AGENT_RESULT_LOG: {result.log}")
+        return result
 
     def init_run(self, session):
         super().init_run(session)

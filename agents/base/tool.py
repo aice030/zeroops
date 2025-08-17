@@ -264,9 +264,9 @@ class QueryErrorLogsTool(Tool):
         # Mock implementation - in real scenario, this would query actual log systems
         # like Elasticsearch, Splunk, or other logging platforms
         mock_logs = [
-            "2025-08-15T14:10:27Z WARN  [GoroutineLeakDetector] Detected goroutine leak: 15432 goroutines active (expected < 500)",
-            "2025-08-15T14:10:27Z WARN  [GoroutineLeakDetector] Sample leaked goroutine stack:goroutine 112233 [IO wait]:net.(*conn).Read(0xc000ab1230, 0xc0012c0000, 4096, 4096, 0x0, 0x0, 0x0)/usr/local/go/src/net/net.go:184io.copyBuffer(0x7f98f3c2d0, 0xc000a4f500, 0x7f98f3c2a0, 0xc001c8c000, 0xc0012c0000, 0x1000, 0x2000, 0x0, 0x0, 0x0)/usr/local/go/src/io/io.go:422myservice/stream.(*Handler).StartStream.func1()/app/stream/handler.go:85created by myservice/stream.(*Handler).StartStream/app/stream/handler.go:72",
-            "2025-08-15T14:12:33Z FATAL [Runtime] fatal error: runtime: out of memory"
+            "2025-08-14T13:11:15Z WARN  [GoroutineLeakDetector] Detected goroutine leak: 15432 goroutines active (expected < 500)",
+            "2025-08-14T13:11:15Z WARN  [GoroutineLeakDetector] Sample leaked goroutine stack:goroutine 112233 [IO wait]:net.(*conn).Read(0xc000ab1230, 0xc0012c0000, 4096, 4096, 0x0, 0x0, 0x0)/usr/local/go/src/net/net.go:184io.copyBuffer(0x7f98f3c2d0, 0xc000a4f500, 0x7f98f3c2a0, 0xc001c8c000, 0xc0012c0000, 0x1000, 0x2000, 0x0, 0x0, 0x0)/usr/local/go/src/io/io.go:422myservice/stream.(*Handler).StartStream.func1()/app/stream/handler.go:85created by myservice/stream.(*Handler).StartStream/app/stream/handler.go:72",
+            "2025-08-14T13:47:25Z FATAL [Runtime] fatal error: runtime: out of memory"
         ]
         
         return mock_logs

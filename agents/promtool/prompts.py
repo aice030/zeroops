@@ -56,8 +56,7 @@ Your goal is to generate Python code snippets using predefined action functions.
 - `Progress State`: A JSON representation of the task's progress, detailing key information and advancements.
 
 ## Action Functions Definitions
-- fetch_prometheus_data(query: str, start_time: str = None, end_time: str = None, step: str = None, return_data: bool = True) -> str:  # Fetch Prometheus metrics data and return data or file path.
-- analyze_prometheus_data(data=None, data_file: str = None, analysis_type: str = "general") -> str:  # Analyze the Prometheus data and return analysis results with natural language interpretation.
+- fetch_and_analyze_prometheus_data(query: str, start_time: str = None, end_time: str = None, step: str = None, analysis_type: str = "general", return_data: bool = True) -> str:  # Fetch and analyze Prometheus metrics data in one step, returning comprehensive results with natural language interpretation.
 - stop(answer: str, summary: str) -> str:  # Conclude the task by providing the `answer`. If the task is unachievable, use an empty string for the answer. Include a brief summary of the process.
 
 ## Action Guidelines
@@ -66,33 +65,26 @@ Your goal is to generate Python code snippets using predefined action functions.
 3. **Avoid Repetition**: Avoid repeating the same action.
 4. **Printing**: Always print the result of your action using Python's `print` function.
 5. **Stop with Completion**: Issue the `stop` action when the task is completed.
-6. **Use Defined Functions**: Strictly use defined functions for Prometheus operations.
+6. **Use Defined Functions**: Strictly use defined functions for Prometheus operations. Prefer the combined `fetch_and_analyze_prometheus_data` function for better efficiency.
 
 ## Workflow
-1. **Fetch Data**: Use `fetch_prometheus_data` to get the required metrics data
-2. **Analyze Data**: Use `analyze_prometheus_data` with the returned data or file path
-3. **LLM Interpretation**: The analysis automatically includes LLM-based natural language interpretation
-4. **Complete Task**: Use `stop` to return the final results
+1. **Fetch and Analyze**: Use `fetch_and_analyze_prometheus_data` to get metrics data and analyze it in one step
+2. **LLM Interpretation**: The analysis automatically includes LLM-based natural language interpretation
+3. **Complete Task**: Use `stop` to return the final results
 
 ## Examples
 Here are some example action outputs:
 
-Thought: I need to fetch CPU usage metrics for the last hour.
+Thought: I need to fetch and analyze CPU usage metrics for the last hour.
 Code:
 ```python
-result = fetch_prometheus_data(
+result = fetch_and_analyze_prometheus_data(
     query="cpu_usage_percent", 
     start_time="2024-01-01T00:00:00Z", 
     end_time="2024-01-01T01:00:00Z", 
-    step="1m"
+    step="1m",
+    analysis_type="trend_analysis"
 )
-print(result)
-```
-
-Thought: Now I need to analyze the fetched data to understand the trend.
-Code:
-```python
-result = analyze_prometheus_data(data=last_fetched_data, analysis_type="trend_analysis")
 print(result)
 ```
 
@@ -112,17 +104,19 @@ _PROM_END_SYS = """You are responsible for finalizing the Prometheus metrics ana
 - `Recent Steps`: The final actions taken to complete the task.
 
 ## Guidelines
-1. **Summarize Results**: Provide a clear summary of what was accomplished.
-2. **Output Format**: Ensure the output follows the required format with 'output' and 'log' fields.
-3. **Key Findings**: Highlight the most important findings from the Prometheus data analysis.
-4. **File References**: Include references to any data files that were created or analyzed.
+1. **Goal**: Deliver a well-formatted output. Adhere to any specific format if outlined in the task instructions.
+2. **Code**: Generate a Python dictionary representing the final output. It should include two fields: `output` and `log`. The `output` field should contain the well-formatted final result, while the `log` field should summarize the navigation trajectory.
+3. **Failure Mode**: If the task is incomplete (e.g., due to issues like "Max step exceeded"), the output should be an empty string. Provide detailed explanations and rationales in the log field, which can help the agent to better handle the target task in the next time. If there is partial information available, also record it in the logs.
 
-## Output Format
-Your response should be a Python dictionary with the following structure:
+## Examples
+Here are some example outputs:
+
+Thought: The task is completed. The memory anomaly is identified and summarized.
+Code:
 ```python
 {
-    "output": "The main result or answer to the task",
-    "log": "Additional notes, steps taken, and context information"
+    "output": "服务常驻内存占用持续上涨，在 2025-08-15 14:12 时达到 2.8GB（占总内存 98%）。",  # concise and formatted result
+    "log": "Metric: process_resident_memory_bytes{job=\"go_service_C\"}; Host: host1; Observation window: 2025-08-15 13:50:00 ~ 2025-08-15 14:12:33; The memory usage kept increasing without dropping."  # context and details
 }
 ```
 """
@@ -150,7 +144,7 @@ def prom_action(**kwargs):
     user_lines.append(f"## Target Task\n{kwargs['task']}\n\n")  # task
     user_lines.append(f"## Recent Steps\n{kwargs['recent_steps_str']}\n\n")
     user_lines.append(f"## Progress State\n{kwargs['state']}\n\n")
-    user_lines.append(f"## Sub-Agent Functions\n{kwargs['subagent_tool_str']}\n\n")
+    user_lines.append(f"## Sub-Agent Functions\n{kwargs.get('subagent_tool_str_long', '')}\n\n")
     user_lines.append(f"## Target Task (Repeated)\n{kwargs['task']}\n\n")  # task
     
     user_lines.append("""## Output
