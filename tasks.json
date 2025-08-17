@@ -1,1 +1,1 @@
-{"info": {"question": "What is 2 + 2?"}}
+{"info": {"question": "{\"label\": \"process_resident_memory_bytes{job=\\\"go_service_C\\\"}\", \"host\": \"host1\", \"timestamp_start\": \"2025-08-15 13:50:00\", \"timestamp_end\": \"2025-08-15 14:12:33\", \"description\": \"服务常驻内存占用持续上涨且未回落，在 2025-08-15 14:12 时达到 2.8GB（占总内存 98%）\"}"}}

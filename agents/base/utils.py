@@ -198,6 +198,9 @@ def my_open_with(fd_or_path, mode='r', empty_std=False, **kwargs):
     if empty_std and fd_or_path == '':
         fd_or_path = sys.stdout if ('w' in mode) else sys.stdin
     if isinstance(fd_or_path, str) and fd_or_path:
+        # Add UTF-8 encoding for write mode to handle Unicode characters
+        if 'w' in mode and 'encoding' not in kwargs:
+            kwargs['encoding'] = 'utf-8'
         return open(fd_or_path, mode=mode, **kwargs)
     else:
         # assert isinstance(fd_or_path, IO)

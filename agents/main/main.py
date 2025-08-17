@@ -44,7 +44,7 @@ def get_args():
 def yield_inputs(input_file):
     _idx = 0
     if input_file:
-        with open(input_file) as fd:
+        with open(input_file, encoding='utf-8') as fd:
             for line in fd:
                 if line.strip():
                     one_inst = json.loads(line)
@@ -76,14 +76,14 @@ def yield_inputs(input_file):
 # --
 def main():
     args = get_args()
-    rprint(f"Run zo_main.main with {args}")
+    rprint(f"Run main.main with {args}")
     mp.set_start_method("spawn")
     # signal.signal(signal.SIGALRM, timeout_handler)
     # --
     # init agent
     configs = default_main_configs
     if args.config:
-        with open(args.config) as fd:
+        with open(args.config, encoding='utf-8') as fd:
             configs = json.load(fd)
         rprint(f"Load configs from {args.config} = {configs}")
     for one_update in args.updates:
@@ -101,7 +101,7 @@ def main():
     # --
     existing_inst_map = {}
     if args.try_preload_output and os.path.exists(args.output):
-        with open(args.output) as fd:
+        with open(args.output, encoding='utf-8') as fd:
             for line in fd:
                 if line.strip():
                     _inst = json.loads(line)
@@ -185,14 +185,14 @@ def main():
                                         new_task = _task
                                     res_session = zo_agent.run(new_task)
                                     res_session_list.append(res_session)
-                                    has_failure, feedback = ck_evaluator.detect_failure(res_session.to_dict(), evaluation_type=args.inference_time_evaluation_method)
+                                    has_failure, feedback = zo_evaluator.detect_failure(res_session.to_dict(), evaluation_type=args.inference_time_evaluation_method)
                                     if not has_failure:
                                         break
                                     print(f"Retrying task {inst['id']} due to {feedback}")
                                     feedback_list.append(feedback)
                                 candidate_sessions.append(res_session)
                             if "ensemble" in args.inference_time_evaluation_method:
-                                res_session = candidate_sessions[ck_evaluator.ensemble([x.to_dict() for x in candidate_sessions])]
+                                res_session = candidate_sessions[zo_evaluator.ensemble([x.to_dict() for x in candidate_sessions])]
                             inst["feedback"] = feedback_list
                 else:
                     res_session = None
