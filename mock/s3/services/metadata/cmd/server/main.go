@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"mocks3/services/metadata/internal/config"
 	"mocks3/services/metadata/internal/handler"
@@ -25,8 +26,15 @@ func main() {
 	// 加载配置
 	cfg := config.Load()
 
+	// 初始化 OTEL Logger Provider
+	loggerProvider, err := logger.NewDefaultLoggerProvider("metadata-service")
+	if err != nil {
+		log.Fatalf("Failed to initialize logger provider: %v", err)
+	}
+	defer loggerProvider.Shutdown(context.Background())
+
 	// 初始化日志器
-	logger := logger.NewLogger("metadata-service", logger.LogLevel(cfg.LogLevel))
+	loggerInstance := logger.NewLogger("metadata-service", logger.LogLevel(cfg.LogLevel))
 
 	// 初始化追踪器
 	tracerProvider, err := trace.NewDefaultTracerProvider("metadata-service")
@@ -41,6 +49,13 @@ func main() {
 		log.Fatalf("Failed to initialize metrics: %v", err)
 	}
 	defer metricCollector.Shutdown(context.Background())
+
+	// 初始化 Consul 配置
+	consulAddr := "consul:8500"
+	err = middleware.InitializeServiceConfig(consulAddr, "metadata-service", 8081)
+	if err != nil {
+		log.Printf("Failed to initialize consul config: %v", err)
+	}
 
 	// 初始化Consul管理器
 	consulManager, err := middleware.NewDefaultConsulManager("metadata-service")
@@ -67,16 +82,11 @@ func main() {
 	// 初始化处理器
 	metadataHandler := handler.NewMetadataHandler(metadataService, logger)
 
-	// 注册服务到Consul
+	// 注册服务到Consul（从 Consul KV 加载配置）
 	ctx := context.Background()
-	consulConfig := &middleware.ConsulConfig{
-		ServiceName: "metadata-service",
-		ServicePort: cfg.Server.Port,
-		HealthPath:  "/health",
-		Tags:        []string{"metadata", "api"},
-		Metadata: map[string]string{
-			"version": cfg.Server.Version,
-		},
+	consulConfig, err := middleware.LoadServiceConfigFromConsul(consulAddr, "metadata-service")
+	if err != nil {
+		log.Fatalf("Failed to load consul config: %v", err)
 	}
 
 	err = consulManager.RegisterService(ctx, consulConfig)
@@ -115,9 +125,10 @@ func main() {
 		})
 	})
 
-	// 创建HTTP服务器
+	// 创建HTTP服务器（使用 Consul 配置的端口）
+	addr := fmt.Sprintf(":%d", consulConfig.ServicePort)
 	server := &http.Server{
-		Addr:         cfg.Server.GetAddress(),
+		Addr:         addr,
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -126,7 +137,7 @@ func main() {
 
 	// 启动服务器
 	go func() {
-		logger.Info("Starting metadata service", "address", cfg.Server.GetAddress())
+		logger.Info("Starting metadata service", "address", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}

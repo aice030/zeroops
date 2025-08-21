@@ -22,11 +22,8 @@ import (
 )
 
 func main() {
-	// 加载配置
-	cfg := config.Load()
-
 	// 初始化日志器
-	logger := logger.NewLogger("queue-service", logger.LogLevel(cfg.LogLevel))
+	logger := logger.NewLogger("queue-service", logger.LevelInfo)
 
 	// 初始化追踪器
 	tracerProvider, err := trace.NewDefaultTracerProvider("queue-service")
@@ -42,14 +39,32 @@ func main() {
 	}
 	defer metricCollector.Shutdown(context.Background())
 
+	// 初始化 Consul 配置
+	consulAddr := "consul:8500"
+	err = middleware.InitializeServiceConfig(consulAddr, "queue-service", 8083)
+	if err != nil {
+		log.Printf("Failed to initialize consul config: %v", err)
+	}
+
 	// 初始化Consul管理器
 	consulManager, err := middleware.NewDefaultConsulManager("queue-service")
 	if err != nil {
 		log.Fatalf("Failed to initialize consul: %v", err)
 	}
 
-	// 初始化Redis仓库
-	redisRepo, err := repository.NewRedisRepository(&cfg.Redis, &cfg.Queue)
+	// 初始化Redis仓库（使用默认配置）
+	redisConfig := &config.RedisConfig{
+		Host:     "redis",
+		Port:     6379,
+		Password: "",
+		DB:       0,
+	}
+	queueConfig := &config.QueueConfig{
+		StreamName:    "mocks3:tasks",
+		ConsumerGroup: "queue-workers",
+		MaxWorkers:    3,
+	}
+	redisRepo, err := repository.NewRedisRepository(redisConfig, queueConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize Redis repository: %v", err)
 	}
@@ -60,16 +75,11 @@ func main() {
 	// 初始化处理器
 	queueHandler := handler.NewQueueHandler(queueService, logger)
 
-	// 注册服务到Consul
+	// 注册服务到Consul（从 Consul KV 加载配置）
 	ctx := context.Background()
-	consulConfig := &middleware.ConsulConfig{
-		ServiceName: "queue-service",
-		ServicePort: cfg.Server.Port,
-		HealthPath:  "/health",
-		Tags:        []string{"queue", "async", "redis"},
-		Metadata: map[string]string{
-			"version": cfg.Server.Version,
-		},
+	consulConfig, err := middleware.LoadServiceConfigFromConsul(consulAddr, "queue-service")
+	if err != nil {
+		log.Fatalf("Failed to load consul config: %v", err)
 	}
 
 	err = consulManager.RegisterService(ctx, consulConfig)
@@ -79,7 +89,7 @@ func main() {
 	defer consulManager.DeregisterService(ctx)
 
 	// 启动默认工作节点
-	for i := 1; i <= cfg.Queue.MaxWorkers; i++ {
+	for i := 1; i <= 3; i++ {
 		workerID := fmt.Sprintf("worker-%d", i)
 		if err := queueService.StartWorker(ctx, workerID); err != nil {
 			logger.Error("Failed to start worker", "worker_id", workerID, "error", err)
@@ -88,10 +98,7 @@ func main() {
 		}
 	}
 
-	// 设置Gin模式
-	if cfg.Server.Environment == "production" {
-		gin.SetMode(gin.ReleaseMode)
-	}
+	// 设置Gin模式（默认开发模式）
 
 	// 创建路由器
 	router := gin.New()
@@ -122,14 +129,15 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{
 			"status":    "healthy",
 			"service":   "queue-service",
-			"version":   cfg.Server.Version,
+			"version":   "1.0.0",
 			"timestamp": time.Now().Format(time.RFC3339),
 		})
 	})
 
-	// 创建HTTP服务器
+	// 创建HTTP服务器（使用 Consul 配置的端口）
+	addr := fmt.Sprintf(":%d", consulConfig.ServicePort)
 	server := &http.Server{
-		Addr:         cfg.Server.GetAddress(),
+		Addr:         addr,
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -138,7 +146,7 @@ func main() {
 
 	// 启动服务器
 	go func() {
-		logger.Info("Starting queue service", "address", cfg.Server.GetAddress())
+		logger.Info("Starting queue service", "address", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}

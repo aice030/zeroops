@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"mocks3/services/third-party/internal/config"
 	"mocks3/services/third-party/internal/handler"
@@ -41,6 +42,13 @@ func main() {
 	}
 	defer metricCollector.Shutdown(context.Background())
 
+	// 初始化 Consul 配置
+	consulAddr := "consul:8500"
+	err = middleware.InitializeServiceConfig(consulAddr, "third-party-service", 8084)
+	if err != nil {
+		log.Printf("Failed to initialize consul config: %v", err)
+	}
+
 	// 初始化Consul管理器
 	consulManager, err := middleware.NewDefaultConsulManager("third-party-service")
 	if err != nil {
@@ -57,16 +65,11 @@ func main() {
 	// 初始化处理器
 	thirdPartyHandler := handler.NewThirdPartyHandler(thirdPartyService, logger)
 
-	// 注册服务到Consul
+	// 注册服务到Consul（从 Consul KV 加载配置）
 	ctx := context.Background()
-	consulConfig := &middleware.ConsulConfig{
-		ServiceName: "third-party-service",
-		ServicePort: cfg.Server.Port,
-		HealthPath:  "/health",
-		Tags:        []string{"third-party", "external", "cache"},
-		Metadata: map[string]string{
-			"version": cfg.Server.Version,
-		},
+	consulConfig, err := middleware.LoadServiceConfigFromConsul(consulAddr, "third-party-service")
+	if err != nil {
+		log.Fatalf("Failed to load consul config: %v", err)
 	}
 
 	err = consulManager.RegisterService(ctx, consulConfig)
@@ -115,7 +118,8 @@ func main() {
 	})
 
 	// 显示启动信息
-	logger.Info("Starting third-party service", "address", cfg.Server.GetAddress())
+	addr := fmt.Sprintf(":%d", consulConfig.ServicePort)
+	logger.Info("Starting third-party service", "address", addr)
 
 	// 打印数据源信息
 	dataSources, _ := dataSourceRepo.GetAll(ctx)
@@ -127,9 +131,9 @@ func main() {
 			"priority", ds.Priority)
 	}
 
-	// 创建HTTP服务器
+	// 创建HTTP服务器（使用 Consul 配置的端口）
 	server := &http.Server{
-		Addr:         cfg.Server.GetAddress(),
+		Addr:         addr,
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -138,7 +142,7 @@ func main() {
 
 	// 启动服务器
 	go func() {
-		logger.Info("Third-party service started", "address", cfg.Server.GetAddress())
+		logger.Info("Third-party service started", "address", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}

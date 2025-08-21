@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"mocks3/services/mock-error/internal/config"
 	"mocks3/services/mock-error/internal/handler"
@@ -47,13 +48,17 @@ func main() {
 	}
 	defer metricCollector.Shutdown(context.Background())
 
+	// 初始化 Consul 配置
+	consulAddr := "consul:8500"
+	err = middleware.InitializeServiceConfig(consulAddr, "mock-error-service", 8085)
+	if err != nil {
+		log.Printf("Failed to initialize consul config: %v", err)
+	}
+
 	// 初始化Consul管理器
-	var consulManager *middleware.ConsulManager
-	if cfg.Consul.Enabled {
-		consulManager, err = middleware.NewDefaultConsulManager("mock-error-service")
-		if err != nil {
-			log.Fatalf("Failed to initialize consul: %v", err)
-		}
+	consulManager, err := middleware.NewDefaultConsulManager("mock-error-service")
+	if err != nil {
+		log.Fatalf("Failed to initialize consul: %v", err)
 	}
 
 	// 初始化仓库
@@ -69,26 +74,18 @@ func main() {
 	// 初始化处理器
 	errorHandler := handler.NewErrorHandler(errorService, logger)
 
-	// 注册服务到Consul
+	// 注册服务到Consul（从 Consul KV 加载配置）
 	ctx := context.Background()
-	if consulManager != nil {
-		consulConfig := &middleware.ConsulConfig{
-			ServiceName: "mock-error-service",
-			ServicePort: cfg.Server.Port,
-			HealthPath:  "/health",
-			Tags:        []string{"mock", "error", "injection", "chaos"},
-			Metadata: map[string]string{
-				"version":     cfg.Server.Version,
-				"environment": cfg.Server.Environment,
-			},
-		}
-
-		err = consulManager.RegisterService(ctx, consulConfig)
-		if err != nil {
-			log.Fatalf("Failed to register service: %v", err)
-		}
-		defer consulManager.DeregisterService(ctx)
+	consulConfig, err := middleware.LoadServiceConfigFromConsul(consulAddr, "mock-error-service")
+	if err != nil {
+		log.Fatalf("Failed to load consul config: %v", err)
 	}
+
+	err = consulManager.RegisterService(ctx, consulConfig)
+	if err != nil {
+		log.Fatalf("Failed to register service: %v", err)
+	}
+	defer consulManager.DeregisterService(ctx)
 
 	// 设置Gin模式
 	if cfg.Server.Environment == "production" {
@@ -140,7 +137,8 @@ func main() {
 	})
 
 	// 显示启动信息
-	logger.Info("Starting mock error service", "address", cfg.Server.GetAddress())
+	addr := fmt.Sprintf(":%d", consulConfig.ServicePort)
+	logger.Info("Starting mock error service", "address", addr)
 	logger.Info("Service configuration",
 		"max_rules", cfg.ErrorEngine.MaxRules,
 		"default_probability", cfg.ErrorEngine.DefaultProbability,
@@ -152,9 +150,9 @@ func main() {
 		addSampleRules(ctx, errorService, logger)
 	}
 
-	// 创建HTTP服务器
+	// 创建HTTP服务器（使用 Consul 配置的端口）
 	server := &http.Server{
-		Addr:         cfg.Server.GetAddress(),
+		Addr:         addr,
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -163,7 +161,7 @@ func main() {
 
 	// 启动服务器
 	go func() {
-		logger.Info("Mock error service started", "address", cfg.Server.GetAddress())
+		logger.Info("Mock error service started", "address", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
