@@ -271,41 +271,6 @@ func (r *MetadataRepository) Search(ctx context.Context, query string, limit int
 	return metadataList, nil
 }
 
-// Count 计数
-func (r *MetadataRepository) Count(ctx context.Context, bucket, prefix string) (int64, error) {
-	var args []any
-	var conditions []string
-	argIndex := 1
-
-	conditions = append(conditions, "deleted_at IS NULL")
-
-	if bucket != "" {
-		conditions = append(conditions, fmt.Sprintf("bucket = $%d", argIndex))
-		args = append(args, bucket)
-		argIndex++
-	}
-
-	if prefix != "" {
-		conditions = append(conditions, fmt.Sprintf("key LIKE $%d", argIndex))
-		args = append(args, prefix+"%")
-		argIndex++
-	}
-
-	query := fmt.Sprintf(`
-		SELECT COUNT(*)
-		FROM metadata
-		WHERE %s
-	`, strings.Join(conditions, " AND "))
-
-	var count int64
-	err := r.db.GetDB().QueryRowContext(ctx, query, args...).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("failed to count metadata: %w", err)
-	}
-
-	return count, nil
-}
-
 // GetStats 获取统计信息
 func (r *MetadataRepository) GetStats(ctx context.Context) (*models.Stats, error) {
 	// 基础统计

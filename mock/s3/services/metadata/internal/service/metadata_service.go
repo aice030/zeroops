@@ -189,20 +189,6 @@ func (s *MetadataService) GetStats(ctx context.Context) (*models.Stats, error) {
 	return stats, nil
 }
 
-// CountObjects 计算对象数量
-func (s *MetadataService) CountObjects(ctx context.Context, bucket, prefix string) (int64, error) {
-	s.logger.DebugContext(ctx, "Counting objects", "bucket", bucket, "prefix", prefix)
-
-	count, err := s.repo.Count(ctx, bucket, prefix)
-	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to count objects", "error", err)
-		return 0, fmt.Errorf("failed to count objects: %w", err)
-	}
-
-	s.logger.DebugContext(ctx, "Objects counted", "count", count)
-	return count, nil
-}
-
 // HealthCheck 健康检查
 func (s *MetadataService) HealthCheck(ctx context.Context) error {
 	s.logger.DebugContext(ctx, "Performing health check")

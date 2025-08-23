@@ -156,17 +156,16 @@ func (s *ThirdPartyService) GetObjectMetadata(ctx context.Context, bucket, key s
 
 	// 从对象构建元数据
 	metadata := &models.Metadata{
-		Bucket:       object.Bucket,
-		Key:          object.Key,
-		Size:         object.Size,
-		ETag:         object.ETag,
-		ContentType:  object.ContentType,
-		LastModified: object.LastModified,
-		Headers:      make(map[string]string),
-		Tags:         make(map[string]string),
-		Status:       "active",
-		CreatedAt:    object.LastModified,
-		UpdatedAt:    time.Now(),
+		Bucket:      object.Bucket,
+		Key:         object.Key,
+		Size:        object.Size,
+		ETag:        object.ETag,
+		ContentType: object.ContentType,
+		Headers:     make(map[string]string),
+		Tags:        make(map[string]string),
+		Status:      "active",
+		CreatedAt:   object.LastModified,
+		UpdatedAt:   time.Now(),
 	}
 
 	// 添加第三方来源标记

@@ -19,7 +19,6 @@ type MetadataService interface {
 
 	// 统计操作
 	GetStats(ctx context.Context) (*models.Stats, error)
-	CountObjects(ctx context.Context, bucket, prefix string) (int64, error)
 
 	// 健康检查
 	HealthCheck(ctx context.Context) error
@@ -33,6 +32,5 @@ type MetadataRepository interface {
 	Delete(ctx context.Context, bucket, key string) error
 	List(ctx context.Context, bucket, prefix string, limit, offset int) ([]*models.Metadata, error)
 	Search(ctx context.Context, query string, limit int) ([]*models.Metadata, error)
-	Count(ctx context.Context, bucket, prefix string) (int64, error)
 	GetStats(ctx context.Context) (*models.Stats, error)
 }

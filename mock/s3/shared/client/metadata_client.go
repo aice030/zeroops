@@ -83,20 +83,6 @@ func (c *MetadataClient) GetStats(ctx context.Context) (*models.Stats, error) {
 	return &stats, err
 }
 
-// CountObjects 计算对象数量
-func (c *MetadataClient) CountObjects(ctx context.Context, bucket, prefix string) (int64, error) {
-	queryParams := BuildQueryParams(map[string]any{
-		"bucket": bucket,
-		"prefix": prefix,
-	})
-
-	var countResp struct {
-		Count int64 `json:"count"`
-	}
-	err := c.Get(ctx, "/api/v1/metadata/count", queryParams, &countResp)
-	return countResp.Count, err
-}
-
 // HealthCheck 健康检查
 func (c *MetadataClient) HealthCheck(ctx context.Context) error {
 	return c.BaseHTTPClient.HealthCheck(ctx)

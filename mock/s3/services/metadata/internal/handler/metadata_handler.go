@@ -42,7 +42,6 @@ func (h *MetadataHandler) RegisterRoutes(router *gin.Engine) {
 
 		// 统计信息
 		v1.GET("/stats", h.GetStats)
-		v1.GET("/metadata/count", h.CountObjects)
 	}
 }
 
@@ -216,27 +215,5 @@ func (h *MetadataHandler) GetStats(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    stats,
-	})
-}
-
-// CountObjects 计算对象数量
-func (h *MetadataHandler) CountObjects(c *gin.Context) {
-	bucket := c.Query("bucket")
-	prefix := c.Query("prefix")
-
-	count, err := h.service.CountObjects(c.Request.Context(), bucket, prefix)
-	if err != nil {
-		h.logger.ErrorContext(c.Request.Context(), "Failed to count objects", "error", err)
-		utils.SetErrorResponse(c.Writer, http.StatusInternalServerError, "Failed to count objects: "+err.Error())
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"bucket": bucket,
-			"prefix": prefix,
-			"count":  count,
-		},
 	})
 }
