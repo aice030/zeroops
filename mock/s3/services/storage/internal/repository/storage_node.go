@@ -261,8 +261,8 @@ func (fs *FileStorageNode) ListObjects(ctx context.Context, bucket, prefix strin
 }
 
 // GetStats 获取节点统计信息
-func (fs *FileStorageNode) GetStats(ctx context.Context) (map[string]interface{}, error) {
-	stats := make(map[string]interface{})
+func (fs *FileStorageNode) GetStats(ctx context.Context) (map[string]any, error) {
+	stats := make(map[string]any)
 
 	// 统计总大小和文件数量
 	var totalSize int64

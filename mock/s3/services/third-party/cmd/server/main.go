@@ -2,166 +2,64 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"mocks3/services/third-party/internal/config"
 	"mocks3/services/third-party/internal/handler"
 	"mocks3/services/third-party/internal/repository"
 	"mocks3/services/third-party/internal/service"
-	"mocks3/shared/middleware"
-	logger "mocks3/shared/observability/log"
-	"mocks3/shared/observability/metric"
-	"mocks3/shared/observability/trace"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
-	"github.com/gin-gonic/gin"
+	"mocks3/shared/bootstrap"
 )
 
-func main() {
-	// 加载配置
-	cfg := config.Load()
+// ThirdPartyServiceInitializer 实现服务初始化接口
+type ThirdPartyServiceInitializer struct {
+	cfg *config.Config
+}
 
-	// 初始化日志器
-	logger := logger.NewLogger("third-party-service", logger.LogLevel(cfg.LogLevel))
-
-	// 初始化追踪器
-	tracerProvider, err := trace.NewDefaultTracerProvider("third-party-service")
-	if err != nil {
-		log.Fatalf("Failed to initialize tracer: %v", err)
-	}
-	defer tracerProvider.Shutdown(context.Background())
-
-	// 初始化指标收集器
-	metricCollector, err := metric.NewDefaultCollector("third-party-service")
-	if err != nil {
-		log.Fatalf("Failed to initialize metrics: %v", err)
-	}
-	defer metricCollector.Shutdown(context.Background())
-
-	// 初始化 Consul 配置
-	consulAddr := "consul:8500"
-	err = middleware.InitializeServiceConfig(consulAddr, "third-party-service", 8084)
-	if err != nil {
-		log.Printf("Failed to initialize consul config: %v", err)
-	}
-
-	// 初始化Consul管理器
-	consulManager, err := middleware.NewDefaultConsulManager("third-party-service")
-	if err != nil {
-		log.Fatalf("Failed to initialize consul: %v", err)
-	}
-
+// Initialize 初始化第三方服务的特定组件
+func (t *ThirdPartyServiceInitializer) Initialize(bootstrap *bootstrap.ServiceBootstrap) error {
 	// 初始化仓库
-	dataSourceRepo := repository.NewDataSourceRepository(cfg.DataSources)
-	cacheRepo := repository.NewCacheRepository(&cfg.Cache)
+	dataSourceRepo := repository.NewDataSourceRepository(t.cfg.DataSources)
+	cacheRepo := repository.NewCacheRepository(&t.cfg.Cache)
 
 	// 初始化服务
-	thirdPartyService := service.NewThirdPartyService(dataSourceRepo, cacheRepo, logger)
+	thirdPartyService := service.NewThirdPartyService(dataSourceRepo, cacheRepo, bootstrap.GetLogger())
 
 	// 初始化处理器
-	thirdPartyHandler := handler.NewThirdPartyHandler(thirdPartyService, logger)
+	thirdPartyHandler := handler.NewThirdPartyHandler(thirdPartyService, bootstrap.GetLogger())
 
-	// 注册服务到Consul（从 Consul KV 加载配置）
-	ctx := context.Background()
-	consulConfig, err := middleware.LoadServiceConfigFromConsul(consulAddr, "third-party-service")
-	if err != nil {
-		log.Fatalf("Failed to load consul config: %v", err)
-	}
-
-	err = consulManager.RegisterService(ctx, consulConfig)
-	if err != nil {
-		log.Fatalf("Failed to register service: %v", err)
-	}
-	defer consulManager.DeregisterService(ctx)
-
-	// 设置Gin模式
-	if cfg.Server.Environment == "production" {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
-	// 创建路由器
-	router := gin.New()
-
-	// 添加中间件
-	router.Use(gin.Logger())
-	router.Use(middleware.GinRecoveryMiddleware(middleware.DefaultRecoveryConfig()))
-	router.Use(trace.GinMiddleware("third-party-service"))
-
-	// 添加指标中间件
-	metricsMiddleware := metric.NewDefaultMiddlewareConfig(metricCollector)
-	router.Use(metricsMiddleware.GinMiddleware())
-
-	// 设置路由
-	thirdPartyHandler.RegisterRoutes(router)
-
-	// 健康检查
-	router.GET("/health", func(c *gin.Context) {
-		if err := thirdPartyService.HealthCheck(c.Request.Context()); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"status":  "unhealthy",
-				"service": "third-party-service",
-				"error":   err.Error(),
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"status":    "healthy",
-			"service":   "third-party-service",
-			"version":   cfg.Server.Version,
-			"timestamp": time.Now().Format(time.RFC3339),
-		})
-	})
-
-	// 显示启动信息
-	addr := fmt.Sprintf(":%d", consulConfig.ServicePort)
-	logger.Info("Starting third-party service", "address", addr)
+	// 注册路由
+	thirdPartyHandler.RegisterRoutes(bootstrap.GetRouter())
 
 	// 打印数据源信息
+	ctx := context.Background()
 	dataSources, _ := dataSourceRepo.GetAll(ctx)
 	for _, ds := range dataSources {
-		logger.Info("Configured data source",
+		bootstrap.GetLogger().Info("Configured data source",
 			"name", ds.Name,
 			"type", ds.Type,
 			"enabled", ds.Enabled,
 			"priority", ds.Priority)
 	}
 
-	// 创建HTTP服务器（使用 Consul 配置的端口）
-	server := &http.Server{
-		Addr:         addr,
-		Handler:      router,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+	return nil
+}
+
+func main() {
+	// 加载配置
+	cfg := config.Load()
+
+	// 创建服务配置
+	serviceConfig := bootstrap.ServiceConfig{
+		ServiceName: "third-party-service",
+		ServicePort: 8084,
+		Version:     cfg.Server.Version,
+		Environment: cfg.Server.Environment,
+		LogLevel:    cfg.LogLevel,
+		ConsulAddr:  "consul:8500",
 	}
 
-	// 启动服务器
-	go func() {
-		logger.Info("Third-party service started", "address", addr)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
-		}
-	}()
+	// 创建初始化器
+	initializer := &ThirdPartyServiceInitializer{cfg: cfg}
 
-	// 等待中断信号
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	logger.Info("Shutting down third-party service...")
-
-	// 优雅关闭
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
-	}
-
-	logger.Info("Third-party service stopped")
+	// 运行服务
+	bootstrap.RunService(serviceConfig, initializer)
 }

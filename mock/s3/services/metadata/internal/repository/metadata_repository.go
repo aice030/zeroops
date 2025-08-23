@@ -179,7 +179,7 @@ func (r *MetadataRepository) Delete(ctx context.Context, bucket, key string) err
 
 // List 列出元数据
 func (r *MetadataRepository) List(ctx context.Context, bucket, prefix string, limit, offset int) ([]*models.Metadata, error) {
-	var args []interface{}
+	var args []any
 	var conditions []string
 	argIndex := 1
 
@@ -273,7 +273,7 @@ func (r *MetadataRepository) Search(ctx context.Context, query string, limit int
 
 // Count 计数
 func (r *MetadataRepository) Count(ctx context.Context, bucket, prefix string) (int64, error) {
-	var args []interface{}
+	var args []any
 	var conditions []string
 	argIndex := 1
 
@@ -379,7 +379,7 @@ func (r *MetadataRepository) GetStats(ctx context.Context) (*models.Stats, error
 }
 
 // scanMetadata 扫描元数据行
-func (r *MetadataRepository) scanMetadata(scanner interface{}) (*models.Metadata, error) {
+func (r *MetadataRepository) scanMetadata(scanner any) (*models.Metadata, error) {
 	var metadata models.Metadata
 	var storageNodesJSON, headersJSON, tagsJSON []byte
 	var deletedAt sql.NullTime

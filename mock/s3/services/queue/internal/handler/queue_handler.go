@@ -45,9 +45,9 @@ func (h *QueueHandler) RegisterRoutes(router *gin.Engine) {
 
 // AddTaskRequest 添加任务请求
 type AddTaskRequest struct {
-	Type     string                 `json:"type" binding:"required"`
-	Priority int                    `json:"priority"`
-	Data     map[string]interface{} `json:"data"`
+	Type     string         `json:"type" binding:"required"`
+	Priority int            `json:"priority"`
+	Data     map[string]any `json:"data"`
 }
 
 // AddTask 添加任务

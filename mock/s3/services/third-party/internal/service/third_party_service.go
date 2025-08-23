@@ -219,14 +219,14 @@ func (s *ThirdPartyService) InvalidateCache(ctx context.Context, bucket, key str
 }
 
 // GetStats 获取统计信息
-func (s *ThirdPartyService) GetStats(ctx context.Context) (map[string]interface{}, error) {
+func (s *ThirdPartyService) GetStats(ctx context.Context) (map[string]any, error) {
 	s.logger.DebugContext(ctx, "Getting statistics")
 
 	cacheStats := s.cacheRepo.GetStats()
 	dataSources, _ := s.dataSourceRepo.GetAll(ctx)
 
-	stats := map[string]interface{}{
-		"cache": map[string]interface{}{
+	stats := map[string]any{
+		"cache": map[string]any{
 			"hits":         cacheStats.Hits,
 			"misses":       cacheStats.Misses,
 			"evictions":    cacheStats.Evictions,
@@ -234,7 +234,7 @@ func (s *ThirdPartyService) GetStats(ctx context.Context) (map[string]interface{
 			"item_count":   cacheStats.ItemCount,
 			"last_cleanup": cacheStats.LastCleanup,
 		},
-		"data_sources": map[string]interface{}{
+		"data_sources": map[string]any{
 			"count":   len(dataSources),
 			"sources": dataSources,
 		},
@@ -371,7 +371,7 @@ func (s *ThirdPartyService) putToHTTP(ctx context.Context, ds *models.DataSource
 
 	// 编码数据
 	data := base64.StdEncoding.EncodeToString(object.Data)
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"bucket":       object.Bucket,
 		"key":          object.Key,
 		"content_type": object.ContentType,

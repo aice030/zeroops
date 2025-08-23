@@ -250,14 +250,14 @@ func (sm *StorageManager) ListObjects(ctx context.Context, bucket, prefix string
 }
 
 // GetStats 获取所有节点的统计信息
-func (sm *StorageManager) GetStats(ctx context.Context) (map[string]interface{}, error) {
+func (sm *StorageManager) GetStats(ctx context.Context) (map[string]any, error) {
 	sm.mu.RLock()
 	nodes := make([]interfaces.StorageNode, len(sm.nodes))
 	copy(nodes, sm.nodes)
 	sm.mu.RUnlock()
 
-	stats := make(map[string]interface{})
-	nodeStats := make([]map[string]interface{}, 0, len(nodes))
+	stats := make(map[string]any)
+	nodeStats := make([]map[string]any, 0, len(nodes))
 
 	var totalSize int64
 	var totalFiles int64
@@ -267,7 +267,7 @@ func (sm *StorageManager) GetStats(ctx context.Context) (map[string]interface{},
 		if fileNode, ok := node.(*FileStorageNode); ok {
 			nodeStat, err := fileNode.GetStats(ctx)
 			if err != nil {
-				nodeStat = map[string]interface{}{
+				nodeStat = map[string]any{
 					"node_id": node.GetNodeID(),
 					"error":   err.Error(),
 					"healthy": false,

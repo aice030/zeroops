@@ -26,10 +26,10 @@ type ErrorRule struct {
 
 // ErrorCondition 错误触发条件
 type ErrorCondition struct {
-	Type     string      `json:"type"`     // 条件类型：probability, header, param, time, etc.
-	Operator string      `json:"operator"` // 操作符：eq, ne, gt, lt, contains, etc.
-	Field    string      `json:"field"`    // 字段名
-	Value    interface{} `json:"value"`    // 期望值
+	Type     string `json:"type"`     // 条件类型：probability, header, param, time, etc.
+	Operator string `json:"operator"` // 操作符：eq, ne, gt, lt, contains, etc.
+	Field    string `json:"field"`    // 字段名
+	Value    any    `json:"value"`    // 期望值
 }
 
 // ErrorConditionType 条件类型
@@ -45,13 +45,13 @@ const (
 
 // ErrorAction 错误动作
 type ErrorAction struct {
-	Type     string                 `json:"type"`                // 动作类型
-	Delay    *time.Duration         `json:"delay,omitempty"`     // 延迟时间
-	HTTPCode int                    `json:"http_code,omitempty"` // HTTP 状态码
-	Message  string                 `json:"message,omitempty"`   // 错误消息
-	Headers  map[string]string      `json:"headers,omitempty"`   // 响应头
-	Body     string                 `json:"body,omitempty"`      // 响应体
-	Metadata map[string]interface{} `json:"metadata,omitempty"`  // 额外数据
+	Type     string            `json:"type"`                // 动作类型
+	Delay    *time.Duration    `json:"delay,omitempty"`     // 延迟时间
+	HTTPCode int               `json:"http_code,omitempty"` // HTTP 状态码
+	Message  string            `json:"message,omitempty"`   // 错误消息
+	Headers  map[string]string `json:"headers,omitempty"`   // 响应头
+	Body     string            `json:"body,omitempty"`      // 响应体
+	Metadata map[string]any    `json:"metadata,omitempty"`  // 额外数据
 }
 
 // ErrorActionType 错误动作类型
@@ -117,18 +117,18 @@ type OpStat struct {
 
 // ErrorEvent 错误事件（用于记录和分析）
 type ErrorEvent struct {
-	ID         string                 `json:"id"`
-	RuleID     string                 `json:"rule_id"`
-	RuleName   string                 `json:"rule_name"`
-	Service    string                 `json:"service"`
-	Operation  string                 `json:"operation"`
-	Action     ErrorAction            `json:"action"`
-	RequestID  string                 `json:"request_id,omitempty"`
-	UserAgent  string                 `json:"user_agent,omitempty"`
-	RemoteAddr string                 `json:"remote_addr,omitempty"`
-	Headers    map[string]string      `json:"headers,omitempty"`
-	Params     map[string]interface{} `json:"params,omitempty"`
-	Timestamp  time.Time              `json:"timestamp"`
-	Success    bool                   `json:"success"` // 是否成功注入错误
-	Error      string                 `json:"error,omitempty"`
+	ID         string            `json:"id"`
+	RuleID     string            `json:"rule_id"`
+	RuleName   string            `json:"rule_name"`
+	Service    string            `json:"service"`
+	Operation  string            `json:"operation"`
+	Action     ErrorAction       `json:"action"`
+	RequestID  string            `json:"request_id,omitempty"`
+	UserAgent  string            `json:"user_agent,omitempty"`
+	RemoteAddr string            `json:"remote_addr,omitempty"`
+	Headers    map[string]string `json:"headers,omitempty"`
+	Params     map[string]any    `json:"params,omitempty"`
+	Timestamp  time.Time         `json:"timestamp"`
+	Success    bool              `json:"success"` // 是否成功注入错误
+	Error      string            `json:"error,omitempty"`
 }

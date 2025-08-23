@@ -7,24 +7,24 @@ import (
 
 // Task 任务模型
 type Task struct {
-	ID          string                 `json:"id"`
-	Type        string                 `json:"type"`         // task type
-	Queue       string                 `json:"queue"`        // queue name
-	ObjectKey   string                 `json:"object_key"`   // related object key
-	Data        map[string]interface{} `json:"data"`         // task payload
-	Priority    int                    `json:"priority"`     // task priority (higher number = higher priority)
-	MaxRetries  int                    `json:"max_retries"`  // maximum retry attempts
-	RetryCount  int                    `json:"retry_count"`  // current retry count
-	Status      TaskStatus             `json:"status"`       // task status
-	ScheduledAt time.Time              `json:"scheduled_at"` // when to execute
-	StartedAt   *time.Time             `json:"started_at,omitempty"`
-	CompletedAt *time.Time             `json:"completed_at,omitempty"`
-	FailedAt    *time.Time             `json:"failed_at,omitempty"`
-	Error       string                 `json:"error,omitempty"`
-	WorkerID    string                 `json:"worker_id,omitempty"`
-	StreamID    string                 `json:"stream_id,omitempty"` // Redis stream message ID
-	CreatedAt   time.Time              `json:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
+	ID          string         `json:"id"`
+	Type        string         `json:"type"`         // task type
+	Queue       string         `json:"queue"`        // queue name
+	ObjectKey   string         `json:"object_key"`   // related object key
+	Data        map[string]any `json:"data"`         // task payload
+	Priority    int            `json:"priority"`     // task priority (higher number = higher priority)
+	MaxRetries  int            `json:"max_retries"`  // maximum retry attempts
+	RetryCount  int            `json:"retry_count"`  // current retry count
+	Status      TaskStatus     `json:"status"`       // task status
+	ScheduledAt time.Time      `json:"scheduled_at"` // when to execute
+	StartedAt   *time.Time     `json:"started_at,omitempty"`
+	CompletedAt *time.Time     `json:"completed_at,omitempty"`
+	FailedAt    *time.Time     `json:"failed_at,omitempty"`
+	Error       string         `json:"error,omitempty"`
+	WorkerID    string         `json:"worker_id,omitempty"`
+	StreamID    string         `json:"stream_id,omitempty"` // Redis stream message ID
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // GenerateID 生成任务ID
@@ -119,11 +119,11 @@ type TaskMessage struct {
 
 // TaskResult 任务执行结果
 type TaskResult struct {
-	TaskID    string                 `json:"task_id"`
-	Success   bool                   `json:"success"`
-	Error     string                 `json:"error,omitempty"`
-	Data      map[string]interface{} `json:"data,omitempty"`
-	Duration  time.Duration          `json:"duration"`
-	WorkerID  string                 `json:"worker_id"`
-	Timestamp time.Time              `json:"timestamp"`
+	TaskID    string         `json:"task_id"`
+	Success   bool           `json:"success"`
+	Error     string         `json:"error,omitempty"`
+	Data      map[string]any `json:"data,omitempty"`
+	Duration  time.Duration  `json:"duration"`
+	WorkerID  string         `json:"worker_id"`
+	Timestamp time.Time      `json:"timestamp"`
 }

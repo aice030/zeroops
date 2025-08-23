@@ -177,24 +177,24 @@ func (rc *RedisConfig) GetRedisAddr() string {
 }
 
 // ParseConfigFromJSON 从JSON解析配置
-func ParseConfigFromJSON(jsonData []byte, config interface{}) error {
+func ParseConfigFromJSON(jsonData []byte, config any) error {
 	return json.Unmarshal(jsonData, config)
 }
 
 // ConfigToJSON 将配置转换为JSON
-func ConfigToJSON(config interface{}) ([]byte, error) {
+func ConfigToJSON(config any) ([]byte, error) {
 	return json.MarshalIndent(config, "", "  ")
 }
 
 // ValidateConfig 验证配置
-func ValidateConfig(config interface{}) error {
+func ValidateConfig(config any) error {
 	// 这里可以添加配置验证逻辑
 	// 例如检查必填字段、格式验证等
 	return nil
 }
 
 // LoadConfigFromFile 从文件加载配置
-func LoadConfigFromFile(filename string, config interface{}) error {
+func LoadConfigFromFile(filename string, config any) error {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("failed to read config file: %w", err)
@@ -204,7 +204,7 @@ func LoadConfigFromFile(filename string, config interface{}) error {
 }
 
 // SaveConfigToFile 将配置保存到文件
-func SaveConfigToFile(filename string, config interface{}) error {
+func SaveConfigToFile(filename string, config any) error {
 	data, err := ConfigToJSON(config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
@@ -214,7 +214,7 @@ func SaveConfigToFile(filename string, config interface{}) error {
 }
 
 // MergeConfigs 合并配置（环境变量优先）
-func MergeConfigs(defaultConfig, envConfig interface{}) interface{} {
+func MergeConfigs(defaultConfig, envConfig any) any {
 	// 这里可以实现配置合并逻辑
 	// 简单实现：环境变量配置优先于默认配置
 	return envConfig

@@ -49,7 +49,7 @@ func (r *RedisRepository) AddTask(ctx context.Context, task *models.Task) error 
 
 	args := &redis.XAddArgs{
 		Stream: r.config.StreamName,
-		Values: map[string]interface{}{
+		Values: map[string]any{
 			"task_id":    task.ID,
 			"task_type":  task.Type,
 			"priority":   task.Priority,
@@ -220,8 +220,8 @@ func (r *RedisRepository) ListTasks(ctx context.Context, status string, limit in
 }
 
 // GetStats 获取队列统计信息
-func (r *RedisRepository) GetStats(ctx context.Context) (map[string]interface{}, error) {
-	stats := make(map[string]interface{})
+func (r *RedisRepository) GetStats(ctx context.Context) (map[string]any, error) {
+	stats := make(map[string]any)
 
 	// 待处理任务数
 	pendingCount, err := r.client.XLen(ctx, r.config.StreamName).Result()
@@ -240,7 +240,7 @@ func (r *RedisRepository) GetStats(ctx context.Context) (map[string]interface{},
 	if err == nil {
 		for _, group := range groups {
 			if group.Name == r.config.ConsumerGroup {
-				stats["consumer_group"] = map[string]interface{}{
+				stats["consumer_group"] = map[string]any{
 					"name":      group.Name,
 					"consumers": group.Consumers,
 					"pending":   group.Pending,
@@ -270,7 +270,7 @@ func (r *RedisRepository) ensureConsumerGroup(ctx context.Context) error {
 		if err.Error() == "ERR no such key" {
 			r.client.XAdd(ctx, &redis.XAddArgs{
 				Stream: r.config.StreamName,
-				Values: map[string]interface{}{"init": "true"},
+				Values: map[string]any{"init": "true"},
 			})
 		}
 	}

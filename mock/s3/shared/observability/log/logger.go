@@ -49,14 +49,14 @@ func (l *Logger) WithContext(ctx context.Context) *Logger {
 }
 
 // WithFields 添加字段（保持兼容性）
-func (l *Logger) With(args ...interface{}) *Logger {
+func (l *Logger) With(args ...any) *Logger {
 	// 对于 OTEL Logs，返回同一个 Logger，属性在具体日志记录时添加
 	return l
 }
 
 // WithFields 添加多个字段
-func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
-	args := make([]interface{}, 0, len(fields)*2)
+func (l *Logger) WithFields(fields map[string]any) *Logger {
+	args := make([]any, 0, len(fields)*2)
 	for k, v := range fields {
 		args = append(args, k, v)
 	}
@@ -64,7 +64,7 @@ func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 }
 
 // Debug 调试日志
-func (l *Logger) Debug(msg string, args ...interface{}) {
+func (l *Logger) Debug(msg string, args ...any) {
 	if l.level > LevelDebug {
 		return
 	}
@@ -72,7 +72,7 @@ func (l *Logger) Debug(msg string, args ...interface{}) {
 }
 
 // Info 信息日志
-func (l *Logger) Info(msg string, args ...interface{}) {
+func (l *Logger) Info(msg string, args ...any) {
 	if l.level > LevelInfo {
 		return
 	}
@@ -80,7 +80,7 @@ func (l *Logger) Info(msg string, args ...interface{}) {
 }
 
 // Warn 警告日志
-func (l *Logger) Warn(msg string, args ...interface{}) {
+func (l *Logger) Warn(msg string, args ...any) {
 	if l.level > LevelWarn {
 		return
 	}
@@ -88,7 +88,7 @@ func (l *Logger) Warn(msg string, args ...interface{}) {
 }
 
 // Error 错误日志
-func (l *Logger) Error(msg string, args ...interface{}) {
+func (l *Logger) Error(msg string, args ...any) {
 	if l.level > LevelError {
 		return
 	}
@@ -96,7 +96,7 @@ func (l *Logger) Error(msg string, args ...interface{}) {
 }
 
 // emit 发送日志到 OTEL
-func (l *Logger) emit(ctx context.Context, severity log.Severity, msg string, args ...interface{}) {
+func (l *Logger) emit(ctx context.Context, severity log.Severity, msg string, args ...any) {
 	// 准备属性
 	attrs := []log.KeyValue{
 		log.String("service", l.serviceName),
@@ -133,7 +133,7 @@ func (l *Logger) emit(ctx context.Context, severity log.Severity, msg string, ar
 }
 
 // DebugContext 带上下文的调试日志
-func (l *Logger) DebugContext(ctx context.Context, msg string, args ...interface{}) {
+func (l *Logger) DebugContext(ctx context.Context, msg string, args ...any) {
 	if l.level > LevelDebug {
 		return
 	}
@@ -141,7 +141,7 @@ func (l *Logger) DebugContext(ctx context.Context, msg string, args ...interface
 }
 
 // InfoContext 带上下文的信息日志
-func (l *Logger) InfoContext(ctx context.Context, msg string, args ...interface{}) {
+func (l *Logger) InfoContext(ctx context.Context, msg string, args ...any) {
 	if l.level > LevelInfo {
 		return
 	}
@@ -149,7 +149,7 @@ func (l *Logger) InfoContext(ctx context.Context, msg string, args ...interface{
 }
 
 // WarnContext 带上下文的警告日志
-func (l *Logger) WarnContext(ctx context.Context, msg string, args ...interface{}) {
+func (l *Logger) WarnContext(ctx context.Context, msg string, args ...any) {
 	if l.level > LevelWarn {
 		return
 	}
@@ -157,7 +157,7 @@ func (l *Logger) WarnContext(ctx context.Context, msg string, args ...interface{
 }
 
 // ErrorContext 带上下文的错误日志
-func (l *Logger) ErrorContext(ctx context.Context, msg string, args ...interface{}) {
+func (l *Logger) ErrorContext(ctx context.Context, msg string, args ...any) {
 	if l.level > LevelError {
 		return
 	}
@@ -165,7 +165,7 @@ func (l *Logger) ErrorContext(ctx context.Context, msg string, args ...interface
 }
 
 // LogError 记录错误
-func (l *Logger) LogError(ctx context.Context, err error, msg string, args ...interface{}) {
+func (l *Logger) LogError(ctx context.Context, err error, msg string, args ...any) {
 	if err == nil {
 		return
 	}
@@ -176,7 +176,7 @@ func (l *Logger) LogError(ctx context.Context, err error, msg string, args ...in
 }
 
 // LogPanic 记录panic
-func (l *Logger) LogPanic(ctx context.Context, r interface{}, msg string, args ...interface{}) {
+func (l *Logger) LogPanic(ctx context.Context, r any, msg string, args ...any) {
 	// 添加 panic 信息到参数中
 	panicArgs := append(args, "panic", fmt.Sprintf("%v", r))
 	l.emit(ctx, log.SeverityError, msg, panicArgs...)

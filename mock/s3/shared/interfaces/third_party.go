@@ -25,7 +25,7 @@ type ThirdPartyService interface {
 	InvalidateCache(ctx context.Context, bucket, key string) error
 
 	// 统计信息
-	GetStats(ctx context.Context) (map[string]interface{}, error)
+	GetStats(ctx context.Context) (map[string]any, error)
 
 	// 健康检查
 	HealthCheck(ctx context.Context) error

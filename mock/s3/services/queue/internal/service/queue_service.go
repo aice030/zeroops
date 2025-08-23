@@ -97,7 +97,7 @@ func (qs *QueueService) ListTasks(ctx context.Context, status string, limit int)
 }
 
 // GetStats 获取队列统计信息
-func (qs *QueueService) GetStats(ctx context.Context) (map[string]interface{}, error) {
+func (qs *QueueService) GetStats(ctx context.Context) (map[string]any, error) {
 	qs.logger.DebugContext(ctx, "Getting queue statistics")
 
 	stats, err := qs.repo.GetStats(ctx)
@@ -108,10 +108,10 @@ func (qs *QueueService) GetStats(ctx context.Context) (map[string]interface{}, e
 
 	// 添加工作节点信息
 	qs.mu.RLock()
-	workerStats := make(map[string]interface{})
+	workerStats := make(map[string]any)
 	for id, worker := range qs.workers {
 		worker.mu.RLock()
-		workerStats[id] = map[string]interface{}{
+		workerStats[id] = map[string]any{
 			"running": worker.running,
 		}
 		worker.mu.RUnlock()

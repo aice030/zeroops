@@ -230,7 +230,7 @@ func (s *StorageService) ListObjects(ctx context.Context, req *models.ListObject
 }
 
 // GetStats 获取存储统计信息
-func (s *StorageService) GetStats(ctx context.Context) (map[string]interface{}, error) {
+func (s *StorageService) GetStats(ctx context.Context) (map[string]any, error) {
 	s.logger.DebugContext(ctx, "Getting storage statistics")
 
 	stats, err := s.storageManager.GetStats(ctx)

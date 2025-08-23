@@ -63,12 +63,12 @@ type AuthToken struct {
 
 // APIResponse 通用 API 响应
 type APIResponse struct {
-	Success   bool        `json:"success"`
-	Data      interface{} `json:"data,omitempty"`
-	Error     *APIError   `json:"error,omitempty"`
-	Message   string      `json:"message,omitempty"`
-	RequestID string      `json:"request_id,omitempty"`
-	Timestamp time.Time   `json:"timestamp"`
+	Success   bool      `json:"success"`
+	Data      any       `json:"data,omitempty"`
+	Error     *APIError `json:"error,omitempty"`
+	Message   string    `json:"message,omitempty"`
+	RequestID string    `json:"request_id,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // APIError API 错误

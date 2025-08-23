@@ -78,12 +78,12 @@ func (c *HTTPClient) Get(ctx context.Context, path string, params map[string]str
 }
 
 // Post 发送POST请求
-func (c *HTTPClient) Post(ctx context.Context, path string, body interface{}, headers map[string]string) (*http.Response, error) {
+func (c *HTTPClient) Post(ctx context.Context, path string, body any, headers map[string]string) (*http.Response, error) {
 	return c.Request(ctx, "POST", path, nil, body, headers)
 }
 
 // Put 发送PUT请求
-func (c *HTTPClient) Put(ctx context.Context, path string, body interface{}, headers map[string]string) (*http.Response, error) {
+func (c *HTTPClient) Put(ctx context.Context, path string, body any, headers map[string]string) (*http.Response, error) {
 	return c.Request(ctx, "PUT", path, nil, body, headers)
 }
 
@@ -93,7 +93,7 @@ func (c *HTTPClient) Delete(ctx context.Context, path string, headers map[string
 }
 
 // Request 发送HTTP请求
-func (c *HTTPClient) Request(ctx context.Context, method, path string, params map[string]string, body interface{}, headers map[string]string) (*http.Response, error) {
+func (c *HTTPClient) Request(ctx context.Context, method, path string, params map[string]string, body any, headers map[string]string) (*http.Response, error) {
 	// 构建URL
 	reqURL := c.baseURL + "/" + strings.TrimLeft(path, "/")
 
@@ -162,7 +162,7 @@ func (c *HTTPClient) Request(ctx context.Context, method, path string, params ma
 }
 
 // GetJSON 获取JSON响应
-func (c *HTTPClient) GetJSON(ctx context.Context, path string, params map[string]string, result interface{}) error {
+func (c *HTTPClient) GetJSON(ctx context.Context, path string, params map[string]string, result any) error {
 	resp, err := c.Get(ctx, path, params)
 	if err != nil {
 		return err
@@ -173,7 +173,7 @@ func (c *HTTPClient) GetJSON(ctx context.Context, path string, params map[string
 }
 
 // PostJSON 发送JSON请求并获取JSON响应
-func (c *HTTPClient) PostJSON(ctx context.Context, path string, body interface{}, result interface{}) error {
+func (c *HTTPClient) PostJSON(ctx context.Context, path string, body any, result any) error {
 	resp, err := c.Post(ctx, path, body, map[string]string{"Content-Type": "application/json"})
 	if err != nil {
 		return err
@@ -184,7 +184,7 @@ func (c *HTTPClient) PostJSON(ctx context.Context, path string, body interface{}
 }
 
 // PutJSON 发送JSON PUT请求并获取JSON响应
-func (c *HTTPClient) PutJSON(ctx context.Context, path string, body interface{}, result interface{}) error {
+func (c *HTTPClient) PutJSON(ctx context.Context, path string, body any, result any) error {
 	resp, err := c.Put(ctx, path, body, map[string]string{"Content-Type": "application/json"})
 	if err != nil {
 		return err
@@ -195,7 +195,7 @@ func (c *HTTPClient) PutJSON(ctx context.Context, path string, body interface{},
 }
 
 // parseJSONResponse 解析JSON响应
-func (c *HTTPClient) parseJSONResponse(resp *http.Response, result interface{}) error {
+func (c *HTTPClient) parseJSONResponse(resp *http.Response, result any) error {
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("HTTP error %d: %s", resp.StatusCode, string(body))
@@ -301,7 +301,7 @@ func GetClientIP(r *http.Request) string {
 }
 
 // SetJSONResponse 设置JSON响应
-func SetJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) error {
+func SetJSONResponse(w http.ResponseWriter, statusCode int, data any) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	return json.NewEncoder(w).Encode(data)
@@ -309,7 +309,7 @@ func SetJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) er
 
 // SetErrorResponse 设置错误响应
 func SetErrorResponse(w http.ResponseWriter, statusCode int, message string) error {
-	return SetJSONResponse(w, statusCode, map[string]interface{}{
+	return SetJSONResponse(w, statusCode, map[string]any{
 		"error":   message,
 		"code":    statusCode,
 		"success": false,
@@ -317,7 +317,7 @@ func SetErrorResponse(w http.ResponseWriter, statusCode int, message string) err
 }
 
 // ParseJSONBody 解析JSON请求体
-func ParseJSONBody(r *http.Request, v interface{}) error {
+func ParseJSONBody(r *http.Request, v any) error {
 	defer r.Body.Close()
 	return json.NewDecoder(r.Body).Decode(v)
 }

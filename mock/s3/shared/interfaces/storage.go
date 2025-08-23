@@ -14,7 +14,7 @@ type StorageService interface {
 	ListObjects(ctx context.Context, req *models.ListObjectsRequest) (*models.ListObjectsResponse, error)
 
 	// 统计信息
-	GetStats(ctx context.Context) (map[string]interface{}, error)
+	GetStats(ctx context.Context) (map[string]any, error)
 
 	// 健康检查
 	HealthCheck(ctx context.Context) error

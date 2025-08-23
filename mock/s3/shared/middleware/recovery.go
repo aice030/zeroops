@@ -13,7 +13,7 @@ import (
 type RecoveryConfig struct {
 	EnableStackTrace bool
 	EnableLogging    bool
-	CustomHandler    func(*gin.Context, interface{})
+	CustomHandler    func(*gin.Context, any)
 }
 
 // DefaultRecoveryConfig 默认恢复配置
@@ -31,7 +31,7 @@ func GinRecoveryMiddleware(config *RecoveryConfig) gin.HandlerFunc {
 		config = DefaultRecoveryConfig()
 	}
 
-	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
+	return gin.CustomRecovery(func(c *gin.Context, recovered any) {
 		if config.EnableLogging {
 			log.Printf("Panic recovered: %v", recovered)
 			if config.EnableStackTrace {
@@ -83,8 +83,8 @@ func HTTPRecoveryMiddleware(config *RecoveryConfig) func(http.Handler) http.Hand
 }
 
 // LoggingRecoveryHandler 记录panic的恢复处理器
-func LoggingRecoveryHandler(enableStackTrace bool) func(*gin.Context, interface{}) {
-	return func(c *gin.Context, recovered interface{}) {
+func LoggingRecoveryHandler(enableStackTrace bool) func(*gin.Context, any) {
+	return func(c *gin.Context, recovered any) {
 		log.Printf("Panic recovered in %s %s: %v", c.Request.Method, c.Request.URL.Path, recovered)
 
 		if enableStackTrace {
@@ -103,8 +103,8 @@ func LoggingRecoveryHandler(enableStackTrace bool) func(*gin.Context, interface{
 }
 
 // DetailedRecoveryHandler 详细的恢复处理器（开发环境使用）
-func DetailedRecoveryHandler() func(*gin.Context, interface{}) {
-	return func(c *gin.Context, recovered interface{}) {
+func DetailedRecoveryHandler() func(*gin.Context, any) {
+	return func(c *gin.Context, recovered any) {
 		log.Printf("Panic recovered: %v", recovered)
 		log.Printf("Stack trace:\n%s", debug.Stack())
 
@@ -122,8 +122,8 @@ func DetailedRecoveryHandler() func(*gin.Context, interface{}) {
 }
 
 // ProductionRecoveryHandler 生产环境恢复处理器
-func ProductionRecoveryHandler() func(*gin.Context, interface{}) {
-	return func(c *gin.Context, recovered interface{}) {
+func ProductionRecoveryHandler() func(*gin.Context, any) {
+	return func(c *gin.Context, recovered any) {
 		// 只记录错误，不暴露敏感信息
 		log.Printf("Panic recovered: %v", recovered)
 

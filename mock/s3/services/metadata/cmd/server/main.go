@@ -1,72 +1,26 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
 	"mocks3/services/metadata/internal/config"
 	"mocks3/services/metadata/internal/handler"
 	"mocks3/services/metadata/internal/repository"
 	"mocks3/services/metadata/internal/service"
+	"mocks3/shared/bootstrap"
 	"mocks3/shared/client"
-	"mocks3/shared/middleware"
-	logger "mocks3/shared/observability/log"
-	"mocks3/shared/observability/metric"
-	"mocks3/shared/observability/trace"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
-func main() {
-	// 加载配置
-	cfg := config.Load()
+// MetadataServiceInitializer 实现服务初始化接口
+type MetadataServiceInitializer struct {
+	cfg *config.Config
+}
 
-	// 初始化 OTEL Logger Provider
-	loggerProvider, err := logger.NewDefaultLoggerProvider("metadata-service")
-	if err != nil {
-		log.Fatalf("Failed to initialize logger provider: %v", err)
-	}
-	defer loggerProvider.Shutdown(context.Background())
-
-	// 初始化日志器
-	loggerInstance := logger.NewLogger("metadata-service", logger.LogLevel(cfg.LogLevel))
-
-	// 初始化追踪器
-	tracerProvider, err := trace.NewDefaultTracerProvider("metadata-service")
-	if err != nil {
-		log.Fatalf("Failed to initialize tracer: %v", err)
-	}
-	defer tracerProvider.Shutdown(context.Background())
-
-	// 初始化指标收集器
-	metricCollector, err := metric.NewDefaultCollector("metadata-service")
-	if err != nil {
-		log.Fatalf("Failed to initialize metrics: %v", err)
-	}
-	defer metricCollector.Shutdown(context.Background())
-
-	// 初始化 Consul 配置
-	consulAddr := "consul:8500"
-	err = middleware.InitializeServiceConfig(consulAddr, "metadata-service", 8081)
-	if err != nil {
-		log.Printf("Failed to initialize consul config: %v", err)
-	}
-
-	// 初始化Consul管理器
-	consulManager, err := middleware.NewDefaultConsulManager("metadata-service")
-	if err != nil {
-		log.Fatalf("Failed to initialize consul: %v", err)
-	}
-
+// Initialize 初始化元数据服务的特定组件
+func (m *MetadataServiceInitializer) Initialize(bootstrap *bootstrap.ServiceBootstrap) error {
 	// 初始化数据库
-	db, err := repository.NewDatabase(cfg.Database)
+	db, err := repository.NewDatabase(m.cfg.Database)
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		return err
 	}
 	defer db.Close()
 
@@ -77,86 +31,34 @@ func main() {
 	_ = client.NewQueueClient("http://localhost:8083", 30*time.Second)
 
 	// 初始化服务
-	metadataService := service.NewMetadataService(metadataRepo, logger)
+	metadataService := service.NewMetadataService(metadataRepo, bootstrap.GetLogger())
 
 	// 初始化处理器
-	metadataHandler := handler.NewMetadataHandler(metadataService, logger)
+	metadataHandler := handler.NewMetadataHandler(metadataService, bootstrap.GetLogger())
 
-	// 注册服务到Consul（从 Consul KV 加载配置）
-	ctx := context.Background()
-	consulConfig, err := middleware.LoadServiceConfigFromConsul(consulAddr, "metadata-service")
-	if err != nil {
-		log.Fatalf("Failed to load consul config: %v", err)
+	// 注册路由
+	metadataHandler.RegisterRoutes(bootstrap.GetRouter())
+
+	return nil
+}
+
+func main() {
+	// 加载配置
+	cfg := config.Load()
+
+	// 创建服务配置
+	serviceConfig := bootstrap.ServiceConfig{
+		ServiceName: "metadata-service",
+		ServicePort: 8081,
+		Version:     cfg.Server.Version,
+		Environment: cfg.Server.Environment,
+		LogLevel:    cfg.LogLevel,
+		ConsulAddr:  "consul:8500",
 	}
 
-	err = consulManager.RegisterService(ctx, consulConfig)
-	if err != nil {
-		log.Fatalf("Failed to register service: %v", err)
-	}
-	defer consulManager.DeregisterService(ctx)
+	// 创建初始化器
+	initializer := &MetadataServiceInitializer{cfg: cfg}
 
-	// 设置Gin模式
-	if cfg.Server.Environment == "production" {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
-	// 创建路由器
-	router := gin.New()
-
-	// 添加中间件
-	router.Use(gin.Logger())
-	router.Use(middleware.GinRecoveryMiddleware(middleware.DefaultRecoveryConfig()))
-	router.Use(trace.GinMiddleware("metadata-service"))
-
-	// 添加指标中间件
-	metricsMiddleware := metric.NewDefaultMiddlewareConfig(metricCollector)
-	router.Use(metricsMiddleware.GinMiddleware())
-
-	// 设置路由
-	metadataHandler.RegisterRoutes(router)
-
-	// 健康检查
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status":    "healthy",
-			"service":   "metadata-service",
-			"version":   cfg.Server.Version,
-			"timestamp": time.Now().Format(time.RFC3339),
-		})
-	})
-
-	// 创建HTTP服务器（使用 Consul 配置的端口）
-	addr := fmt.Sprintf(":%d", consulConfig.ServicePort)
-	server := &http.Server{
-		Addr:         addr,
-		Handler:      router,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-
-	// 启动服务器
-	go func() {
-		logger.Info("Starting metadata service", "address", addr)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
-		}
-	}()
-
-	// 等待中断信号
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	logger.Info("Shutting down metadata service...")
-
-	// 优雅关闭
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
-	}
-
-	logger.Info("Metadata service stopped")
+	// 运行服务
+	bootstrap.RunService(serviceConfig, initializer)
 }

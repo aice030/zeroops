@@ -326,11 +326,11 @@ func (s *Service) SomeOperation(ctx context.Context) error {
         strings.NewReader(`{"metadata":{}}`))
     
     if err == nil && resp.StatusCode == 200 {
-        var result map[string]interface{}
+        var result map[string]any
         json.NewDecoder(resp.Body).Decode(&result)
         
         if shouldInject, ok := result["should_inject"].(bool); ok && shouldInject {
-            if action, ok := result["action"].(map[string]interface{}); ok {
+            if action, ok := result["action"].(map[string]any); ok {
                 return handleErrorInjection(action)
             }
         }
