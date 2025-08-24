@@ -119,7 +119,13 @@ func (m *ErrorInjectionMiddleware) injectError(c *gin.Context, action *models.Er
 	case models.ErrorActionTypeTimeout:
 		return m.injectTimeout(c, action)
 	case models.ErrorActionTypeCorruption:
-		return m.injectHTTPResponseError(c, http.StatusInternalServerError, "Data corruption error")
+		// 创建数据损坏错误动作
+		corruptionAction := &models.ErrorAction{
+			Type:     models.ErrorActionTypeCorruption,
+			HTTPCode: http.StatusInternalServerError,
+			Message:  "Data corruption error",
+		}
+		return m.injectHTTPErrorGin(c, corruptionAction)
 	default:
 		return false
 	}
@@ -251,31 +257,3 @@ func (m *ErrorInjectionMiddleware) injectTimeoutStandard(w http.ResponseWriter, 
 	return true
 }
 
-// injectHTTPResponseError 统一的HTTP响应错误注入
-func (m *ErrorInjectionMiddleware) injectHTTPResponseError(w http.ResponseWriter, action *models.ErrorAction) bool {
-	statusCode := action.HTTPCode
-	if statusCode == 0 {
-		statusCode = http.StatusInternalServerError
-	}
-
-	// 设置自定义响应头
-	for key, value := range action.Headers {
-		w.Header().Set(key, value)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-
-	// 写入响应体
-	if action.Body != "" {
-		w.Write([]byte(action.Body))
-	} else {
-		message := action.Message
-		if message == "" {
-			message = "Injected error"
-		}
-		w.Write([]byte(fmt.Sprintf(`{"error": "%s", "code": %d, "injected": true}`, message, statusCode)))
-	}
-
-	return true
-}
