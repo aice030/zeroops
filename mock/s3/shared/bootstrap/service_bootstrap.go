@@ -13,31 +13,29 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"mocks3/shared/middleware"
-	logger "mocks3/shared/observability/log"
-	"mocks3/shared/observability/metric"
-	"mocks3/shared/observability/trace"
+	"mocks3/shared/observability"
 )
 
 // ServiceConfig 服务配置
 type ServiceConfig struct {
-	ServiceName string
-	ServicePort int
-	Version     string
-	Environment string
-	LogLevel    string
-	ConsulAddr  string
+	ServiceName             string
+	ServicePort             int
+	Version                 string
+	Environment             string
+	LogLevel                string
+	ConsulAddr              string
+	ObservabilityConfigPath string // 可观测性配置文件路径
 }
 
 // ServiceBootstrap 服务启动器
 type ServiceBootstrap struct {
-	config          ServiceConfig
-	loggerProvider  *logger.LoggerProvider
-	loggerInstance  logger.Logger
-	tracerProvider  *trace.TracerProvider
-	metricCollector *metric.Collector
-	consulManager   *middleware.ConsulManager
-	router          *gin.Engine
-	server          *http.Server
+	config         ServiceConfig
+	providers      *observability.Providers
+	collector      *observability.MetricCollector
+	httpMiddleware *observability.HTTPMiddleware
+	consulManager  *middleware.ConsulManager
+	router         *gin.Engine
+	server         *http.Server
 }
 
 // NewServiceBootstrap 创建服务启动器
@@ -49,29 +47,14 @@ func NewServiceBootstrap(config ServiceConfig) *ServiceBootstrap {
 
 // Initialize 初始化所有组件
 func (sb *ServiceBootstrap) Initialize() error {
-	// 初始化 OTEL Logger Provider
-	loggerProvider, err := logger.NewDefaultLoggerProvider(sb.config.ServiceName)
+	// 初始化可观测性组件
+	providers, collector, httpMiddleware, err := observability.Setup(sb.config.ServiceName, sb.config.ObservabilityConfigPath)
 	if err != nil {
-		return fmt.Errorf("failed to initialize logger provider: %w", err)
+		return fmt.Errorf("failed to initialize observability: %w", err)
 	}
-	sb.loggerProvider = loggerProvider
-
-	// 初始化日志器
-	sb.loggerInstance = *logger.NewLogger(sb.config.ServiceName, logger.LogLevel(sb.config.LogLevel))
-
-	// 初始化追踪器
-	tracerProvider, err := trace.NewDefaultTracerProvider(sb.config.ServiceName)
-	if err != nil {
-		return fmt.Errorf("failed to initialize tracer: %w", err)
-	}
-	sb.tracerProvider = tracerProvider
-
-	// 初始化指标收集器
-	metricCollector, err := metric.NewDefaultCollector(sb.config.ServiceName)
-	if err != nil {
-		return fmt.Errorf("failed to initialize metrics: %w", err)
-	}
-	sb.metricCollector = metricCollector
+	sb.providers = providers
+	sb.collector = collector
+	sb.httpMiddleware = httpMiddleware
 
 	// 初始化 Consul 配置
 	if err := middleware.InitializeServiceConfig(sb.config.ConsulAddr, sb.config.ServiceName, sb.config.ServicePort); err != nil {
@@ -101,11 +84,9 @@ func (sb *ServiceBootstrap) SetupRouter() *gin.Engine {
 	// 添加基础中间件
 	sb.router.Use(gin.Logger())
 	sb.router.Use(middleware.GinRecoveryMiddleware(middleware.DefaultRecoveryConfig()))
-	sb.router.Use(trace.GinMiddleware(sb.config.ServiceName))
 
-	// 添加指标中间件
-	metricsMiddleware := metric.NewDefaultMiddlewareConfig(sb.metricCollector)
-	sb.router.Use(metricsMiddleware.GinMiddleware())
+	// 添加可观测性中间件
+	observability.SetupGinMiddlewares(sb.router, sb.config.ServiceName, sb.httpMiddleware)
 
 	// 添加健康检查路由
 	sb.router.GET("/health", sb.healthCheckHandler)
@@ -145,9 +126,15 @@ func (sb *ServiceBootstrap) Start() error {
 		return fmt.Errorf("server not initialized, call RegisterService first")
 	}
 
+	// 启动系统指标收集
+	ctx := context.Background()
+	observability.StartSystemMetrics(ctx, sb.collector, sb.providers.Logger)
+
 	// 启动服务器
 	go func() {
-		sb.loggerInstance.Info("Starting service", "service", sb.config.ServiceName, "address", sb.server.Addr)
+		sb.providers.Logger.Info(context.Background(), "Starting service",
+			observability.String("service", sb.config.ServiceName),
+			observability.String("address", sb.server.Addr))
 		if err := sb.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
@@ -163,7 +150,8 @@ func (sb *ServiceBootstrap) WaitForShutdown() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	sb.loggerInstance.Info("Shutting down service", "service", sb.config.ServiceName)
+	sb.providers.Logger.Info(context.Background(), "Shutting down service",
+		observability.String("service", sb.config.ServiceName))
 
 	// 优雅关闭
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -172,7 +160,7 @@ func (sb *ServiceBootstrap) WaitForShutdown() {
 	// 注销服务
 	if sb.consulManager != nil {
 		if err := sb.consulManager.DeregisterService(ctx); err != nil {
-			sb.loggerInstance.Error("Failed to deregister service", "error", err)
+			sb.providers.Logger.ErrorWithErr(ctx, err, "Failed to deregister service")
 		}
 	}
 
@@ -183,28 +171,21 @@ func (sb *ServiceBootstrap) WaitForShutdown() {
 		}
 	}
 
-	sb.loggerInstance.Info("Service stopped", "service", sb.config.ServiceName)
+	sb.providers.Logger.Info(context.Background(), "Service stopped",
+		observability.String("service", sb.config.ServiceName))
 }
 
 // Shutdown 手动关闭所有资源
 func (sb *ServiceBootstrap) Shutdown(ctx context.Context) {
-	// 关闭各种资源
-	if sb.metricCollector != nil {
-		sb.metricCollector.Shutdown(ctx)
-	}
-
-	if sb.tracerProvider != nil {
-		sb.tracerProvider.Shutdown(ctx)
-	}
-
-	if sb.loggerProvider != nil {
-		sb.loggerProvider.Shutdown(ctx)
+	// 关闭可观测性资源
+	if err := observability.Shutdown(ctx, sb.providers); err != nil {
+		log.Printf("Failed to shutdown observability: %v", err)
 	}
 }
 
 // GetLogger 获取日志器实例
-func (sb *ServiceBootstrap) GetLogger() *logger.Logger {
-	return &sb.loggerInstance
+func (sb *ServiceBootstrap) GetLogger() *observability.Logger {
+	return sb.providers.Logger
 }
 
 // GetRouter 获取路由器实例
