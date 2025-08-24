@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"mocks3/shared/interfaces"
 	"mocks3/shared/models"
-	"mocks3/shared/observability/log"
+	"mocks3/shared/observability"
 	"net"
 	"regexp"
 	"strconv"
@@ -17,12 +17,12 @@ import (
 // RuleEngine 错误规则引擎实现
 type RuleEngine struct {
 	rules  map[string]*models.ErrorRule
-	logger *log.Logger
+	logger *observability.Logger
 	rand   *rand.Rand
 }
 
 // NewRuleEngine 创建错误规则引擎
-func NewRuleEngine(logger *log.Logger) *RuleEngine {
+func NewRuleEngine(logger *observability.Logger) *RuleEngine {
 	return &RuleEngine{
 		rules:  make(map[string]*models.ErrorRule),
 		logger: logger,

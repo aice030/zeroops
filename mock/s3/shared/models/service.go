@@ -39,28 +39,6 @@ const (
 	HealthStatusCritical  HealthStatus = "critical"
 )
 
-// RateLimit 限流配置
-type RateLimit struct {
-	Key       string        `json:"key"`
-	Limit     int64         `json:"limit"`     // 限制次数
-	Window    time.Duration `json:"window"`    // 时间窗口
-	Remaining int64         `json:"remaining"` // 剩余次数
-	ResetTime time.Time     `json:"reset_time"`
-	CreatedAt time.Time     `json:"created_at"`
-	UpdatedAt time.Time     `json:"updated_at"`
-}
-
-// AuthToken 认证令牌
-type AuthToken struct {
-	Token     string            `json:"token"`
-	Type      string            `json:"type"` // bearer, api_key, etc.
-	UserID    string            `json:"user_id,omitempty"`
-	Scopes    []string          `json:"scopes,omitempty"`
-	Metadata  map[string]string `json:"metadata,omitempty"`
-	ExpiresAt *time.Time        `json:"expires_at,omitempty"`
-	CreatedAt time.Time         `json:"created_at"`
-}
-
 // APIResponse 通用 API 响应
 type APIResponse struct {
 	Success   bool      `json:"success"`
@@ -103,13 +81,9 @@ type ConfigItem struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// Metrics 指标数据
-type Metrics struct {
-	ServiceName string               `json:"service_name"`
-	Timestamp   time.Time            `json:"timestamp"`
-	Counters    map[string]int64     `json:"counters,omitempty"`
-	Gauges      map[string]float64   `json:"gauges,omitempty"`
-	Histograms  map[string][]float64 `json:"histograms,omitempty"`
-	Sets        map[string][]string  `json:"sets,omitempty"`
-	Tags        map[string]string    `json:"tags,omitempty"`
+// RateLimit 限流配置（简化版）
+type RateLimit struct {
+	RequestsPerSecond int           `json:"requests_per_second"`
+	BurstSize         int           `json:"burst_size"`
+	WindowDuration    time.Duration `json:"window_duration"`
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"mocks3/shared/interfaces"
 	"mocks3/shared/models"
-	"mocks3/shared/observability/log"
+	"mocks3/shared/observability"
 	"strings"
 	"time"
 )
@@ -13,11 +13,11 @@ import (
 // MetadataService 元数据服务实现
 type MetadataService struct {
 	repo   interfaces.MetadataRepository
-	logger *log.Logger
+	logger *observability.Logger
 }
 
 // NewMetadataService 创建元数据服务
-func NewMetadataService(repo interfaces.MetadataRepository, logger *log.Logger) *MetadataService {
+func NewMetadataService(repo interfaces.MetadataRepository, logger *observability.Logger) *MetadataService {
 	return &MetadataService{
 		repo:   repo,
 		logger: logger,

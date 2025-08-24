@@ -9,15 +9,15 @@ type ErrorRule struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
-	Service     string            `json:"service"`    // 目标服务
-	Operation   string            `json:"operation"`  // 目标操作
-	Conditions  []ErrorCondition  `json:"conditions"` // 触发条件
-	Action      ErrorAction       `json:"action"`     // 错误动作
-	Enabled     bool              `json:"enabled"`
-	Priority    int               `json:"priority"`           // 规则优先级
-	MaxTriggers int               `json:"max_triggers"`       // 最大触发次数，0表示无限制
-	Triggered   int               `json:"triggered"`          // 已触发次数
+	Service     string            `json:"service"`            // 目标服务
+	Operation   string            `json:"operation"`          // 目标操作
+	Conditions  []ErrorCondition  `json:"conditions"`         // 触发条件
+	Action      ErrorAction       `json:"action"`             // 错误动作
 	Schedule    *ErrorSchedule    `json:"schedule,omitempty"` // 调度配置
+	Enabled     bool              `json:"enabled"`
+	Priority    int               `json:"priority"`     // 规则优先级
+	MaxTriggers int               `json:"max_triggers"` // 最大触发次数，0表示无限制
+	Triggered   int               `json:"triggered"`    // 已触发次数
 	Metadata    map[string]string `json:"metadata,omitempty"`
 	CreatedAt   time.Time         `json:"created_at"`
 	UpdatedAt   time.Time         `json:"updated_at"`
@@ -66,13 +66,11 @@ const (
 	ErrorActionTypeStorageError  = "storage_error"  // 存储错误
 )
 
-// ErrorSchedule 错误调度配置
+// ErrorSchedule 错误调度配置（简化版）
 type ErrorSchedule struct {
-	StartTime *time.Time `json:"start_time,omitempty"` // 开始时间
-	EndTime   *time.Time `json:"end_time,omitempty"`   // 结束时间
-	Days      []string   `json:"days,omitempty"`       // 生效日期 (monday, tuesday, etc.)
-	Hours     []int      `json:"hours,omitempty"`      // 生效小时 (0-23)
-	Timezone  string     `json:"timezone,omitempty"`   // 时区
+	StartTime *time.Time     `json:"start_time,omitempty"` // 开始时间
+	EndTime   *time.Time     `json:"end_time,omitempty"`   // 结束时间
+	Duration  *time.Duration `json:"duration,omitempty"`   // 持续时间
 }
 
 // ErrorStats 错误统计

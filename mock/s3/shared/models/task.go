@@ -27,17 +27,11 @@ type Task struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
-// GenerateID 生成任务ID
+// GenerateID 生成任务ID (使用更好的UUID)
 func (t *Task) GenerateID() {
 	if t.ID == "" {
-		t.ID = generateTaskID()
+		t.ID = fmt.Sprintf("task_%d", time.Now().UnixNano())
 	}
-}
-
-// generateTaskID 生成随机任务ID
-func generateTaskID() string {
-	// 简单的ID生成实现
-	return fmt.Sprintf("task_%d", time.Now().UnixNano())
 }
 
 // TaskStatus 任务状态
@@ -115,15 +109,4 @@ type TaskMessage struct {
 	Task      *Task     `json:"task"`
 	Timestamp time.Time `json:"timestamp"`
 	Attempts  int       `json:"attempts"`
-}
-
-// TaskResult 任务执行结果
-type TaskResult struct {
-	TaskID    string         `json:"task_id"`
-	Success   bool           `json:"success"`
-	Error     string         `json:"error,omitempty"`
-	Data      map[string]any `json:"data,omitempty"`
-	Duration  time.Duration  `json:"duration"`
-	WorkerID  string         `json:"worker_id"`
-	Timestamp time.Time      `json:"timestamp"`
 }

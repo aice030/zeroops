@@ -7,7 +7,7 @@ import (
 	"mocks3/services/mock-error/internal/repository"
 	"mocks3/shared/interfaces"
 	"mocks3/shared/models"
-	"mocks3/shared/observability/log"
+	"mocks3/shared/observability"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,7 +19,7 @@ type ErrorInjectorService struct {
 	ruleRepo   *repository.RuleRepository
 	statsRepo  *repository.StatsRepository
 	ruleEngine interfaces.ErrorRuleEngine
-	logger     *log.Logger
+	logger     *observability.Logger
 }
 
 // NewErrorInjectorService 创建错误注入服务
@@ -28,7 +28,7 @@ func NewErrorInjectorService(
 	ruleRepo *repository.RuleRepository,
 	statsRepo *repository.StatsRepository,
 	ruleEngine interfaces.ErrorRuleEngine,
-	logger *log.Logger,
+	logger *observability.Logger,
 ) *ErrorInjectorService {
 	return &ErrorInjectorService{
 		config:     cfg,

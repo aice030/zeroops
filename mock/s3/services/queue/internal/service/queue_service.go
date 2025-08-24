@@ -6,7 +6,7 @@ import (
 	"mocks3/services/queue/internal/repository"
 	"mocks3/shared/interfaces"
 	"mocks3/shared/models"
-	"mocks3/shared/observability/log"
+	"mocks3/shared/observability"
 	"sync"
 	"time"
 )
@@ -14,7 +14,7 @@ import (
 // QueueService 队列服务实现
 type QueueService struct {
 	repo    *repository.RedisRepository
-	logger  *log.Logger
+	logger  *observability.Logger
 	workers map[string]*Worker
 	mu      sync.RWMutex
 	ctx     context.Context
@@ -25,14 +25,14 @@ type QueueService struct {
 type Worker struct {
 	ID      string
 	service *QueueService
-	logger  *log.Logger
+	logger  *observability.Logger
 	stopCh  chan struct{}
 	running bool
 	mu      sync.RWMutex
 }
 
 // NewQueueService 创建队列服务
-func NewQueueService(repo *repository.RedisRepository, logger *log.Logger) *QueueService {
+func NewQueueService(repo *repository.RedisRepository, logger *observability.Logger) *QueueService {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &QueueService{

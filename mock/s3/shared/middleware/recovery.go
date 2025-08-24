@@ -82,55 +82,33 @@ func HTTPRecoveryMiddleware(config *RecoveryConfig) func(http.Handler) http.Hand
 	}
 }
 
-// LoggingRecoveryHandler 记录panic的恢复处理器
-func LoggingRecoveryHandler(enableStackTrace bool) func(*gin.Context, any) {
+// CustomRecoveryHandler 可配置的恢复处理器
+func CustomRecoveryHandler(isDevelopment bool, enableStackTrace bool) func(*gin.Context, any) {
 	return func(c *gin.Context, recovered any) {
+		// 记录错误
 		log.Printf("Panic recovered in %s %s: %v", c.Request.Method, c.Request.URL.Path, recovered)
 
 		if enableStackTrace {
 			log.Printf("Stack trace:\n%s", debug.Stack())
 		}
 
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":     "Internal Server Error",
-			"message":   "An unexpected error occurred",
-			"path":      c.Request.URL.Path,
-			"method":    c.Request.Method,
-			"timestamp": gin.H{"error": fmt.Sprintf("%v", recovered)},
-		})
-		c.Abort()
-	}
-}
-
-// DetailedRecoveryHandler 详细的恢复处理器（开发环境使用）
-func DetailedRecoveryHandler() func(*gin.Context, any) {
-	return func(c *gin.Context, recovered any) {
-		log.Printf("Panic recovered: %v", recovered)
-		log.Printf("Stack trace:\n%s", debug.Stack())
-
-		c.JSON(http.StatusInternalServerError, gin.H{
+		// 构建响应
+		response := gin.H{
 			"error":   "Internal Server Error",
 			"message": "An unexpected error occurred",
-			"path":    c.Request.URL.Path,
-			"method":  c.Request.Method,
-			"panic":   fmt.Sprintf("%v", recovered),
-			"stack":   string(debug.Stack()),
-			"headers": c.Request.Header,
-		})
-		c.Abort()
-	}
-}
+		}
 
-// ProductionRecoveryHandler 生产环境恢复处理器
-func ProductionRecoveryHandler() func(*gin.Context, any) {
-	return func(c *gin.Context, recovered any) {
-		// 只记录错误，不暴露敏感信息
-		log.Printf("Panic recovered: %v", recovered)
+		// 开发环境提供更多信息
+		if isDevelopment {
+			response["path"] = c.Request.URL.Path
+			response["method"] = c.Request.Method
+			response["panic"] = fmt.Sprintf("%v", recovered)
+			if enableStackTrace {
+				response["stack"] = string(debug.Stack())
+			}
+		}
 
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Internal Server Error",
-			"message": "An unexpected error occurred",
-		})
+		c.JSON(http.StatusInternalServerError, response)
 		c.Abort()
 	}
 }

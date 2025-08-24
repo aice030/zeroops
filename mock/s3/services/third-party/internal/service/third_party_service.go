@@ -8,7 +8,7 @@ import (
 	"mocks3/services/third-party/internal/repository"
 	"mocks3/shared/interfaces"
 	"mocks3/shared/models"
-	"mocks3/shared/observability/log"
+	"mocks3/shared/observability"
 	"net/http"
 	"strings"
 	"time"
@@ -18,7 +18,7 @@ import (
 type ThirdPartyService struct {
 	dataSourceRepo *repository.DataSourceRepository
 	cacheRepo      *repository.CacheRepository
-	logger         *log.Logger
+	logger         *observability.Logger
 	httpClient     *http.Client
 }
 
@@ -26,7 +26,7 @@ type ThirdPartyService struct {
 func NewThirdPartyService(
 	dataSourceRepo *repository.DataSourceRepository,
 	cacheRepo *repository.CacheRepository,
-	logger *log.Logger,
+	logger *observability.Logger,
 ) *ThirdPartyService {
 	return &ThirdPartyService{
 		dataSourceRepo: dataSourceRepo,

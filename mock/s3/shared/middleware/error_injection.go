@@ -1,9 +1,7 @@
 package middleware
 
 import (
-	"context"
 	"fmt"
-	"math/rand"
 	"mocks3/shared/interfaces"
 	"mocks3/shared/models"
 	"net/http"
@@ -121,7 +119,7 @@ func (m *ErrorInjectionMiddleware) injectError(c *gin.Context, action *models.Er
 	case models.ErrorActionTypeTimeout:
 		return m.injectTimeout(c, action)
 	case models.ErrorActionTypeCorruption:
-		return m.injectCorruption(c, action)
+		return m.injectHTTPResponseError(c, http.StatusInternalServerError, "Data corruption error")
 	default:
 		return false
 	}
@@ -253,113 +251,31 @@ func (m *ErrorInjectionMiddleware) injectTimeoutStandard(w http.ResponseWriter, 
 	return true
 }
 
-// injectCorruption 注入数据损坏
-func (m *ErrorInjectionMiddleware) injectCorruption(c *gin.Context, action *models.ErrorAction) bool {
-	// 这是一个复杂的错误类型，需要在响应中随机修改数据
-	// 这里提供一个基本实现，实际使用时可能需要更复杂的逻辑
-
-	// 在响应写入器中注入损坏
-	originalWriter := c.Writer
-	c.Writer = &corruptedResponseWriter{
-		ResponseWriter: originalWriter,
-		corruptionRate: 0.1, // 10%的字节损坏率
+// injectHTTPResponseError 统一的HTTP响应错误注入
+func (m *ErrorInjectionMiddleware) injectHTTPResponseError(w http.ResponseWriter, action *models.ErrorAction) bool {
+	statusCode := action.HTTPCode
+	if statusCode == 0 {
+		statusCode = http.StatusInternalServerError
 	}
 
-	return false // 继续处理请求
-}
+	// 设置自定义响应头
+	for key, value := range action.Headers {
+		w.Header().Set(key, value)
+	}
 
-// corruptedResponseWriter 损坏的响应写入器
-type corruptedResponseWriter struct {
-	gin.ResponseWriter
-	corruptionRate float64
-}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
 
-func (w *corruptedResponseWriter) Write(data []byte) (int, error) {
-	// 随机损坏一些字节
-	corrupted := make([]byte, len(data))
-	copy(corrupted, data)
-
-	for i := range corrupted {
-		if rand.Float64() < w.corruptionRate {
-			corrupted[i] = byte(rand.Intn(256))
+	// 写入响应体
+	if action.Body != "" {
+		w.Write([]byte(action.Body))
+	} else {
+		message := action.Message
+		if message == "" {
+			message = "Injected error"
 		}
+		w.Write([]byte(fmt.Sprintf(`{"error": "%s", "code": %d, "injected": true}`, message, statusCode)))
 	}
 
-	return w.ResponseWriter.Write(corrupted)
-}
-
-// DatabaseErrorInjector 数据库错误注入器
-type DatabaseErrorInjector struct {
-	injectorService interfaces.ErrorInjectorService
-	serviceName     string
-}
-
-// NewDatabaseErrorInjector 创建数据库错误注入器
-func NewDatabaseErrorInjector(injectorService interfaces.ErrorInjectorService, serviceName string) *DatabaseErrorInjector {
-	return &DatabaseErrorInjector{
-		injectorService: injectorService,
-		serviceName:     serviceName,
-	}
-}
-
-// ShouldInjectError 检查是否应该注入数据库错误
-func (d *DatabaseErrorInjector) ShouldInjectError(ctx context.Context, operation string) error {
-	action, shouldInject := d.injectorService.ShouldInjectError(ctx, d.serviceName, operation)
-	if !shouldInject {
-		return nil
-	}
-
-	switch action.Type {
-	case models.ErrorActionTypeDatabaseError:
-		if action.Message != "" {
-			return fmt.Errorf("database error (injected): %s", action.Message)
-		}
-		return fmt.Errorf("database connection failed (injected)")
-	case models.ErrorActionTypeTimeout:
-		if action.Delay != nil {
-			time.Sleep(*action.Delay)
-		}
-		return fmt.Errorf("database operation timeout (injected)")
-	default:
-		return nil
-	}
-}
-
-// StorageErrorInjector 存储错误注入器
-type StorageErrorInjector struct {
-	injectorService interfaces.ErrorInjectorService
-	serviceName     string
-}
-
-// NewStorageErrorInjector 创建存储错误注入器
-func NewStorageErrorInjector(injectorService interfaces.ErrorInjectorService, serviceName string) *StorageErrorInjector {
-	return &StorageErrorInjector{
-		injectorService: injectorService,
-		serviceName:     serviceName,
-	}
-}
-
-// ShouldInjectError 检查是否应该注入存储错误
-func (s *StorageErrorInjector) ShouldInjectError(ctx context.Context, operation string) error {
-	action, shouldInject := s.injectorService.ShouldInjectError(ctx, s.serviceName, operation)
-	if !shouldInject {
-		return nil
-	}
-
-	switch action.Type {
-	case models.ErrorActionTypeStorageError:
-		if action.Message != "" {
-			return fmt.Errorf("storage error (injected): %s", action.Message)
-		}
-		return fmt.Errorf("storage operation failed (injected)")
-	case models.ErrorActionTypeTimeout:
-		if action.Delay != nil {
-			time.Sleep(*action.Delay)
-		}
-		return fmt.Errorf("storage operation timeout (injected)")
-	case models.ErrorActionTypeCorruption:
-		return fmt.Errorf("storage data corruption detected (injected)")
-	default:
-		return nil
-	}
+	return true
 }

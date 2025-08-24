@@ -8,7 +8,7 @@ import (
 	"mocks3/services/mock-error/internal/service"
 	"mocks3/shared/bootstrap"
 	"mocks3/shared/models"
-	logger "mocks3/shared/observability/log"
+	logger "mocks3/shared/observability"
 	"time"
 )
 

@@ -50,7 +50,6 @@ func NewConsulManager(config *ConsulConfig) (*ConsulManager, error) {
 	// 获取服务主机地址
 	serviceHost := config.ServiceHost
 	if serviceHost == "" {
-		// 在容器环境中使用主机名
 		serviceHost = hostname
 	}
 
@@ -76,9 +75,7 @@ func (cm *ConsulManager) RegisterService(ctx context.Context, config *ConsulConf
 	// 获取服务地址
 	serviceAddress := config.ServiceHost
 	if serviceAddress == "" {
-		// 在容器环境中使用主机名
-		hostname, _ := os.Hostname()
-		serviceAddress = hostname
+		serviceAddress, _ = os.Hostname()
 	}
 
 	service := &api.AgentServiceRegistration{
@@ -212,37 +209,6 @@ func (cm *ConsulManager) WatchConfig(ctx context.Context, key string) (<-chan st
 	return ch, nil
 }
 
-// GetServiceHealth 获取服务健康状态
-func (cm *ConsulManager) GetServiceHealth(ctx context.Context, serviceID string) (bool, error) {
-	checks, _, err := cm.client.Health().Checks(cm.serviceName, nil)
-	if err != nil {
-		return false, fmt.Errorf("failed to get service health: %w", err)
-	}
-
-	for _, check := range checks {
-		if check.ServiceID == serviceID {
-			return check.Status == api.HealthPassing, nil
-		}
-	}
-
-	return false, fmt.Errorf("service not found: %s", serviceID)
-}
-
-// SetServiceHealth 设置服务健康状态
-func (cm *ConsulManager) SetServiceHealth(ctx context.Context, serviceID string, healthy bool) error {
-	status := api.HealthPassing
-	if !healthy {
-		status = api.HealthCritical
-	}
-
-	err := cm.client.Agent().UpdateTTL(fmt.Sprintf("service:%s", serviceID), "Manual health update", status)
-	if err != nil {
-		return fmt.Errorf("failed to set service health: %w", err)
-	}
-
-	return nil
-}
-
 // LoadServiceConfigFromConsul 从 Consul KV 加载服务配置
 func LoadServiceConfigFromConsul(consulAddr, serviceName string) (*ConsulConfig, error) {
 	// 创建 Consul 客户端
@@ -267,36 +233,31 @@ func LoadServiceConfigFromConsul(consulAddr, serviceName string) (*ConsulConfig,
 	// 从 Consul KV 加载配置
 	ctx := context.Background()
 
-	// 加载服务端口
+	// 简化的配置加载
 	if port, err := getConsulValue(client, ctx, fmt.Sprintf("services/%s/port", serviceName)); err == nil && port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
 			config.ServicePort = p
 		}
 	}
-
-	// 加载服务主机
 	if host, err := getConsulValue(client, ctx, fmt.Sprintf("services/%s/host", serviceName)); err == nil && host != "" {
 		config.ServiceHost = host
 	}
-
-	// 加载健康检查路径
 	if health, err := getConsulValue(client, ctx, fmt.Sprintf("services/%s/health_path", serviceName)); err == nil && health != "" {
 		config.HealthPath = health
 	}
 
-	// 加载标签
+	// 加载标签和元数据
 	if tags, err := getConsulValue(client, ctx, fmt.Sprintf("services/%s/tags", serviceName)); err == nil && tags != "" {
 		config.Tags = strings.Split(tags, ",")
 	}
 
-	// 加载元数据
-	if version, err := getConsulValue(client, ctx, fmt.Sprintf("services/%s/version", serviceName)); err == nil && version != "" {
+	// 设置默认值并从 Consul 加载
+	if version, _ := getConsulValue(client, ctx, fmt.Sprintf("services/%s/version", serviceName)); version != "" {
 		config.Metadata["version"] = version
 	} else {
 		config.Metadata["version"] = "1.0.0"
 	}
-
-	if env, err := getConsulValue(client, ctx, fmt.Sprintf("services/%s/environment", serviceName)); err == nil && env != "" {
+	if env, _ := getConsulValue(client, ctx, fmt.Sprintf("services/%s/environment", serviceName)); env != "" {
 		config.Metadata["environment"] = env
 	} else {
 		config.Metadata["environment"] = "development"

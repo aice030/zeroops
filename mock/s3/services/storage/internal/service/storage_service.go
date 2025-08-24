@@ -7,7 +7,7 @@ import (
 	"mocks3/services/storage/internal/repository"
 	"mocks3/shared/client"
 	"mocks3/shared/models"
-	"mocks3/shared/observability/log"
+	"mocks3/shared/observability"
 	"time"
 )
 
@@ -17,11 +17,11 @@ type StorageService struct {
 	storageManager   *repository.StorageManager
 	metadataClient   *client.MetadataClient
 	thirdPartyClient *client.ThirdPartyClient
-	logger           *log.Logger
+	logger           *observability.Logger
 }
 
 // NewStorageService 创建存储服务
-func NewStorageService(cfg *config.Config, logger *log.Logger) (*StorageService, error) {
+func NewStorageService(cfg *config.Config, logger *observability.Logger) (*StorageService, error) {
 	// 验证配置
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
