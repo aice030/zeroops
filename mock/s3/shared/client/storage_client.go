@@ -44,7 +44,6 @@ func (c *StorageClient) WriteObject(ctx context.Context, object *models.Object) 
 	// 更新对象信息
 	object.ID = uploadResp.ObjectID
 	object.MD5Hash = uploadResp.MD5Hash
-	object.ETag = uploadResp.ETag
 
 	return nil
 }
@@ -81,7 +80,6 @@ func (c *StorageClient) ReadObject(ctx context.Context, bucket, key string) (*mo
 		Data:        data,
 		Size:        int64(len(data)),
 		ContentType: resp.Header.Get("Content-Type"),
-		ETag:        resp.Header.Get("ETag"),
 		MD5Hash:     resp.Header.Get("Content-MD5"),
 		Headers:     make(map[string]string),
 	}

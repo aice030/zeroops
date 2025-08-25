@@ -6,29 +6,35 @@ import (
 
 // Metadata 元数据模型
 type Metadata struct {
-	ID           string            `json:"id" db:"id"`
-	Key          string            `json:"key" db:"key"`
-	Bucket       string            `json:"bucket" db:"bucket"`
-	Size         int64             `json:"size" db:"size"`
-	ContentType  string            `json:"content_type" db:"content_type"`
-	MD5Hash      string            `json:"md5_hash" db:"md5_hash"`
-	ETag         string            `json:"etag" db:"etag"`
-	StorageNodes []string          `json:"storage_nodes" db:"storage_nodes"` // JSON 存储
-	Headers      map[string]string `json:"headers" db:"headers"`             // JSON 存储
-	Tags         map[string]string `json:"tags" db:"tags"`                   // JSON 存储
-	Status       string            `json:"status" db:"status"`               // active, deleted, corrupted
-	Version      int64             `json:"version" db:"version"`
-	CreatedAt    time.Time         `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time         `json:"updated_at" db:"updated_at"`
-	DeletedAt    *time.Time        `json:"deleted_at,omitempty" db:"deleted_at"`
+	Bucket      string    `json:"bucket" db:"bucket"`
+	Key         string    `json:"key" db:"key"`                   // 对象键
+	Size        int64     `json:"size" db:"size"`                 // 文件大小
+	ContentType string    `json:"content_type" db:"content_type"` // MIME类型
+	MD5Hash     string    `json:"md5_hash" db:"md5_hash"`         // 文件校验和ETag
+	Status      string    `json:"status" db:"status"`             // active/deleted/corrupted
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 }
 
 // Stats 统计信息
 type Stats struct {
-	TotalObjects int64            `json:"total_objects"`
-	TotalSize    int64            `json:"total_size"`
-	AverageSize  float64          `json:"average_size"`
-	BucketStats  map[string]int64 `json:"bucket_stats"`
-	ContentTypes map[string]int64 `json:"content_types"`
-	LastUpdated  time.Time        `json:"last_updated"`
+	TotalObjects int64     `json:"total_objects"`
+	TotalSize    int64     `json:"total_size"`
+	LastUpdated  time.Time `json:"last_updated"`
+}
+
+// 状态常量
+const (
+	StatusActive    = "active"
+	StatusDeleted   = "deleted"
+	StatusCorrupted = "corrupted"
+)
+
+// GetID 生成唯一标识符（bucket/key）
+func (m *Metadata) GetID() string {
+	return m.Bucket + "/" + m.Key
+}
+
+// GetETag 获取ETag（使用MD5Hash）
+func (m *Metadata) GetETag() string {
+	return m.MD5Hash
 }
