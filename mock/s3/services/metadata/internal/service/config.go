@@ -2,8 +2,8 @@ package service
 
 import (
 	"fmt"
+	"mocks3/shared/observability/config"
 	"mocks3/shared/utils"
-	"time"
 )
 
 // Config Metadata Service配置
@@ -33,12 +33,7 @@ type Config struct {
 		DB       int    `yaml:"db"`
 	} `yaml:"redis"`
 
-	Observability utils.Config `yaml:"observability"`
-
-	Business struct {
-		CacheTTL         time.Duration `yaml:"cache_ttl"`
-		MaxSearchResults int           `yaml:"max_search_results"`
-	} `yaml:"business"`
+	Observability config.ObservabilityConfig `yaml:"observability"`
 }
 
 // LoadConfig 加载配置
@@ -55,12 +50,6 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 	if config.Service.Port == 0 {
 		config.Service.Port = 8081
-	}
-	if config.Business.CacheTTL == 0 {
-		config.Business.CacheTTL = 10 * time.Minute
-	}
-	if config.Business.MaxSearchResults == 0 {
-		config.Business.MaxSearchResults = 1000
 	}
 
 	return config, nil

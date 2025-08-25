@@ -4,7 +4,7 @@ package observability
 import (
 	"context"
 	"fmt"
-	"mocks3/shared/utils"
+	"mocks3/shared/observability/config"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,7 +12,7 @@ import (
 // Setup 设置所有可观测性组件
 func Setup(serviceName string, configPath string) (*Providers, *MetricCollector, *HTTPMiddleware, error) {
 	// 从配置文件加载配置
-	config, err := utils.LoadObservabilityConfig(serviceName, configPath)
+	config, err := config.LoadObservabilityConfig(serviceName, configPath)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to load config: %w", err)
 	}

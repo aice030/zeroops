@@ -2,10 +2,8 @@ package service
 
 import (
 	"fmt"
-	"os"
+	"mocks3/shared/utils"
 	"time"
-
-	"gopkg.in/yaml.v3"
 )
 
 // StorageNode 存储节点配置
@@ -49,14 +47,9 @@ type Config struct {
 
 // LoadConfig 加载配置文件
 func LoadConfig(configPath string) (*Config, error) {
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("read config file: %w", err)
-	}
-
 	var config Config
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("unmarshal config: %w", err)
+	if err := utils.LoadConfigFromYAML(configPath, &config); err != nil {
+		return nil, err
 	}
 
 	if err := config.validate(); err != nil {

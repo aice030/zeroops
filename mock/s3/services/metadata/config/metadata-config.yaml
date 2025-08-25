@@ -24,7 +24,3 @@ observability:
   service_name: "metadata-service"
   otlp_endpoint: "localhost:4318"
   log_level: "info"
-  
-business:
-  cache_ttl: "10m"
-  max_search_results: 1000

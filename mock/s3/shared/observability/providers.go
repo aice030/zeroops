@@ -3,7 +3,7 @@ package observability
 import (
 	"context"
 	"fmt"
-	"mocks3/shared/utils"
+	"mocks3/shared/observability/config"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
@@ -23,7 +23,7 @@ import (
 
 // Providers 统一的可观测性提供者
 type Providers struct {
-	config         *utils.Config
+	config         *config.ObservabilityConfig
 	resource       *resource.Resource
 	logProvider    *sdklog.LoggerProvider
 	metricProvider *sdkmetric.MeterProvider
@@ -36,7 +36,7 @@ type Providers struct {
 }
 
 // NewProviders 创建统一的可观测性提供者
-func NewProviders(config *utils.Config) (*Providers, error) {
+func NewProviders(config *config.ObservabilityConfig) (*Providers, error) {
 	// 创建资源
 	res, err := createResource(config)
 	if err != nil {
@@ -170,7 +170,7 @@ func (p *Providers) Shutdown(ctx context.Context) error {
 }
 
 // createResource 创建OTEL资源
-func createResource(config *utils.Config) (*resource.Resource, error) {
+func createResource(config *config.ObservabilityConfig) (*resource.Resource, error) {
 	return resource.New(context.Background(),
 		resource.WithAttributes(
 			semconv.ServiceName(config.ServiceName),
