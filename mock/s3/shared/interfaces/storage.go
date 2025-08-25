@@ -37,3 +37,11 @@ type StorageManager interface {
 	DeleteFromAllNodes(ctx context.Context, bucket, key string) error
 	GetHealthyNodes() []StorageNode
 }
+
+// NodeStatus 存储节点状态
+type NodeStatus struct {
+	ID        string `json:"id"`
+	Status    string `json:"status"` // healthy, unhealthy, unreachable, error
+	UsedSpace int64  `json:"used_space"`
+	Error     string `json:"error,omitempty"`
+}
