@@ -62,7 +62,7 @@ func (s *ThirdPartyService) GetObject(ctx context.Context, bucket, key string) (
 func (s *ThirdPartyService) generateMockObject(ctx context.Context, bucket, key string) (*models.Object, error) {
 	// 生成Mock数据
 	mockData := s.generateMockData(key)
-	
+
 	// 计算MD5哈希
 	hash := md5.Sum(mockData)
 	md5Hash := fmt.Sprintf("%x", hash)
@@ -75,7 +75,7 @@ func (s *ThirdPartyService) generateMockObject(ctx context.Context, bucket, key 
 		ContentType: s.config.Mock.DefaultContentType,
 		MD5Hash:     md5Hash,
 		Data:        mockData,
-		Headers:     map[string]string{
+		Headers: map[string]string{
 			"X-Third-Party-Source": "mock-service",
 			"X-Generated-At":       time.Now().Format(time.RFC3339),
 		},
@@ -101,25 +101,25 @@ func (s *ThirdPartyService) generateMockData(key string) []byte {
 	// 根据key生成不同类型的Mock数据
 	switch {
 	case len(key) > 10 && key[len(key)-4:] == ".txt":
-		return []byte(fmt.Sprintf("This is mock text content for key: %s\nGenerated at: %s\nContent from third-party mock service.", 
+		return []byte(fmt.Sprintf("This is mock text content for key: %s\nGenerated at: %s\nContent from third-party mock service.",
 			key, time.Now().Format(time.RFC3339)))
 	case len(key) > 10 && key[len(key)-4:] == ".json":
-		return []byte(fmt.Sprintf(`{"key": "%s", "generated_at": "%s", "source": "third-party-mock", "data": {"message": "Mock JSON content"}}`, 
+		return []byte(fmt.Sprintf(`{"key": "%s", "generated_at": "%s", "source": "third-party-mock", "data": {"message": "Mock JSON content"}}`,
 			key, time.Now().Format(time.RFC3339)))
 	case len(key) > 10 && key[len(key)-4:] == ".xml":
-		return []byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?><root><key>%s</key><generated_at>%s</generated_at><source>third-party-mock</source><message>Mock XML content</message></root>`, 
+		return []byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?><root><key>%s</key><generated_at>%s</generated_at><source>third-party-mock</source><message>Mock XML content</message></root>`,
 			key, time.Now().Format(time.RFC3339)))
 	default:
 		// 生成二进制数据
 		size := 100 + s.rand.Intn(900) // 100-1000字节的随机数据
 		data := make([]byte, size)
-		
+
 		// 生成可识别的模式数据而不是纯随机数据
 		pattern := []byte(fmt.Sprintf("MOCK-DATA-FOR-%s-", key))
 		for i := 0; i < size; i++ {
 			data[i] = pattern[i%len(pattern)]
 		}
-		
+
 		return data
 	}
 }
@@ -138,7 +138,7 @@ func (s *ThirdPartyService) callRealThirdPartyAPI(ctx context.Context, bucket, k
 
 		// 这里应该实现真实的HTTP客户端调用
 		// 示例：使用HTTP客户端从 dataSource.URL 获取数据
-		
+
 		// 暂时返回错误，表示未实现
 		s.logger.Debug(ctx, "Real API call not implemented, returning error",
 			observability.String("source", dataSource.Name))
@@ -174,12 +174,12 @@ func (s *ThirdPartyService) HealthCheck(ctx context.Context) error {
 // GetStats 获取服务统计信息
 func (s *ThirdPartyService) GetStats(ctx context.Context) (map[string]any, error) {
 	enabledSources := s.config.GetEnabledDataSources()
-	
+
 	stats := map[string]any{
-		"service":          "third-party-service",
-		"mode":             map[string]any{"mock_enabled": s.config.Mock.Enabled},
-		"data_sources":     len(s.config.DataSources),
-		"enabled_sources":  len(enabledSources),
+		"service":         "third-party-service",
+		"mode":            map[string]any{"mock_enabled": s.config.Mock.Enabled},
+		"data_sources":    len(s.config.DataSources),
+		"enabled_sources": len(enabledSources),
 		"config": map[string]any{
 			"success_rate": s.config.Mock.SuccessRate,
 			"latency_ms":   s.config.Mock.LatencyMs,

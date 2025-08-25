@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"mocks3/services/third-party/internal/handler"
-	"mocks3/services/third-party/internal/service"
+	"mocks3/services/mock-error/internal/handler"
+	"mocks3/services/mock-error/internal/service"
 	"mocks3/shared/observability"
 	"net/http"
 	"os"
@@ -17,7 +17,7 @@ import (
 
 func main() {
 	// 1. 加载配置
-	config, err := service.LoadConfig("config/third-party-config.yaml")
+	config, err := service.LoadConfig("config/mock-error-config.yaml")
 	if err != nil {
 		fmt.Printf("Failed to load config: %v\n", err)
 		os.Exit(1)
@@ -34,17 +34,16 @@ func main() {
 	logger := observability.GetLogger(providers)
 	ctx := context.Background()
 
-	logger.Info(ctx, "Starting Third-Party Service",
+	logger.Info(ctx, "Starting Mock Error Service",
 		observability.String("service", config.Service.Name),
 		observability.String("host", config.Service.Host),
-		observability.Int("port", config.Service.Port),
-		observability.String("mock_enabled", fmt.Sprintf("%v", config.Mock.Enabled)))
+		observability.Int("port", config.Service.Port))
 
-	// 3. 初始化第三方服务
-	thirdPartyService := service.NewThirdPartyService(config, logger)
+	// 3. 初始化错误注入服务
+	errorService := service.NewMockErrorService(config, logger)
 
 	// 4. 初始化HTTP处理器
-	thirdPartyHandler := handler.NewThirdPartyHandler(thirdPartyService, logger)
+	errorHandler := handler.NewMockErrorHandler(errorService, logger)
 
 	// 5. 设置Gin路由
 	gin.SetMode(gin.ReleaseMode)
@@ -55,7 +54,7 @@ func main() {
 	observability.SetupGinMiddlewares(router, config.Service.Name, httpMiddleware)
 
 	// 设置业务路由
-	thirdPartyHandler.SetupRoutes(router)
+	errorHandler.SetupRoutes(router)
 
 	// 6. 启动系统指标收集
 	observability.StartSystemMetrics(ctx, collector, logger)
@@ -75,17 +74,15 @@ func main() {
 		}
 	}()
 
-	logger.Info(ctx, "Third-Party Service started successfully",
-		observability.String("addr", addr),
-		observability.Int("data_sources", len(config.DataSources)),
-		observability.String("mock_mode", fmt.Sprintf("%v", config.Mock.Enabled)))
+	logger.Info(ctx, "Mock Error Service started successfully",
+		observability.String("addr", addr))
 
 	// 9. 优雅关闭
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	logger.Info(ctx, "Shutting down Third-Party Service...")
+	logger.Info(ctx, "Shutting down Mock Error Service...")
 
 	// 关闭HTTP服务器
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -97,5 +94,5 @@ func main() {
 		logger.Info(ctx, "HTTP server stopped")
 	}
 
-	logger.Info(ctx, "Third-Party Service stopped")
+	logger.Info(ctx, "Mock Error Service stopped")
 }

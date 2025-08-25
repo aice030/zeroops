@@ -32,7 +32,7 @@ func (h *ThirdPartyHandler) SetupRoutes(router *gin.Engine) {
 	{
 		// 获取对象
 		api.GET("/objects/:bucket/:key", h.GetObject)
-		
+
 		// 统计信息
 		api.GET("/stats", h.GetStats)
 	}
@@ -121,7 +121,7 @@ func (h *ThirdPartyHandler) HealthCheck(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status": "healthy",
+		"status":  "healthy",
 		"service": "third-party-service",
 	})
 }

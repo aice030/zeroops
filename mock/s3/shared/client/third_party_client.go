@@ -24,13 +24,13 @@ func NewThirdPartyClient(baseURL string, timeout time.Duration, logger *observab
 // GetObject 获取对象
 func (c *ThirdPartyClient) GetObject(ctx context.Context, bucket, key string) (*models.Object, error) {
 	path := fmt.Sprintf("/api/v1/objects/%s/%s", PathEscape(bucket), PathEscape(key))
-	
+
 	// 直接使用DoRequest获取响应以处理二进制数据
 	opts := RequestOptions{
 		Method: "GET",
 		Path:   path,
 	}
-	
+
 	resp, err := c.DoRequest(ctx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
