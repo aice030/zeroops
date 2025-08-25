@@ -10,10 +10,10 @@ type QueueService interface {
 	// 删除任务操作
 	EnqueueDeleteTask(ctx context.Context, task *models.DeleteTask) error
 	DequeueDeleteTask(ctx context.Context) (*models.DeleteTask, error)
-	
+
 	// 简单状态查询
 	GetQueueLength(ctx context.Context) (int64, error)
-	
+
 	// 健康检查
 	HealthCheck(ctx context.Context) error
 }

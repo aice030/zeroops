@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"mocks3/shared/models"
+	"mocks3/shared/observability"
 	"net/http"
 	"time"
 )
@@ -14,9 +15,9 @@ type MetadataClient struct {
 }
 
 // NewMetadataClient 创建元数据服务客户端
-func NewMetadataClient(baseURL string, timeout time.Duration) *MetadataClient {
+func NewMetadataClient(baseURL string, timeout time.Duration, logger *observability.Logger) *MetadataClient {
 	return &MetadataClient{
-		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout),
+		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "metadata-client", logger),
 	}
 }
 
@@ -31,7 +32,7 @@ func (c *MetadataClient) GetMetadata(ctx context.Context, bucket, key string) (*
 	var metadata models.Metadata
 	err := c.Get(ctx, path, nil, &metadata)
 	if err != nil {
-		return nil, fmt.Errorf("metadata not found: %s/%s", bucket, key)
+		return nil, err
 	}
 	return &metadata, nil
 }
@@ -57,23 +58,40 @@ func (c *MetadataClient) ListMetadata(ctx context.Context, bucket, prefix string
 		"offset": offset,
 	})
 
-	var metadataList []*models.Metadata
-	err := c.Get(ctx, "/api/v1/metadata", queryParams, &metadataList)
-	return metadataList, err
+	var response struct {
+		Metadata []*models.Metadata `json:"metadata"`
+		Count    int                `json:"count"`
+		Bucket   string             `json:"bucket"`
+		Prefix   string             `json:"prefix"`
+		Limit    int                `json:"limit"`
+		Offset   int                `json:"offset"`
+	}
+
+	err := c.Get(ctx, "/api/v1/metadata", queryParams, &response)
+	return response.Metadata, err
 }
 
 // SearchMetadata 搜索元数据
-func (c *MetadataClient) SearchMetadata(ctx context.Context, req *models.SearchObjectsRequest) (*models.SearchObjectsResponse, error) {
+func (c *MetadataClient) SearchMetadata(ctx context.Context, query, bucket string, limit int) ([]*models.Metadata, error) {
 	queryParams := BuildQueryParams(map[string]any{
-		"q":      req.Query,
-		"bucket": req.Bucket,
-		"limit":  req.Limit,
-		"offset": req.Offset,
+		"q":      query,
+		"bucket": bucket,
+		"limit":  limit,
 	})
 
-	var searchResp models.SearchObjectsResponse
-	err := c.Get(ctx, "/api/v1/metadata/search", queryParams, &searchResp)
-	return &searchResp, err
+	var response struct {
+		Query    string             `json:"query"`
+		Metadata []*models.Metadata `json:"metadata"`
+		Count    int                `json:"count"`
+		Limit    int                `json:"limit"`
+	}
+
+	err := c.Get(ctx, "/api/v1/metadata/search", queryParams, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Metadata, nil
 }
 
 // GetStats 获取统计信息

@@ -17,7 +17,7 @@ type MetadataService interface {
 	ListMetadata(ctx context.Context, bucket, prefix string, limit, offset int) ([]*models.Metadata, error)
 	SearchMetadata(ctx context.Context, query string, limit int) ([]*models.Metadata, error)
 
-	// 统计操作 
+	// 统计操作
 	GetStats(ctx context.Context) (*models.Stats, error)
 
 	// 健康检查

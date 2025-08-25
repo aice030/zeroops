@@ -2,8 +2,10 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"mocks3/shared/models"
+	"mocks3/shared/observability"
 	"net/http"
 	"time"
 )
@@ -14,22 +16,22 @@ type QueueClient struct {
 }
 
 // NewQueueClient 创建队列服务客户端
-func NewQueueClient(baseURL string, timeout time.Duration) *QueueClient {
+func NewQueueClient(baseURL string, timeout time.Duration, logger *observability.Logger) *QueueClient {
 	return &QueueClient{
-		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout),
+		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "queue-client", logger),
 	}
 }
 
 // EnqueueDeleteTask 入队删除任务
 func (c *QueueClient) EnqueueDeleteTask(ctx context.Context, task *models.DeleteTask) error {
-	return c.PostExpectStatus(ctx, "/delete-tasks", task, http.StatusCreated)
+	return c.PostExpectStatus(ctx, "/api/v1/delete-tasks", task, http.StatusCreated)
 }
 
 // DequeueDeleteTask 出队删除任务
 func (c *QueueClient) DequeueDeleteTask(ctx context.Context) (*models.DeleteTask, error) {
 	resp, err := c.DoRequest(ctx, RequestOptions{
 		Method: "GET",
-		Path:   "/delete-tasks/dequeue",
+		Path:   "/api/v1/delete-tasks/dequeue",
 	})
 	if err != nil {
 		return nil, err
@@ -45,11 +47,8 @@ func (c *QueueClient) DequeueDeleteTask(ctx context.Context) (*models.DeleteTask
 	}
 
 	var task models.DeleteTask
-	if err := c.DoRequestWithJSON(ctx, RequestOptions{
-		Method: "GET",
-		Path:   "/delete-tasks/dequeue",
-	}, &task); err != nil {
-		return nil, err
+	if err := json.NewDecoder(resp.Body).Decode(&task); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
 	return &task, nil
@@ -60,13 +59,13 @@ func (c *QueueClient) GetQueueLength(ctx context.Context) (int64, error) {
 	var result struct {
 		Length int64 `json:"length"`
 	}
-	err := c.Get(ctx, "/delete-tasks/length", nil, &result)
+	err := c.Get(ctx, "/api/v1/delete-tasks/length", nil, &result)
 	return result.Length, err
 }
 
 // UpdateDeleteTaskStatus 更新删除任务状态
 func (c *QueueClient) UpdateDeleteTaskStatus(ctx context.Context, taskID string, status models.TaskStatus, errorMsg string) error {
-	path := fmt.Sprintf("/delete-tasks/%s/status", PathEscape(taskID))
+	path := fmt.Sprintf("/api/v1/delete-tasks/%s/status", PathEscape(taskID))
 	req := map[string]any{
 		"status": status,
 	}

@@ -6,27 +6,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mocks3/shared/observability"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // BaseHTTPClient 基础HTTP客户端，封装通用的HTTP操作
 type BaseHTTPClient struct {
-	baseURL    string
-	httpClient *http.Client
-	timeout    time.Duration
+	baseURL     string
+	httpClient  *http.Client
+	timeout     time.Duration
+	serviceName string
+	logger      *observability.Logger
 }
 
 // NewBaseHTTPClient 创建基础HTTP客户端
-func NewBaseHTTPClient(baseURL string, timeout time.Duration) *BaseHTTPClient {
+func NewBaseHTTPClient(baseURL string, timeout time.Duration, serviceName string, logger *observability.Logger) *BaseHTTPClient {
+	client := &http.Client{
+		Timeout:   timeout,
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+	}
+
 	return &BaseHTTPClient{
-		baseURL: baseURL,
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
-		timeout: timeout,
+		baseURL:     baseURL,
+		httpClient:  client,
+		timeout:     timeout,
+		serviceName: serviceName,
+		logger:      logger,
 	}
 }
 
@@ -41,9 +53,19 @@ type RequestOptions struct {
 
 // DoRequest 执行HTTP请求
 func (c *BaseHTTPClient) DoRequest(ctx context.Context, opts RequestOptions) (*http.Response, error) {
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(
+		attribute.String("http.method", opts.Method),
+		attribute.String("http.url", opts.Path),
+		attribute.String("service.name", c.serviceName),
+	)
+
 	// 构建URL
 	requestURL, err := c.buildURL(opts.Path, opts.QueryParams)
 	if err != nil {
+		c.logger.Error(ctx, "Failed to build URL",
+			observability.Error(err),
+			observability.String("path", opts.Path))
 		return nil, fmt.Errorf("build url: %w", err)
 	}
 
@@ -52,6 +74,7 @@ func (c *BaseHTTPClient) DoRequest(ctx context.Context, opts RequestOptions) (*h
 	if opts.Body != nil {
 		bodyBytes, err := json.Marshal(opts.Body)
 		if err != nil {
+			c.logger.Error(ctx, "Failed to marshal request body", observability.Error(err))
 			return nil, fmt.Errorf("marshal body: %w", err)
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
@@ -60,6 +83,7 @@ func (c *BaseHTTPClient) DoRequest(ctx context.Context, opts RequestOptions) (*h
 	// 创建请求
 	req, err := http.NewRequestWithContext(ctx, opts.Method, requestURL, bodyReader)
 	if err != nil {
+		c.logger.Error(ctx, "Failed to create HTTP request", observability.Error(err))
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
@@ -74,10 +98,22 @@ func (c *BaseHTTPClient) DoRequest(ctx context.Context, opts RequestOptions) (*h
 	}
 
 	// 执行请求
+	c.logger.Debug(ctx, "Sending HTTP request",
+		observability.String("method", opts.Method),
+		observability.String("url", requestURL))
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		c.logger.Error(ctx, "HTTP request failed",
+			observability.Error(err),
+			observability.String("url", requestURL))
 		return nil, fmt.Errorf("do request: %w", err)
 	}
+
+	span.SetAttributes(attribute.Int("http.status_code", resp.StatusCode))
+	c.logger.Debug(ctx, "HTTP request completed",
+		observability.String("url", requestURL),
+		observability.Int("status_code", resp.StatusCode))
 
 	return resp, nil
 }
@@ -91,11 +127,16 @@ func (c *BaseHTTPClient) DoRequestWithJSON(ctx context.Context, opts RequestOpti
 	defer resp.Body.Close()
 
 	if !isSuccessStatus(resp.StatusCode) {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		c.logger.Error(ctx, "HTTP request failed",
+			observability.Int("status_code", resp.StatusCode),
+			observability.String("response_body", string(body)))
+		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	if result != nil {
 		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+			c.logger.Error(ctx, "Failed to decode JSON response", observability.Error(err))
 			return fmt.Errorf("decode response: %w", err)
 		}
 	}

@@ -2,9 +2,11 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mocks3/shared/models"
+	"mocks3/shared/observability"
 	"net/http"
 	"time"
 )
@@ -15,9 +17,9 @@ type StorageClient struct {
 }
 
 // NewStorageClient 创建存储服务客户端
-func NewStorageClient(baseURL string, timeout time.Duration) *StorageClient {
+func NewStorageClient(baseURL string, timeout time.Duration, logger *observability.Logger) *StorageClient {
 	return &StorageClient{
-		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout),
+		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "storage-client", logger),
 	}
 }
 
@@ -33,7 +35,7 @@ func (c *StorageClient) WriteObject(ctx context.Context, object *models.Object) 
 	}
 
 	var uploadResp models.UploadResponse
-	if err := c.Post(ctx, "/objects", req, &uploadResp); err != nil {
+	if err := c.Post(ctx, "/api/v1/objects", req, &uploadResp); err != nil {
 		return err
 	}
 
@@ -41,16 +43,44 @@ func (c *StorageClient) WriteObject(ctx context.Context, object *models.Object) 
 		return fmt.Errorf("upload failed: %s", uploadResp.Message)
 	}
 
-	// 更新对象信息
 	object.ID = uploadResp.ObjectID
 	object.MD5Hash = uploadResp.MD5Hash
-
 	return nil
+}
+
+// WriteObjectStream 流式写入对象
+func (c *StorageClient) WriteObjectStream(ctx context.Context, bucket, key, contentType string, data io.Reader, size int64) (*models.UploadResponse, error) {
+	path := fmt.Sprintf("/api/v1/objects/%s/%s", PathEscape(bucket), PathEscape(key))
+
+	req, err := http.NewRequestWithContext(ctx, "PUT", c.baseURL+path, data)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Content-Length", fmt.Sprintf("%d", size))
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("upload failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var uploadResp models.UploadResponse
+	if err := json.NewDecoder(resp.Body).Decode(&uploadResp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	return &uploadResp, nil
 }
 
 // ReadObject 读取对象
 func (c *StorageClient) ReadObject(ctx context.Context, bucket, key string) (*models.Object, error) {
-	path := fmt.Sprintf("/objects/%s/%s", PathEscape(bucket), PathEscape(key))
+	path := fmt.Sprintf("/api/v1/objects/%s/%s", PathEscape(bucket), PathEscape(key))
 
 	resp, err := c.DoRequest(ctx, RequestOptions{
 		Method: "GET",
@@ -96,7 +126,7 @@ func (c *StorageClient) ReadObject(ctx context.Context, bucket, key string) (*mo
 
 // DeleteObject 删除对象
 func (c *StorageClient) DeleteObject(ctx context.Context, bucket, key string) error {
-	path := fmt.Sprintf("/objects/%s/%s", PathEscape(bucket), PathEscape(key))
+	path := fmt.Sprintf("/api/v1/objects/%s/%s", PathEscape(bucket), PathEscape(key))
 	return c.Delete(ctx, path)
 }
 
@@ -111,7 +141,7 @@ func (c *StorageClient) ListObjects(ctx context.Context, req *models.ListObjects
 	})
 
 	var listResp models.ListObjectsResponse
-	err := c.Get(ctx, "/objects", queryParams, &listResp)
+	err := c.Get(ctx, "/api/v1/objects", queryParams, &listResp)
 	return &listResp, err
 }
 
