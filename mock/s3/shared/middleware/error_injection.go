@@ -40,6 +40,13 @@ type MetricInjector struct {
 	cache    map[string]*CachedAnomaly
 	cacheMu  sync.RWMutex
 	cacheTTL time.Duration
+
+	// 真实资源注入器
+	cpuInjector     *CPUSpikeInjector
+	memoryInjector  *MemoryLeakInjector
+	diskInjector    *DiskFullInjector
+	networkInjector *NetworkFloodInjector
+	machineInjector *MachineDownInjector
 }
 
 // CachedAnomaly 缓存的异常配置
@@ -80,6 +87,12 @@ func NewMetricInjector(configPath string, serviceName string, logger *observabil
 		logger:          logger,
 		cache:           make(map[string]*CachedAnomaly),
 		cacheTTL:        config.Cache.TTL,
+		// 初始化真实资源注入器
+		cpuInjector:     NewCPUSpikeInjector(logger),
+		memoryInjector:  NewMemoryLeakInjector(logger),
+		diskInjector:    NewDiskFullInjector(logger, ""),
+		networkInjector: NewNetworkFloodInjector(logger),
+		machineInjector: NewMachineDownInjector(logger),
 	}
 
 	// 启动缓存清理协程
@@ -98,6 +111,12 @@ func NewMetricInjectorWithDefaults(mockErrorServiceURL string, serviceName strin
 		logger:          logger,
 		cache:           make(map[string]*CachedAnomaly),
 		cacheTTL:        30 * time.Second,
+		// 初始化真实资源注入器
+		cpuInjector:     NewCPUSpikeInjector(logger),
+		memoryInjector:  NewMemoryLeakInjector(logger),
+		diskInjector:    NewDiskFullInjector(logger, ""),
+		networkInjector: NewNetworkFloodInjector(logger),
+		machineInjector: NewMachineDownInjector(logger),
 	}
 
 	injector.StartCacheCleanup()
@@ -118,7 +137,7 @@ func (mi *MetricInjector) InjectMetricAnomaly(ctx context.Context, metricName st
 	}
 	mi.cacheMu.RUnlock()
 
-	// 查询Mock Error Service
+	// 查询Mock Error Service获取异常规则
 	request := map[string]string{
 		"service":     mi.serviceName,
 		"metric_name": metricName,
@@ -155,7 +174,7 @@ func (mi *MetricInjector) InjectMetricAnomaly(ctx context.Context, metricName st
 	}
 	mi.updateCache(cacheKey, anomaly)
 
-	// 应用异常
+	// 启动真实资源消耗注入异常
 	if response.ShouldInject && response.Anomaly != nil {
 		return mi.applyAnomaly(ctx, response.Anomaly, originalValue, metricName)
 	}
@@ -206,53 +225,98 @@ func (mi *MetricInjector) applyAnomaly(ctx context.Context, anomaly map[string]a
 		return originalValue
 	}
 
+	// 获取持续时间，默认为30秒
+	duration := 30 * time.Second
+	if durationRaw, exists := anomaly["duration"]; exists {
+		if durationStr, ok := durationRaw.(string); ok {
+			if parsed, err := time.ParseDuration(durationStr); err == nil {
+				duration = parsed
+			}
+		}
+	}
+
 	ruleID, _ := anomaly["rule_id"].(string)
 
-	mi.logger.Info(ctx, "Applying metric anomaly",
+	mi.logger.Info(ctx, "Starting real resource consumption for anomaly",
 		observability.String("metric_name", metricName),
 		observability.String("anomaly_type", anomalyType),
 		observability.Float64("original_value", originalValue),
 		observability.Float64("target_value", targetValue),
+		observability.String("duration", duration.String()),
 		observability.String("rule_id", ruleID))
 
-	// 根据异常类型应用不同的策略
+	// 启动真实资源消耗
 	switch anomalyType {
 	case models.AnomalyCPUSpike:
-		// CPU峰值：直接设置为目标值
-		return targetValue
-
-	case models.AnomalyMemoryLeak:
-		// 内存泄露：逐渐增长到目标值
-		if originalValue < targetValue {
-			increment := (targetValue - originalValue) * 0.1 // 每次增长10%
-			return originalValue + increment
+		// 启动CPU峰值注入
+		if !mi.cpuInjector.IsActive() {
+			mi.cpuInjector.StartCPUSpike(ctx, targetValue, duration)
 		}
 		return targetValue
 
+	case models.AnomalyMemoryLeak:
+		// 启动内存泄露注入
+		if !mi.memoryInjector.IsActive() {
+			mi.memoryInjector.StartMemoryLeak(ctx, int64(targetValue), duration)
+		}
+		// 内存泄露返回当前已分配的内存量
+		currentMB := mi.memoryInjector.GetCurrentMemoryMB()
+		if currentMB > 0 {
+			return float64(currentMB)
+		}
+		return originalValue
+
 	case models.AnomalyDiskFull:
-		// 磁盘满载：设置为目标值
-		return targetValue
+		// 启动磁盘满载注入
+		if !mi.diskInjector.IsActive() {
+			mi.diskInjector.StartDiskFull(ctx, int64(targetValue), duration)
+		}
+		// 磁盘满载返回当前已占用的磁盘空间
+		currentGB := mi.diskInjector.GetCurrentDiskGB()
+		if currentGB > 0 {
+			return float64(currentGB)
+		}
+		return originalValue
 
 	case models.AnomalyNetworkFlood:
-		// 网络风暴：设置为目标值的随机波动
-		variation := targetValue * 0.1 // 10%的波动
-		randomFactor := float64(time.Now().UnixNano()%100) / 100.0
-		return targetValue + (variation * (2*randomFactor - 1))
+		// 启动网络风暴注入
+		if !mi.networkInjector.IsActive() {
+			mi.networkInjector.StartNetworkFlood(ctx, int(targetValue), duration)
+		}
+		// 网络风暴返回当前连接数
+		currentConns := mi.networkInjector.GetCurrentConnections()
+		if currentConns > 0 {
+			return float64(currentConns)
+		}
+		return originalValue
 
 	case models.AnomalyMachineDown:
-		// 机器宕机：设置为0
+		// 启动机器宕机模拟
+		if !mi.machineInjector.IsActive() {
+			simulationType := "service_hang" // 默认模拟类型
+			if simTypeRaw, exists := anomaly["simulation_type"]; exists {
+				if simType, ok := simTypeRaw.(string); ok {
+					simulationType = simType
+				}
+			}
+			mi.machineInjector.StartMachineDown(ctx, simulationType, duration)
+		}
+		// 机器宕机返回0表示服务不可用
 		return 0
 
 	default:
-		return targetValue
+		mi.logger.Warn(ctx, "Unknown anomaly type, returning original value",
+			observability.String("anomaly_type", anomalyType))
+		return originalValue
 	}
 }
 
-// HTTPMiddleware HTTP中间件（占位实现）
+// HTTPMiddleware HTTP中间件 - 用于HTTP请求级别的异常注入
 func (mi *MetricInjector) HTTPMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 这里可以添加HTTP级别的错误注入逻辑
+			// 可以在这里添加HTTP级别的错误注入逻辑
+			// 例如：延迟响应、返回错误状态码、断开连接等
 			// 目前主要通过InjectMetricAnomaly方法在指标收集时注入异常
 			next.ServeHTTP(w, r)
 		})
@@ -282,4 +346,94 @@ func (mi *MetricInjector) StartCacheCleanup() {
 			mi.CleanupCache()
 		}
 	}()
+}
+
+// Cleanup 清理所有资源
+func (mi *MetricInjector) Cleanup() {
+	mi.logger.Info(context.Background(), "Cleaning up MetricInjector resources")
+
+	// 清理所有真实资源注入器
+	if mi.cpuInjector != nil {
+		mi.cpuInjector.Cleanup()
+	}
+	if mi.memoryInjector != nil {
+		mi.memoryInjector.Cleanup()
+	}
+	if mi.diskInjector != nil {
+		mi.diskInjector.Cleanup()
+	}
+	if mi.networkInjector != nil {
+		mi.networkInjector.Cleanup()
+	}
+	if mi.machineInjector != nil {
+		mi.machineInjector.Cleanup()
+	}
+
+	// 清理缓存
+	mi.CleanupCache()
+}
+
+// GetAnomalyStatus 获取当前异常状态信息
+func (mi *MetricInjector) GetAnomalyStatus(ctx context.Context) map[string]any {
+	status := make(map[string]any)
+
+	// CPU异常状态
+	if mi.cpuInjector != nil {
+		status["cpu_spike_active"] = mi.cpuInjector.IsActive()
+	}
+
+	// 内存异常状态
+	if mi.memoryInjector != nil {
+		status["memory_leak_active"] = mi.memoryInjector.IsActive()
+		status["current_memory_mb"] = mi.memoryInjector.GetCurrentMemoryMB()
+	}
+
+	// 磁盘异常状态
+	if mi.diskInjector != nil {
+		status["disk_full_active"] = mi.diskInjector.IsActive()
+		status["current_disk_gb"] = mi.diskInjector.GetCurrentDiskGB()
+	}
+
+	// 网络异常状态
+	if mi.networkInjector != nil {
+		status["network_flood_active"] = mi.networkInjector.IsActive()
+		status["current_connections"] = mi.networkInjector.GetCurrentConnections()
+	}
+
+	// 机器异常状态
+	if mi.machineInjector != nil {
+		status["machine_down_active"] = mi.machineInjector.IsActive()
+	}
+
+	return status
+}
+
+// StopAllAnomalies 停止所有当前活跃的异常注入
+func (mi *MetricInjector) StopAllAnomalies(ctx context.Context) {
+	mi.logger.Info(ctx, "Stopping all active anomaly injections")
+
+	// 停止CPU异常
+	if mi.cpuInjector != nil && mi.cpuInjector.IsActive() {
+		mi.cpuInjector.StopCPUSpike(ctx)
+	}
+
+	// 停止内存异常
+	if mi.memoryInjector != nil && mi.memoryInjector.IsActive() {
+		mi.memoryInjector.StopMemoryLeak(ctx)
+	}
+
+	// 停止磁盘异常
+	if mi.diskInjector != nil && mi.diskInjector.IsActive() {
+		mi.diskInjector.StopDiskFull(ctx)
+	}
+
+	// 停止网络异常
+	if mi.networkInjector != nil && mi.networkInjector.IsActive() {
+		mi.networkInjector.StopNetworkFlood(ctx)
+	}
+
+	// 停止机器异常
+	if mi.machineInjector != nil && mi.machineInjector.IsActive() {
+		mi.machineInjector.StopMachineDown(ctx)
+	}
 }
