@@ -97,51 +97,13 @@ MockS3 提供 S3 兼容的对象存储服务，并具备全面的错误模拟能
 mocks3/
 ├── shared/                        # 共享包
 │   ├── interfaces/                # 核心接口定义
-│   │   ├── storage.go            # 存储服务接口
-│   │   ├── metadata.go           # 元数据服务接口
-│   │   ├── queue.go              # 队列服务接口
-│   │   ├── third_party.go        # 第三方服务接口
-│   │   ├── error_injector.go     # 错误注入接口
-│   │   └── gateway.go            # 网关接口
 │   ├── models/                    # 共享数据模型
-│   │   ├── object.go             # 对象模型
-│   │   ├── metadata.go           # 元数据模型
-│   │   ├── task.go               # 任务模型
-│   │   ├── error.go              # 错误模型
-│   │   ├── service.go            # 服务模型
-│   │   └── data_source.go        # 数据源模型
 │   ├── client/                    # HTTP 客户端
-│   │   ├── storage_client.go     # 存储服务客户端
-│   │   ├── metadata_client.go    # 元数据服务客户端
-│   │   ├── queue_client.go       # 队列服务客户端
-│   │   └── third_party_client.go # 第三方服务客户端
 │   ├── observability/             # 可观测性组件
-│   │   ├── metric/               # 指标收集
-│   │   │   ├── collector.go      # 指标收集器和注册表
-│   │   │   └── middleware.go     # HTTP 指标中间件
-│   │   ├── log/                  # 日志处理
-│   │   │   └── logger.go         # 结构化日志器 (含格式化和上下文)
-│   │   └── trace/                # 链路追踪
-│   │       ├── tracer.go         # 追踪器初始化 (含Span工具)
-│   │       └── middleware.go     # HTTP 追踪中间件
 │   ├── middleware/                # 其他中间件
-│   │   ├── error_injection.go    # 错误注入中间件
-│   │   ├── consul.go             # Consul 集成
-│   │   └── recovery.go           # 异常恢复
 │   └── utils/                     # 工具函数
-│       ├── config.go             # 配置加载
-│       ├── http.go               # HTTP 工具
-│       └── retry.go              # 重试工具
 ├── services/                      # 微服务实现
 │   ├── metadata/                  # 元数据服务
-│   │   ├── cmd/server/main.go    # 服务入口
-│   │   ├── internal/
-│   │   │   ├── handler/          # HTTP 处理器
-│   │   │   ├── service/          # 业务逻辑实现
-│   │   │   ├── repository/       # 数据访问层
-│   │   │   └── config/           # 服务配置
-│   │   ├── Dockerfile
-│   │   └── docker-compose.yml
 │   ├── storage/                   # 存储服务
 │   ├── queue/                     # 队列服务
 │   ├── third-party/              # 第三方服务
@@ -165,16 +127,6 @@ mocks3/
 ```
 
 ## 开发注意事项
-
-### 错误处理
-- 所有服务间调用都应实现重试机制（指数退避）
-- 使用熔断器模式防止雪崩效应
-- 区分可重试错误和不可重试错误
-
-### 事务处理
-- 使用 Saga 模式处理分布式事务
-- 每个操作步骤实现对应的补偿操作
-- 状态机管理复杂业务流程
 
 ### 可观测性
 - **OpenTelemetry 统一可观测性**: 一套 SDK 处理所有遥测数据
