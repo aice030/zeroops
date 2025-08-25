@@ -7,8 +7,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// LoadConfigFromYAML 通用的YAML配置加载函数
-func LoadConfigFromYAML(configPath string, config any) error {
+// LoadConfig 通用的YAML配置加载函数
+func LoadConfig(configPath string, config any) error {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to read config file %s: %w", configPath, err)

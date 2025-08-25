@@ -23,7 +23,7 @@ func NewStorageClient(baseURL string, timeout time.Duration, logger *observabili
 	}
 }
 
-// WriteObject 写入对象
+// WriteObject 写入对象（完整流程：保存文件 + 保存元数据）
 func (c *StorageClient) WriteObject(ctx context.Context, object *models.Object) error {
 	req := &models.UploadRequest{
 		Key:         object.Key,
@@ -41,6 +41,31 @@ func (c *StorageClient) WriteObject(ctx context.Context, object *models.Object) 
 
 	if !uploadResp.Success {
 		return fmt.Errorf("upload failed: %s", uploadResp.Message)
+	}
+
+	object.ID = uploadResp.ObjectID
+	object.MD5Hash = uploadResp.MD5Hash
+	return nil
+}
+
+// WriteObjectToStorage 仅写入到存储节点（内部API，用于队列任务处理）
+func (c *StorageClient) WriteObjectToStorage(ctx context.Context, object *models.Object) error {
+	req := &models.UploadRequest{
+		Key:         object.Key,
+		Bucket:      object.Bucket,
+		ContentType: object.ContentType,
+		Headers:     object.Headers,
+		Tags:        object.Tags,
+		Data:        object.Data,
+	}
+
+	var uploadResp models.UploadResponse
+	if err := c.Post(ctx, "/api/v1/internal/objects", req, &uploadResp); err != nil {
+		return err
+	}
+
+	if !uploadResp.Success {
+		return fmt.Errorf("upload to storage failed: %s", uploadResp.Message)
 	}
 
 	object.ID = uploadResp.ObjectID
@@ -124,9 +149,15 @@ func (c *StorageClient) ReadObject(ctx context.Context, bucket, key string) (*mo
 	return object, nil
 }
 
-// DeleteObject 删除对象
+// DeleteObject 删除对象（完整流程：删除元数据 + 异步删除文件）
 func (c *StorageClient) DeleteObject(ctx context.Context, bucket, key string) error {
 	path := fmt.Sprintf("/api/v1/objects/%s/%s", PathEscape(bucket), PathEscape(key))
+	return c.Delete(ctx, path)
+}
+
+// DeleteObjectFromStorage 仅从存储节点删除文件（内部API，用于队列任务处理）
+func (c *StorageClient) DeleteObjectFromStorage(ctx context.Context, bucket, key string) error {
+	path := fmt.Sprintf("/api/v1/internal/objects/%s/%s", PathEscape(bucket), PathEscape(key))
 	return c.Delete(ctx, path)
 }
 

@@ -20,7 +20,7 @@ type QueueService interface {
 	UpdateSaveTaskStatus(ctx context.Context, taskID string, status models.TaskStatus, errorMsg string) error
 
 	// 状态查询
-	GetQueueLength(ctx context.Context) (int64, error)
+	GetStats(ctx context.Context) (map[string]any, error)
 
 	// 健康检查
 	HealthCheck(ctx context.Context) error

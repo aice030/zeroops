@@ -9,13 +9,13 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// SimplePostgreSQLRepository PostgreSQL仓库
-type SimplePostgreSQLRepository struct {
+// PostgreSQLRepository PostgreSQL仓库
+type PostgreSQLRepository struct {
 	db *sql.DB
 }
 
-// NewSimplePostgreSQLRepository 创建PostgreSQL仓库
-func NewSimplePostgreSQLRepository(dsn string) (*SimplePostgreSQLRepository, error) {
+// NewPostgreSQLRepository 创建PostgreSQL仓库
+func NewPostgreSQLRepository(dsn string) (*PostgreSQLRepository, error) {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to postgres: %w", err)
@@ -25,7 +25,7 @@ func NewSimplePostgreSQLRepository(dsn string) (*SimplePostgreSQLRepository, err
 		return nil, fmt.Errorf("failed to ping postgres: %w", err)
 	}
 
-	repo := &SimplePostgreSQLRepository{db: db}
+	repo := &PostgreSQLRepository{db: db}
 	if err := repo.initTables(); err != nil {
 		return nil, fmt.Errorf("failed to init tables: %w", err)
 	}
@@ -34,7 +34,7 @@ func NewSimplePostgreSQLRepository(dsn string) (*SimplePostgreSQLRepository, err
 }
 
 // initTables 初始化数据库表
-func (r *SimplePostgreSQLRepository) initTables() error {
+func (r *PostgreSQLRepository) initTables() error {
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS metadata (
 		bucket VARCHAR(255) NOT NULL,
@@ -56,7 +56,7 @@ func (r *SimplePostgreSQLRepository) initTables() error {
 }
 
 // Create 创建元数据记录
-func (r *SimplePostgreSQLRepository) Create(ctx context.Context, metadata *models.Metadata) error {
+func (r *PostgreSQLRepository) Create(ctx context.Context, metadata *models.Metadata) error {
 	query := `
 		INSERT INTO metadata (bucket, key, size, content_type, md5_hash, status, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -81,7 +81,7 @@ func (r *SimplePostgreSQLRepository) Create(ctx context.Context, metadata *model
 }
 
 // GetByKey 根据键获取元数据
-func (r *SimplePostgreSQLRepository) GetByKey(ctx context.Context, bucket, key string) (*models.Metadata, error) {
+func (r *PostgreSQLRepository) GetByKey(ctx context.Context, bucket, key string) (*models.Metadata, error) {
 	query := `
 		SELECT bucket, key, size, content_type, md5_hash, status, created_at
 		FROM metadata 
@@ -105,7 +105,7 @@ func (r *SimplePostgreSQLRepository) GetByKey(ctx context.Context, bucket, key s
 }
 
 // Update 更新元数据
-func (r *SimplePostgreSQLRepository) Update(ctx context.Context, metadata *models.Metadata) error {
+func (r *PostgreSQLRepository) Update(ctx context.Context, metadata *models.Metadata) error {
 	query := `
 		UPDATE metadata 
 		SET size = $3, content_type = $4, md5_hash = $5, status = $6
@@ -129,7 +129,7 @@ func (r *SimplePostgreSQLRepository) Update(ctx context.Context, metadata *model
 }
 
 // Delete 删除元数据（软删除）
-func (r *SimplePostgreSQLRepository) Delete(ctx context.Context, bucket, key string) error {
+func (r *PostgreSQLRepository) Delete(ctx context.Context, bucket, key string) error {
 	query := `UPDATE metadata SET status = 'deleted' WHERE bucket = $1 AND key = $2`
 
 	result, err := r.db.ExecContext(ctx, query, bucket, key)
@@ -146,7 +146,7 @@ func (r *SimplePostgreSQLRepository) Delete(ctx context.Context, bucket, key str
 }
 
 // List 列出元数据
-func (r *SimplePostgreSQLRepository) List(ctx context.Context, bucket, prefix string, limit, offset int) ([]*models.Metadata, error) {
+func (r *PostgreSQLRepository) List(ctx context.Context, bucket, prefix string, limit, offset int) ([]*models.Metadata, error) {
 	var query string
 	var args []interface{}
 
@@ -193,7 +193,7 @@ func (r *SimplePostgreSQLRepository) List(ctx context.Context, bucket, prefix st
 }
 
 // Search 搜索元数据（简单的LIKE查询）
-func (r *SimplePostgreSQLRepository) Search(ctx context.Context, query string, limit int) ([]*models.Metadata, error) {
+func (r *PostgreSQLRepository) Search(ctx context.Context, query string, limit int) ([]*models.Metadata, error) {
 	searchSQL := `
 		SELECT bucket, key, size, content_type, md5_hash, status, created_at
 		FROM metadata 
@@ -225,7 +225,7 @@ func (r *SimplePostgreSQLRepository) Search(ctx context.Context, query string, l
 }
 
 // GetStats 获取统计信息
-func (r *SimplePostgreSQLRepository) GetStats(ctx context.Context) (*models.Stats, error) {
+func (r *PostgreSQLRepository) GetStats(ctx context.Context) (*models.Stats, error) {
 	query := `
 		SELECT 
 			COUNT(*) as total_objects,
@@ -247,7 +247,7 @@ func (r *SimplePostgreSQLRepository) GetStats(ctx context.Context) (*models.Stat
 }
 
 // Close 关闭数据库连接
-func (r *SimplePostgreSQLRepository) Close() error {
+func (r *PostgreSQLRepository) Close() error {
 	if r.db != nil {
 		return r.db.Close()
 	}

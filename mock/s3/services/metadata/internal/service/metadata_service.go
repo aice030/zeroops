@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
-	"mocks3/shared/interfaces"
+	"mocks3/services/metadata/internal/repository"
 	"mocks3/shared/models"
 	"mocks3/shared/observability"
 	"time"
@@ -11,12 +11,12 @@ import (
 
 // MetadataService 元数据服务实现
 type MetadataService struct {
-	repo   interfaces.MetadataRepository
+	repo   *repository.PostgreSQLRepository
 	logger *observability.Logger
 }
 
 // NewMetadataService 创建元数据服务
-func NewMetadataService(repo interfaces.MetadataRepository, logger *observability.Logger) *MetadataService {
+func NewMetadataService(repo *repository.PostgreSQLRepository, logger *observability.Logger) *MetadataService {
 	return &MetadataService{
 		repo:   repo,
 		logger: logger,

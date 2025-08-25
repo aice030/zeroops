@@ -159,6 +159,59 @@ func (s *StorageService) ReadObject(ctx context.Context, bucket, key string) (*m
 	return nil, fmt.Errorf("object not found in storage or third-party service: %s/%s", bucket, key)
 }
 
+// WriteObjectToStorage 仅写入到存储节点（内部API，供Queue Service使用）
+func (s *StorageService) WriteObjectToStorage(ctx context.Context, object *models.Object) error {
+	s.logger.Info(ctx, "Writing object to storage nodes only (internal API)",
+		observability.String("bucket", object.Bucket),
+		observability.String("key", object.Key),
+		observability.Int64("size", object.Size))
+
+	// 计算MD5哈希（如果没有）
+	if object.MD5Hash == "" && object.Data != nil {
+		hash := md5.Sum(object.Data)
+		object.MD5Hash = fmt.Sprintf("%x", hash)
+	}
+
+	// 只写入到存储节点，不保存元数据
+	dataReader := bytes.NewReader(object.Data)
+	if err := s.repo.WriteObject(ctx, object.Bucket, object.Key, dataReader, object.Size); err != nil {
+		s.logger.Error(ctx, "Failed to write object to storage nodes",
+			observability.String("bucket", object.Bucket),
+			observability.String("key", object.Key),
+			observability.Error(err))
+		return fmt.Errorf("write to storage nodes: %w", err)
+	}
+
+	s.logger.Info(ctx, "Object written to storage nodes successfully (internal API)",
+		observability.String("bucket", object.Bucket),
+		observability.String("key", object.Key),
+		observability.String("md5", object.MD5Hash))
+
+	return nil
+}
+
+// DeleteObjectFromStorage 仅从存储节点删除文件（内部API，供Queue Service使用）
+func (s *StorageService) DeleteObjectFromStorage(ctx context.Context, bucket, key string) error {
+	s.logger.Info(ctx, "Deleting object from storage nodes only (internal API)",
+		observability.String("bucket", bucket),
+		observability.String("key", key))
+
+	// 只从存储节点删除文件，不删除元数据
+	if err := s.repo.DeleteObject(ctx, bucket, key); err != nil {
+		s.logger.Error(ctx, "Failed to delete object from storage nodes",
+			observability.String("bucket", bucket),
+			observability.String("key", key),
+			observability.Error(err))
+		return fmt.Errorf("delete from storage nodes: %w", err)
+	}
+
+	s.logger.Info(ctx, "Object deleted from storage nodes successfully (internal API)",
+		observability.String("bucket", bucket),
+		observability.String("key", key))
+
+	return nil
+}
+
 // buildObjectFromMetadata 从元数据构建对象
 func (s *StorageService) buildObjectFromMetadata(metadata *models.Metadata, data []byte, size int64) *models.Object {
 	return &models.Object{

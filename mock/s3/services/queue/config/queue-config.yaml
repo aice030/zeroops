@@ -1,0 +1,22 @@
+# Queue Service 配置
+service:
+  name: "queue-service"
+  host: "0.0.0.0"
+  port: 8083
+
+# Redis配置
+redis:
+  url: "redis://localhost:6379"
+  password: ""
+  db: 0
+
+# Worker配置
+worker:
+  worker_count: 4
+  poll_interval: "3s"
+
+# 可观测性配置
+observability:
+  service_name: "queue-service"
+  otlp_endpoint: "localhost:4318"
+  log_level: "info"

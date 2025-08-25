@@ -34,7 +34,7 @@ func LoadObservabilityConfig(serviceName, configPath string) (*ObservabilityConf
 	// 如果配置文件存在，则读取YAML配置
 	if configPath != "" {
 		if _, err := os.Stat(configPath); err == nil {
-			if err := utils.LoadConfigFromYAML(configPath, config); err != nil {
+			if err := utils.LoadConfig(configPath, config); err != nil {
 				return nil, err
 			}
 		}

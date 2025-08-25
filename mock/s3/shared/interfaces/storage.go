@@ -7,11 +7,15 @@ import (
 
 // StorageService 存储服务接口
 type StorageService interface {
-	// 文件操作
+	// 公共API - 完整业务流程
 	WriteObject(ctx context.Context, object *models.Object) error
 	ReadObject(ctx context.Context, bucket, key string) (*models.Object, error)
 	DeleteObject(ctx context.Context, bucket, key string) error
 	ListObjects(ctx context.Context, req *models.ListObjectsRequest) (*models.ListObjectsResponse, error)
+
+	// 内部API - 仅操作存储层（供Queue Service使用）
+	WriteObjectToStorage(ctx context.Context, object *models.Object) error
+	DeleteObjectFromStorage(ctx context.Context, bucket, key string) error
 
 	// 统计信息
 	GetStats(ctx context.Context) (map[string]any, error)

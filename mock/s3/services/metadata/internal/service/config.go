@@ -39,7 +39,7 @@ type Config struct {
 // LoadConfig 加载配置
 func LoadConfig(configPath string) (*Config, error) {
 	config := &Config{}
-	err := utils.LoadConfigFromYAML(configPath, config)
+	err := utils.LoadConfig(configPath, config)
 	if err != nil {
 		return nil, err
 	}

@@ -27,7 +27,7 @@ func NewStorageHandler(service interfaces.StorageService, logger *observability.
 
 // SetupRoutes 设置路由
 func (h *StorageHandler) SetupRoutes(router *gin.Engine) {
-	// API路由组
+	// 公共API路由组
 	api := router.Group("/api/v1")
 	{
 		// 对象操作
@@ -41,6 +41,14 @@ func (h *StorageHandler) SetupRoutes(router *gin.Engine) {
 
 		// 统计信息
 		api.GET("/stats", h.GetStats)
+	}
+
+	// 内部API路由组（供Queue Service等系统内部服务使用）
+	internal := router.Group("/api/v1/internal")
+	{
+		// 仅操作存储层的内部接口
+		internal.POST("/objects", h.WriteObjectToStorage)
+		internal.DELETE("/objects/:bucket/:key", h.DeleteObjectFromStorage)
 	}
 
 	// 健康检查
@@ -256,4 +264,70 @@ func (h *StorageHandler) HealthCheck(c *gin.Context) {
 		"service":   "storage-service",
 		"timestamp": "now",
 	})
+}
+
+// 内部API处理器
+
+// WriteObjectToStorage 仅写入到存储节点 POST /api/v1/internal/objects
+func (h *StorageHandler) WriteObjectToStorage(c *gin.Context) {
+	var req models.UploadRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn(c.Request.Context(), "Invalid internal upload request", observability.Error(err))
+		utils.SetErrorResponse(c.Writer, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// 转换为Object模型
+	object := &models.Object{
+		Bucket:      req.Bucket,
+		Key:         req.Key,
+		Data:        req.Data,
+		Size:        int64(len(req.Data)),
+		ContentType: req.ContentType,
+		Headers:     req.Headers,
+		Tags:        req.Tags,
+	}
+
+	err := h.service.WriteObjectToStorage(c.Request.Context(), object)
+	if err != nil {
+		h.logger.Error(c.Request.Context(), "Failed to write object to storage (internal)", observability.Error(err))
+		utils.SetErrorResponse(c.Writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response := models.UploadResponse{
+		Success:  true,
+		ObjectID: object.ID,
+		Key:      object.Key,
+		Bucket:   object.Bucket,
+		Size:     object.Size,
+		MD5Hash:  object.MD5Hash,
+		ETag:     object.MD5Hash,
+		Message:  "Object written to storage successfully (internal)",
+	}
+
+	utils.SetJSONResponse(c.Writer, http.StatusCreated, response)
+}
+
+// DeleteObjectFromStorage 仅从存储节点删除文件 DELETE /api/v1/internal/objects/:bucket/:key
+func (h *StorageHandler) DeleteObjectFromStorage(c *gin.Context) {
+	bucket := c.Param("bucket")
+	key := c.Param("key")
+
+	if bucket == "" || key == "" {
+		utils.SetErrorResponse(c.Writer, http.StatusBadRequest, "bucket and key are required")
+		return
+	}
+
+	err := h.service.DeleteObjectFromStorage(c.Request.Context(), bucket, key)
+	if err != nil {
+		h.logger.Error(c.Request.Context(), "Failed to delete object from storage (internal)",
+			observability.String("bucket", bucket),
+			observability.String("key", key),
+			observability.Error(err))
+		utils.SetErrorResponse(c.Writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
