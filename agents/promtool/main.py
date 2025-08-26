@@ -1,352 +1,245 @@
 #
 
 import os
-import sys
+import argparse
 import json
+import shutil
 import time
-from pathlib import Path
+import multiprocessing as mp
+import signal
 
-# Add the parent directory to the path so we can import from ck_pro
-sys.path.append(str(Path(__file__).parent.parent.parent))
+from ..base.utils import rprint, my_open_with, zwarn, incr_update_dict, get_until_hit, my_json_dumps, tuple_keys_to_str
+from ..base.evaluator import Evaluator
 
-from ck_pro.prom_tool.agent import Prom_ToolAgent
-from ck_pro.agents.session import AgentSession
-
-
-def run_complete_prometheus_workflow():
-    """运行完整的Prometheus工作流程，便于debug测试"""
-    
-    print("🚀 === 开始完整的Prometheus Agent工作流程测试 ===\n")
-    
-    try:
-        # 步骤1: 创建agent实例
-        print("📋 步骤1: 创建Prometheus Agent实例")
-        agent = Prom_ToolAgent()
-        print(f"   ✅ Agent创建成功")
-        print(f"   📝 名称: {agent.name}")
-        print(f"   📝 描述: {agent.description}")
-        print(f"   📝 最大步骤数: {agent.max_steps}")
-        print(f"   📝 可用函数: {list(agent.ACTIVE_FUNCTIONS.keys())}")
-        
-        # 步骤2: 创建测试会话
-        print("\n📋 步骤2: 创建测试会话")
-        session = AgentSession(
-            id="debug_session_001",
-            task="抓取过去1小时的CPU使用率指标，分析趋势，并返回分析结果",
-            info={
-                "target_prometheus_metrics": "cpu_usage_percent",
-                "time_range": "1小时",
-                "analysis_type": "趋势分析"
-            }
-        )
-        print(f"   ✅ 会话创建成功")
-        print(f"   📝 会话ID: {session.id}")
-        print(f"   📝 任务: {session.task}")
-        
-        # 步骤3: 初始化运行
-        print("\n📋 步骤3: 初始化agent运行")
-        agent.init_run(session)
-        print(f"   ✅ Agent运行初始化成功")
-        print(f"   📝 Prometheus环境已创建")
-        
-        # 步骤4: 模拟完整的工作流程
-        print("\n📋 步骤4: 执行完整工作流程")
-        
-        # 4.1 抓取数据步骤
-        print("   🔍 4.1 抓取Prometheus数据")
-        fetch_result = agent._fetch_prometheus_data(
-            query="cpu_usage_percent",
-            start_time="2024-01-01T00:00:00Z",
-            end_time="2024-01-01T01:00:00Z",
-            step="1m",
-            output_path="./debug_cpu_data.json"
-        )
-        print(f"      ✅ 抓取完成")
-        print(f"      📊 动作: {fetch_result.action}")
-        print(f"      📊 结果: {fetch_result.result}")
-        
-        # 4.2 分析数据步骤
-        print("   📈 4.2 分析Prometheus数据")
-        analyze_result = agent._analyze_prometheus_data(
-            data=fetch_result.data,  # 直接使用抓取的数据
-            analysis_type="trend_analysis"
-        )
-        print(f"      ✅ 分析完成")
-        print(f"      📊 动作: {analyze_result.action}")
-        print(f"      📊 结果: {analyze_result.result}")
-        if hasattr(analyze_result, 'natural_language_result'):
-            print(f"      📊 自然语言解读: {analyze_result.natural_language_result[:100]}...")
-        
-        # 4.3 完成任务步骤
-        print("   ✅ 4.3 完成任务")
-        stop_result = agent._my_stop(
-            answer="CPU使用率在过去1小时内平均为45%，呈上升趋势，峰值出现在第45分钟",
-            summary="成功抓取并分析了CPU使用率指标，发现系统负载呈上升趋势"
-        )
-        print(f"      ✅ 任务完成")
-        print(f"      📊 动作: {stop_result.action}")
-        print(f"      📊 结果: {stop_result.result}")
-        
-        # 步骤5: 测试步骤准备和调用
-        print("\n📋 步骤5: 测试步骤准备和调用")
-        
-        # 5.1 准备步骤
-        print("   🔧 5.1 准备步骤")
-        state = {
-            "completed_list": ["抓取CPU指标", "分析趋势"],
-            "todo_list": ["生成报告"],
-            "experience": ["数据抓取成功", "分析完成"],
-            "information": ["CPU使用率平均45%", "呈上升趋势", "峰值在第45分钟"]
-        }
-        
-        input_kwargs, extra_kwargs = agent.step_prepare(session, state)
-        print(f"      ✅ 步骤准备成功")
-        print(f"      📊 输入参数数量: {len(input_kwargs)}")
-        print(f"      📊 额外参数数量: {len(extra_kwargs)}")
-        
-        # 5.2 步骤调用
-        print("   🔧 5.2 步骤调用")
-        messages = [
-            {"role": "user", "content": "请总结CPU使用率的分析结果"}
-        ]
-        response = agent.step_call(messages, session)
-        print(f"      ✅ 步骤调用成功")
-        print(f"      📊 响应长度: {len(response) if response else 0}")
-        if response:
-            print(f"      📊 响应内容: {response[:200]}...")
-        
-        # 步骤6: 测试动作执行
-        print("\n📋 步骤6: 测试动作执行")
-        
-        # 6.1 准备动作输入
-        print("   🔧 6.1 准备动作输入")
-        action_res = {
-            "thought": "需要生成CPU使用率分析报告",
-            "code": "print('生成CPU使用率分析报告')"
-        }
-        action_input_kwargs = {
-            "task": session.task,
-            "state": json.dumps(state),
-            "recent_steps_str": "抓取数据 -> 分析数据 -> 生成报告"
-        }
-        
-        # 6.2 执行动作
-        print("   🔧 6.2 执行动作")
-        prom_env = agent.prom_envs[session.id]
-        action_result = agent.step_action(action_res, action_input_kwargs, prom_env=prom_env)
-        print(f"      ✅ 动作执行成功")
-        print(f"      📊 结果: {action_result}")
-        
-        # 步骤7: 获取最终结果
-        print("\n📋 步骤7: 获取最终结果")
-        final_result = agent.get_final_result()
-        if final_result:
-            print(f"   ✅ 最终结果: {final_result}")
-        else:
-            print("   ℹ️  无最终结果（这是正常的，因为我们只是测试）")
-        
-        # 步骤8: 结束运行
-        print("\n📋 步骤8: 结束agent运行")
-        agent.end_run(session)
-        print(f"   ✅ Agent运行结束成功")
-        print(f"   📝 Prometheus环境已清理")
-        
-        # 步骤9: 验证结果
-        print("\n📋 步骤9: 验证测试结果")
-        
-        # 检查生成的文件
-        if os.path.exists("./debug_cpu_data.json"):
-            print("   ✅ 数据文件生成成功")
-            file_size = os.path.getsize("./debug_cpu_data.json")
-            print(f"      📊 文件大小: {file_size} bytes")
-        else:
-            print("   ⚠️  数据文件未生成")
-        
-        # 检查会话状态
-        print(f"   📊 会话状态: {session.to_dict()}")
-        
-        print("\n🎉 === 完整工作流程测试完成！===")
-        print("💡 提示：所有步骤都已成功执行，可以进行详细的debug分析")
-        
-        return True
-        
-    except Exception as e:
-        print(f"\n❌ === 工作流程测试失败 ===")
-        print(f"错误信息: {e}")
-        import traceback
-        print("详细错误堆栈:")
-        traceback.print_exc()
-        return False
+from .agent import ZOAgent
+from ..base.gaia_scorer import question_scorer
 
 
-def test_agent_functions():
-    """测试agent的各个功能函数"""
-    
-    print("\n🔧 === 测试Agent功能函数 ===")
-    
-    try:
-        agent = Prom_ToolAgent()
-        
-        # 测试函数定义
-        print("\n📋 测试函数定义")
-        short_def = agent.get_function_definition(short=True)
-        print(f"   ✅ 简短定义: {short_def}")
-        
-        full_def = agent.get_function_definition(short=False)
-        print(f"   ✅ 完整定义: {full_def[:200]}...")
-        
-        # 测试各个功能函数
-        print("\n📋 测试功能函数")
-        
-        # 测试抓取函数
-        fetch_result = agent._fetch_prometheus_data(
-            query="memory_usage_bytes",
-            start_time="2024-01-01T00:00:00Z",
-            end_time="2024-01-01T00:30:00Z",
-            step="5m"
-        )
-        print(f"   ✅ 抓取函数: {fetch_result.result}")
-        
-        # 测试分析函数
-        analyze_result = agent._analyze_prometheus_data(
-            data=None,  # 测试无数据情况
-            analysis_type="general"
-        )
-        print(f"   ✅ 分析函数: {analyze_result.result}")
-        if hasattr(analyze_result, 'natural_language_result'):
-            print(f"      📊 自然语言解读: {analyze_result.natural_language_result[:100]}...")
-        
-        # 测试停止函数
-        stop_result = agent._my_stop(
-            answer="内存使用率分析完成",
-            summary="成功分析了内存使用情况"
-        )
-        print(f"   ✅ 停止函数: {stop_result.result}")
-        
-        print("   🎉 所有功能函数测试通过")
-        return True
-        
-    except Exception as e:
-        print(f"   ❌ 功能函数测试失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
 
+default_main_configs = {
+    "model": {"call_target": "gpt:gpt-oss-20b"},  # LLM target
+}
 
-def test_environment_configuration():
-    """测试环境配置"""
-    
-    print("\n⚙️ === 测试环境配置 ===")
-    
-    try:
-        # 测试环境变量
-        print("\n📋 环境变量配置")
-        prom_ip = os.getenv("PROM_IP", "localhost:9090")
-        print(f"   📊 PROM_IP: {prom_ip}")
-        
-        openai_key = os.getenv("OPENAI_API_KEY", "未设置")
-        print(f"   📊 OPENAI_API_KEY: {'已设置' if openai_key != '未设置' else '未设置'}")
-        
-        # 测试PromEnv创建
-        print("\n📋 PromEnv测试")
-        from ck_pro.prom_tool.utils import PromEnv
-        prom_env = PromEnv(starting=False)
-        print(f"   ✅ PromEnv创建成功")
-        print(f"   📊 目标URL: {prom_env.get_target_url()}")
-        
-        # 测试状态获取
-        status = prom_env.get_status()
-        print(f"   📊 连接状态: {status['status']}")
-        print(f"   📊 可用指标数量: {len(status['available_metrics'])}")
-        
-        print("   🎉 环境配置测试通过")
-        return True
-        
-    except Exception as e:
-        print(f"   ❌ 环境配置测试失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", type=str, default="")
+    parser.add_argument("-u", "--updates", type=str, default=[], nargs="+")  # updating dicts
+    parser.add_argument("-i", "--input", type=str, default="")
+    parser.add_argument("-o", "--output", type=str, default="")
+    parser.add_argument("-S", "--sep_run_root", type=str, default="")  # separate running root dir for each task, empty if not enabled
+    parser.add_argument("-P", "--try_preload_output", type=int, default=1)  # try loading the already processed outputs
+    parser.add_argument("--starting_idx", type=int, default=0)  # starting with which one?
+    parser.add_argument("--no_final_breakpoint", type=str, default="")
+    parser.add_argument("--skip-hard-query", action="store_true")
+    parser.add_argument("--sampling-mode", action="store_true") # in sampling (trajectory) model, will use an evaluator to check whether the query has finished (with an answer)
+    parser.add_argument("--evaluation-method", choices=["disabled", "em", "llm_score", "stop_with_answer"], default="disabled") # useful when --sampling-mode is on.
+    # types of auto evaluator. em: exact match; llm_score: llm score using langchain; Answers should be provided in this mode. stop_with_answer: simply determine whether the query stops with an answer. suits the situation where no ground answers are provided.
+    parser.add_argument("--inference-time-evaluation-method", choices=["disabled", "no_answer", "no_answer+no_ask_llm", "gpt_judge", "ensemble", "gpt_judge+ensemble"], default="disabled") # whether to enable an auto evaluator and perform reflection
+    parser.add_argument("--max_retry_num", default=3, type=int) # maximum number of retries when sampling-mode or inference_time_evaluation_method is on.
+    parser.add_argument("--reflection", type=bool, default=False)
+    parser.add_argument("--save_failed_tries", action="store_true") # whether to save "failed" tries. Can disable this when running inference on test set.
+    # parser.add_argument("-t", "--timeout", type=int, default=3600)  # timeout seconds for each task
+    return parser.parse_args()
 
+def yield_inputs(input_file):
+    _idx = 0
+    if input_file:
+        with open(input_file, encoding='utf-8') as fd:
+            for line in fd:
+                if line.strip():
+                    one_inst = json.loads(line)
+                    # if there is info
+                    info_field = one_inst['info'] if 'info' in one_inst else one_inst
+                    # get fields
+                    task = get_until_hit(info_field, ["question", "Question", "task", "Task", "query", "Query", "instruction", "Instruction"])
+                    file = get_until_hit(info_field, ["file_name"])
+                    answer = get_until_hit(info_field, ["Final answer", "answer", "true_answer"])
+                    if get_until_hit(info_field, ["skip"]) is None or str(get_until_hit(info_field, ["skip"])) != '1':
+                        skip_hard = False
+                    else:
+                        skip_hard = True
+                    if task:
+                        yield {"id": f"task{_idx:04d}", "task": task, "file": file, "answer": answer, "_orig": one_inst, "skip_hard": skip_hard}
+                        _idx += 1
+                    else:
+                        zwarn(f"Cannot find task from: {one_inst}")
+    else:  # read from input
+        while True:
+            task = input("Input your task prompt >> ").strip()
+            if not task:
+                continue
+            if task == "__END__":
+                break
+            yield {"id": f"task{_idx:04d}", "task": task}
+            _idx += 1
 
-def cleanup_test_files():
-    """清理测试生成的文件"""
-    
-    print("\n🧹 === 清理测试文件 ===")
-    
-    test_files = [
-        "./debug_cpu_data.json",
-        "./test_memory_data.json",
-        "./test_data.json"
-    ]
-    
-    for file_path in test_files:
-        if os.path.exists(file_path):
+# --
+def main():
+    args = get_args()
+    rprint(f"Run main.main with {args}")
+    mp.set_start_method("spawn")
+    # signal.signal(signal.SIGALRM, timeout_handler)
+    # --
+    # init agent
+    configs = default_main_configs
+    if args.config:
+        with open(args.config, encoding='utf-8') as fd:
+            configs = json.load(fd)
+        rprint(f"Load configs from {args.config} = {configs}")
+    for one_update in args.updates:
+        src_dict = eval(one_update)
+        incr_update_dict(configs, src_dict)  # updates
+        rprint(f"Update configs with {src_dict}")
+    zo_agent = ZOAgent(**configs)
+    if args.sampling_mode or args.inference_time_evaluation_method != "disabled":
+        zo_evaluator = Evaluator()
+    # --
+    old_dir = os.path.abspath(os.curdir)
+    input_dir = os.getenv("FILE_BASE_DIR", default=os.path.dirname(os.path.abspath(args.input)))
+    if args.sep_run_root:  # mkdir
+        os.makedirs(args.sep_run_root, exist_ok=True)
+    # --
+    existing_inst_map = {}
+    if args.try_preload_output and os.path.exists(args.output):
+        with open(args.output, encoding='utf-8') as fd:
+            for line in fd:
+                if line.strip():
+                    _inst = json.loads(line)
+                    existing_inst_map[_inst["id"]] = _inst
+    if existing_inst_map:
+        rprint(f"Load existing_inst_map: L={len(existing_inst_map)}")
+    # --
+    total_task, corr_task = 0, 0
+    with my_open_with(args.output, 'w') as fout:
+        for inst in yield_inputs(args.input):
+            _input_file = None
+            if args.sep_run_root:
+                trg_dir = os.path.join(args.sep_run_root, inst["id"])
+                os.makedirs(trg_dir, exist_ok=False)  # mkdir
+                if inst.get("file"):
+                    _input_file = "input." + inst["file"].split(".")[-1]  # make a simpler name!
+                    shutil.copy(os.path.join(input_dir, inst["file"]), os.path.join(trg_dir, _input_file))
+                os.chdir(trg_dir)  # switch to specific working dir
+            else:
+                _input_file = os.path.join(input_dir, inst["file"]) if inst.get("file") else None
+            _task = inst["task"].strip()
+            if _input_file:
+                _task = f"{_task}\n(* You are given the following input file: {_input_file})"
+            rprint(f"Start to run task {inst['id']}", timed=True)
+            
+            # breakpoint()
+            if inst["id"] in existing_inst_map:  # simply load it
+                exist_inst = existing_inst_map[inst["id"]]
+                if exist_inst["task"] != inst["task"]:
+                    zwarn(f"Ignore mismatched instances: {exist_inst['task']} vs {inst['task']}")
+                else:
+                    rprint(f"Directly load the previous run session without running for {inst['id']}")
+                    inst["session"] = exist_inst["session"]
+            else:
+                # queries that have not been processed. 
+                # if there's a skip key in the file, simply skip the hard query.
+                # print(inst['id'],  inst['skip_hard'])
+                if args.skip_hard_query and inst['skip_hard']:
+                    if fout:
+                        inst['eval'] =  {"pred": 'NA', "gold": str(inst.get("answer", "UNK")), "corr": 0}
+                        inst['session'] = {}
+                        fout.write(my_json_dumps(inst, ensure_ascii=False) + "\n")
+                        continue
+            
+            res_session_list = []
+            if "session" not in inst:
+                start_pc, start_time = time.perf_counter(), time.ctime()
+                if total_task >= args.starting_idx:
+                    if args.sampling_mode:
+                        # sampling mode
+                        if args.evaluation_method == "disabled":
+                            res_session = zo_agent.run(_task)
+                        elif args.evaluation_method in ["em", "llm_score"]:
+                            _try_num = 0
+                            res_session = zo_agent.run(_task)
+                            res_session_list.append(res_session)
+                            while _try_num < args.max_retry_num:
+                                _try_num += 1
+                                if zo_evaluator.evaluate_with_answer(res_session.to_dict(), str(inst.get("answer", "UNK")), inst["task"].strip(), evaluation_method=args.evaluation_method):
+                                    res_session = zo_agent.run(_task)
+                                    res_session_list.append(res_session)
+                                else:
+                                    break
+                    else:
+                        # inference mode
+                        if args.inference_time_evaluation_method == "disabled":
+                            res_session = zo_agent.run(_task)
+                        else:
+                            # ensemble
+                            candidate_num = 5 if "ensemble" in args.inference_time_evaluation_method else 1
+                            candidate_sessions = []
+                            # retry
+                            for i in range(candidate_num):
+                                rprint(f"Start to run task {inst['id']} for the {i+1} time", timed=True)
+                                feedback = None
+                                feedback_list = []
+                                for j in range(args.max_retry_num):
+                                    if args.reflection:
+                                        new_task = f"{_task}. Here is a feedback for a previous try that failed:\n\n{feedback}" if feedback else _task
+                                    else:
+                                        new_task = _task
+                                    res_session = zo_agent.run(new_task)
+                                    res_session_list.append(res_session)
+                                    has_failure, feedback = zo_evaluator.detect_failure(res_session.to_dict(), evaluation_type=args.inference_time_evaluation_method)
+                                    if not has_failure:
+                                        break
+                                    print(f"Retrying task {inst['id']} due to {feedback}")
+                                    feedback_list.append(feedback)
+                                candidate_sessions.append(res_session)
+                            if "ensemble" in args.inference_time_evaluation_method:
+                                res_session = candidate_sessions[zo_evaluator.ensemble([x.to_dict() for x in candidate_sessions])]
+                            inst["feedback"] = feedback_list
+                else:
+                    res_session = None
+                    rprint(f"Skipping task {inst['id']}")
+                if res_session is None:  # error?
+                    inst["session"] = {"steps": [{"step_idx": -1, "end": {"final_results": {"output": "error", "log": "error"}}}]}
+                else:
+                    res_session.info["call_stat"] = zo_agent.get_call_stat(clear=True)
+                    end_pc, end_time = time.perf_counter(), time.ctime()
+                    res_session.info.update({"start_time": start_time, "end_time": end_time, "duration": end_pc-start_pc})
+                    inst["session"] = res_session.to_dict()
+                    if args.save_failed_tries and len(res_session_list) > 1:
+                        inst['previous_failed_sessions'] = [sess.to_dict() for sess in res_session_list[:-1]]
+            # --
+            # simple EVAL
+            answer_gold = str(inst.get("answer", "UNK"))
             try:
-                os.remove(file_path)
-                print(f"   ✅ 已删除: {file_path}")
-            except Exception as e:
-                print(f"   ⚠️  删除失败: {file_path} - {e}")
-        else:
-            print(f"   ℹ️  文件不存在: {file_path}")
-
-
-if __name__ == "__main__":
-    print("🚀 Prometheus Agent 完整流程测试开始")
-    print("=" * 60)
-    
-    # 记录开始时间
-    start_time = time.time()
-    
-    # 运行测试
-    test_results = []
-    
-    # 1. 完整工作流程测试
-    print("\n" + "="*60)
-    workflow_success = run_complete_prometheus_workflow()
-    test_results.append(("完整工作流程", workflow_success))
-    
-    # 2. 功能函数测试
-    print("\n" + "="*60)
-    functions_success = test_agent_functions()
-    test_results.append(("功能函数", functions_success))
-    
-    # 3. 环境配置测试
-    print("\n" + "="*60)
-    config_success = test_environment_configuration()
-    test_results.append(("环境配置", config_success))
-    
-    # 4. 清理测试文件
-    print("\n" + "="*60)
-    cleanup_test_files()
-    
-    # 5. 测试结果总结
-    print("\n" + "="*60)
-    print("📊 === 测试结果总结 ===")
-    
-    total_tests = len(test_results)
-    passed_tests = sum(1 for _, success in test_results if success)
-    failed_tests = total_tests - passed_tests
-    
-    for test_name, success in test_results:
-        status = "✅ 通过" if success else "❌ 失败"
-        print(f"   {test_name}: {status}")
-    
-    print(f"\n📈 总体结果: {passed_tests}/{total_tests} 测试通过")
-    
-    if failed_tests == 0:
-        print("🎉 所有测试都通过了！系统运行正常。")
+                answer_pred = str(inst["session"]["steps"][-1]["end"]["final_results"]["output"])
+            except:
+                answer_pred = "error"
+            total_task += 1
+            _this_corr = int(question_scorer(model_answer=answer_pred, ground_truth=answer_gold))
+            corr_task += _this_corr
+            inst["eval"] = {"pred": answer_pred, "gold": answer_gold, "corr": _this_corr}  # store the eval results
+            rprint(f"Evaluating pred={answer_pred} vs gold={answer_gold}")
+            rprint(f"Current Processing Accuracy = {corr_task}/{total_task}={corr_task/total_task:.4f}")
+            # =====
+            # save
+            if args.sep_run_root:
+                os.chdir(old_dir)  # switch back
+            if fout:
+                try:
+                    fout.write(my_json_dumps(tuple_keys_to_str(inst), ensure_ascii=False) + "\n")
+                except:
+                    print("error writing instance")
+                    inst = dict([(key, inst[key]) for key in ['id', 'task', 'file', 'answer', '_orig', 'skip_hard', 'eval']])
+                    fout.write(my_json_dumps(tuple_keys_to_str(inst), ensure_ascii=False) + "\n")
+                    # breakpoint()
+            # --
+    # --
+    if args.no_final_breakpoint:
+        pass
     else:
-        print(f"⚠️  有 {failed_tests} 个测试失败，请检查相关功能。")
-    
-    # 记录总耗时
-    total_time = time.time() - start_time
-    print(f"\n⏱️  总耗时: {total_time:.2f} 秒")
-    
-    print("\n💡 Debug提示:")
-    print("   - 如果测试失败，请查看详细的错误信息")
-    print("   - 检查环境变量配置是否正确")
-    print("   - 确认Prometheus服务是否可访问")
-    print("   - 验证API密钥是否有效")
-    
-    print("\n🎯 测试完成！可以进行详细的debug分析了。")
+        rprint("Yeah, everything has been finished!!!!!")
+        # breakpoint()
+    # --
+
+# --
+if __name__ == '__main__':
+    main()

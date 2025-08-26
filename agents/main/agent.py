@@ -9,6 +9,7 @@ import multiprocessing as mp
 from ..base.agent import MultiStepAgent, register_template, AgentResult
 from ..base.tool import StopTool, AskLLMTool, SimpleSearchTool, QueryErrorLogsTool, QueryDependencyTool
 from ..base.utils import zwarn, GET_ENV_VAR
+from ..promtool.agent import Prom_ToolAgent
 # Removed web_agent imports
 # Removed file_agent imports
 from .prompts import PROMPTS as ZO_PROMPTS
@@ -22,12 +23,13 @@ class ZOAgent(MultiStepAgent):
         self.tool_simple_search = SimpleSearchTool()
         self.tool_query_error_logs = QueryErrorLogsTool()
         self.tool_query_dependency = QueryDependencyTool()
+        self.prom_agent = Prom_ToolAgent()
         feed_kwargs = dict(
             name="zo_agent",
             description="Cognitive Kernel, an initial autopilot system.",
             templates={"plan": "zo_plan", "action": "zo_action", "end": "zo_end", "aggr": "zo_aggr"},  # template names (no need of END here since we do NOT use __call__ for this)
-            active_functions=["stop", "ask_llm", "simple_web_search", "query_error_logs", "query_dependency"],  # removed web_agent and file_agent
-            sub_agent_names=[],  # removed web_agent and file_agent
+            active_functions=["stop", "ask_llm", "simple_web_search", "query_error_logs", "query_dependency", "prom_agent"],  # removed web_agent and file_agent
+            sub_agent_names=["prom_agent"],  # removed web_agent and file_agent
             tools=[StopTool(agent=self), self.tool_ask_llm, self.tool_simple_search, self.tool_query_error_logs, self.tool_query_dependency],  # add related tools
             max_steps=16,  # still give it more steps
             max_time_limit=4200,  # 70 minutes
@@ -70,7 +72,7 @@ class ZOAgent(MultiStepAgent):
         return ret
 
     def step_action(self, action_res, action_input_kwargs, **kwargs):
-        _need_multiple = any(f"{kk}(" in action_res["code"] for kk in ["ask_llm"])  # removed web_agent and file_agent
+        _need_multiple = any(f"{kk}(" in action_res["code"] for kk in ["ask_llm", "prom_agent"])  # removed web_agent and file_agent
         if self.step_mrun <= 1 or (not _need_multiple):  # just run once
             return self._super_step_action(None, False, action_res, action_input_kwargs, **kwargs)
         else:  # multiple run and aggregation
