@@ -29,7 +29,7 @@ type StorageConfig struct {
 
 // ConsulConfig Consul配置
 type ConsulConfig struct {
-	Addr string `yaml:"addr"`
+	Address string `yaml:"address"`
 }
 
 // LoadConfig 加载配置文件
@@ -69,8 +69,8 @@ func LoadConfig(configPath string) (*MockErrorConfig, error) {
 	if config.Storage.DataDir == "" {
 		config.Storage.DataDir = "./data"
 	}
-	if config.Consul.Addr == "" {
-		config.Consul.Addr = "localhost:8500"
+	if config.Consul.Address == "" {
+		config.Consul.Address = "localhost:8500"
 	}
 
 	return &config, nil
@@ -89,4 +89,9 @@ func (c *MockErrorConfig) GetHost() string {
 // GetPort 实现server.ServiceConfig接口
 func (c *MockErrorConfig) GetPort() int {
 	return c.Service.Port
+}
+
+// GetConsulAddress 获取Consul地址
+func (c *MockErrorConfig) GetConsulAddress() string {
+	return c.Consul.Address
 }

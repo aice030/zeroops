@@ -91,3 +91,8 @@ func (c *Config) GetHost() string {
 func (c *Config) GetPort() int {
 	return c.Service.Port
 }
+
+// GetConsulAddress 获取Consul地址
+func (c *Config) GetConsulAddress() string {
+	return c.Consul.Address
+}

@@ -45,15 +45,15 @@ func main() {
 		// 初始化队列服务
 		queueService := service.NewQueueService(repo, logger)
 
-		// 初始化外部服务客户端
-		storageClient := client.NewStorageClient(
-			"http://localhost:8082", // Storage Service地址
+		// 初始化外部服务客户端 - 使用Consul服务发现
+		storageClient := client.NewStorageClientWithConsul(
+			bootstrap.ConsulClient,
 			30*time.Second,
 			logger,
 		)
 
-		metadataClient := client.NewMetadataClient(
-			"http://localhost:8081", // Metadata Service地址
+		metadataClient := client.NewMetadataClientWithConsul(
+			bootstrap.ConsulClient,
 			30*time.Second,
 			logger,
 		)

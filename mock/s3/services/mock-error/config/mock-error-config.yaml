@@ -7,4 +7,4 @@ storage:
   data_dir: "./data"
 
 consul:
-  addr: "localhost:8500"
+  address: "localhost:8500"

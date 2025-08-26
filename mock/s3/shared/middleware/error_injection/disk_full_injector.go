@@ -1,4 +1,4 @@
-package middleware
+package error_injection
 
 import (
 	"context"
