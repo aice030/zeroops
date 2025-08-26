@@ -35,7 +35,7 @@ COPY --from=builder /app/storage-service .
 
 # 复制配置文件
 COPY services/storage/config/ ./config/
-COPY observability.yaml ./
+COPY shared/observability/config/observability.yaml ./
 
 # 创建存储目录
 RUN mkdir -p ./data/storage/node1 ./data/storage/node2 ./data/storage/node3

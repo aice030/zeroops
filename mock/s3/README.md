@@ -82,7 +82,7 @@ docker-compose up --build grafana kibana -d
 
 # 逐个构建Mock S3服务
 docker-compose up --build gateway -d
-docker-compose up --build metadata-service -d  
+docker-compose up --build metadata-service -d
 docker-compose up --build storage-service -d
 docker-compose up --build queue-service -d
 docker-compose up --build third-party-service -d
@@ -111,7 +111,7 @@ docker-compose up --build third-party-service mock-error-service -d
 
 #### ⚡ 快速验证构建
 ```bash
-# 只启动核心功能（最小化内存使用）
+# 只启动核心功能
 docker-compose up consul postgres redis metadata-service storage-service -d
 
 # 验证核心功能可用

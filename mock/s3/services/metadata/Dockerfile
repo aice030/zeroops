@@ -35,7 +35,7 @@ WORKDIR /app
 # 从构建阶段复制二进制文件
 COPY --from=builder /app/bin/metadata-service /app/
 COPY --from=builder /app/services/metadata/config/ /app/config/
-COPY --from=builder /app/observability.yaml /app/
+COPY --from=builder /app/shared/observability/config/observability.yaml /app/
 
 # 设置权限
 RUN chown -R appuser:appgroup /app
