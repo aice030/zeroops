@@ -1,4 +1,4 @@
-# Storage Service Dockerfile
+# Mock Error Service Dockerfile
 FROM golang:1.24-alpine AS builder
 
 # 安装必要的工具
@@ -17,7 +17,7 @@ RUN go mod download
 COPY . .
 
 # 构建应用
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o storage-service ./services/storage/cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o mock-error-service ./services/mock-error/cmd
 
 # 生产阶段
 FROM alpine:latest
@@ -31,25 +31,27 @@ RUN adduser -D -s /bin/sh appuser
 WORKDIR /app
 
 # 复制二进制文件
-COPY --from=builder /app/storage-service .
+COPY --from=builder /app/mock-error-service .
 
 # 复制配置文件
-COPY services/storage/config/ ./config/
+COPY services/mock-error/config/ ./config/
 COPY observability.yaml ./
 
-# 创建存储目录
-RUN mkdir -p ./data/storage/node1 ./data/storage/node2 ./data/storage/node3
+# 创建数据目录
+RUN mkdir -p ./data
+
+# 设置权限
 RUN chown -R appuser:appuser /app
 
 # 切换到非root用户
 USER appuser
 
 # 暴露端口
-EXPOSE 8082
+EXPOSE 8085
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8082/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8085/health || exit 1
 
 # 启动应用
-CMD ["./storage-service"]
+CMD ["./mock-error-service"]
