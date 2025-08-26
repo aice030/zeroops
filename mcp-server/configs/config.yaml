@@ -1,0 +1,23 @@
+# 全局配置
+global:
+  default_file_path: "./testdata"  # 默认文件保存路径
+
+# Prometheus 区域与 URL 映射
+prometheus:
+  regions:
+    mock: "http://127.0.0.1:9090/"
+  port: 8090  # prometheus-mcp服务端口
+  endpoint: "/prometheus"  # prometheus-mcp 服务路径
+
+# Superset 相关配置
+superset:
+  base_url: "http://127.0.0.1:9090/"  # Superset 服务地址
+  username: "username"                                    # 登录用户名
+  password: "password"                                    # 登录密码
+  port: 8091                                              # superset-mcp 服务端口
+  endpoint: "/superset"                                   # superset-mcp 服务路径
+
+#ElasticSearch相关配置
+elasticsearch:
+  port: 8092
+  endpoint: "/es"

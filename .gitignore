@@ -5,3 +5,5 @@
 testdata/
 
 cmd/
+
+/mcp-server/config.yaml
