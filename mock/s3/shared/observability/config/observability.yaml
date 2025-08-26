@@ -1,0 +1,18 @@
+# MockS3 可观测性配置文件
+
+# 服务基本信息
+service_name: "mocks3"
+service_version: "1.0.0"
+environment: "development" # development, staging, production
+
+# OpenTelemetry 配置
+otlp_endpoint: "localhost:4318"
+
+# 日志配置
+log_level: "info" # debug, info, warn, error
+
+# 链路追踪配置
+sampling_ratio: 1.0 # 0.0-1.0, 1.0表示100%采样
+
+# 指标导出配置
+export_interval: "30s" # 支持时间格式如: 30s, 1m, 5m

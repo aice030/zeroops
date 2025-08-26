@@ -1,0 +1,35 @@
+# Core dependencies for zeroops agents
+# Based on analysis of agents/ directory code
+
+# LLM and AI related
+openai>=1.99.0                    # OpenAI API client - latest stable
+numpy>=2.3.0                      # Numerical computing library
+
+# HTTP requests
+requests>=2.31.0                  # HTTP library for API calls
+
+# Rich terminal output
+rich>=14.1.0                      # Rich terminal formatting
+
+# Search functionality
+duckduckgo-search>=4.1.0          # DuckDuckGo search API
+
+# Data analysis and manipulation
+pandas>=2.2.0                     # Data manipulation and analysis
+statsmodels>=0.14.1               # Statistical models including STL decomposition
+scipy>=1.7.0                      # Scientific computing library
+
+# Note: Removed langchain dependencies as they were only used for Azure integration
+# If you need langchain functionality in the future, you can add:
+# langchain>=0.2.0                # LangChain framework
+# langchain-openai>=0.3.29       # LangChain OpenAI integration
+
+# Optional: for better performance and compatibility
+# torch>=2.0.0                    # PyTorch (optional, for transformers)
+# accelerate>=0.20.0              # Model acceleration (optional)
+# sentencepiece>=0.1.99           # Tokenizer support (optional)
+
+# Development dependencies (optional)
+# pytest>=7.0.0                   # Testing framework
+# black>=23.0.0                   # Code formatter
+# flake8>=6.0.0                   # Linter
