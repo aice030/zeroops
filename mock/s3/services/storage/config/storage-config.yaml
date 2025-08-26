@@ -1,0 +1,33 @@
+# Storage Service 配置文件
+service:
+  name: "storage-service"
+  host: "0.0.0.0"
+  port: 8082
+
+# 存储配置
+storage:
+  # 存储根路径
+  root_path: "./data/storage"
+
+  # 存储节点配置
+  nodes:
+    - id: "node1"
+      path: "./data/storage/node1"
+    - id: "node2"
+      path: "./data/storage/node2"
+    - id: "node3"
+      path: "./data/storage/node3"
+
+# 外部服务配置
+services:
+  metadata:
+    url: "http://localhost:8081"
+    timeout: "30s"
+
+  queue:
+    url: "http://localhost:8083"
+    timeout: "10s"
+  
+  third_party:
+    url: "http://localhost:8084"
+    timeout: "15s"
