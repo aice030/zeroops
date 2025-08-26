@@ -35,7 +35,7 @@ func main() {
 		// 记录配置信息
 		logger.Info(ctx, "Mock Error Service initialized",
 			observability.String("data_dir", config.Storage.DataDir),
-			observability.String("consul_addr", config.Consul.Addr))
+			observability.String("consul_addr", config.Consul.Address))
 
 		return nil
 	})

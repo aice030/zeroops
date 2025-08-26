@@ -22,9 +22,15 @@ type RedisConfig struct {
 	DB       int    `yaml:"db"`
 }
 
+// ConsulConfig Consul配置
+type ConsulConfig struct {
+	Address string `yaml:"address"`
+}
+
 // Config Queue Service配置
 type Config struct {
 	Service       ServiceConfig              `yaml:"service"`
+	Consul        ConsulConfig               `yaml:"consul"`
 	Redis         RedisConfig                `yaml:"redis"`
 	Worker        worker.WorkerConfig        `yaml:"worker"`
 	Observability config.ObservabilityConfig `yaml:"observability"`
@@ -52,6 +58,9 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 	if config.Worker.PollInterval <= 0 {
 		config.Worker.PollInterval = 5 * time.Second
+	}
+	if config.Consul.Address == "" {
+		config.Consul.Address = "localhost:8500"
 	}
 
 	return config, nil
@@ -81,4 +90,9 @@ func (c *Config) GetHost() string {
 // GetPort 实现server.ServiceConfig接口
 func (c *Config) GetPort() int {
 	return c.Service.Port
+}
+
+// GetConsulAddress 获取Consul地址
+func (c *Config) GetConsulAddress() string {
+	return c.Consul.Address
 }

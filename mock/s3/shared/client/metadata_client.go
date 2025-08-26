@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"mocks3/shared/middleware/consul"
 	"mocks3/shared/models"
 	"mocks3/shared/observability"
 	"net/http"
@@ -16,6 +17,15 @@ type MetadataClient struct {
 
 // NewMetadataClient 创建元数据服务客户端
 func NewMetadataClient(baseURL string, timeout time.Duration, logger *observability.Logger) *MetadataClient {
+	return &MetadataClient{
+		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "metadata-client", logger),
+	}
+}
+
+// NewMetadataClientWithConsul 创建支持Consul服务发现的元数据服务客户端
+func NewMetadataClientWithConsul(consulClient consul.ConsulClient, timeout time.Duration, logger *observability.Logger) *MetadataClient {
+	ctx := context.Background()
+	baseURL := getServiceURL(ctx, consulClient, "metadata-service", "http://localhost:8081", logger)
 	return &MetadataClient{
 		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "metadata-client", logger),
 	}

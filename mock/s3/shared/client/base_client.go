@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mocks3/shared/middleware/consul"
 	"mocks3/shared/observability"
 	"net/http"
 	"net/url"
@@ -283,4 +284,43 @@ func (c *BaseHTTPClient) buildURL(path string, queryParams map[string]string) (s
 // isSuccessStatus 检查是否为成功状态码
 func isSuccessStatus(status int) bool {
 	return status >= 200 && status < 300
+}
+
+// getServiceURL 从Consul获取服务URL，支持fallback
+func getServiceURL(ctx context.Context, consulClient consul.ConsulClient, serviceName, fallbackURL string, logger *observability.Logger) string {
+	// 如果没有Consul客户端，直接使用fallback
+	if consulClient == nil {
+		logger.Warn(ctx, "No Consul client available, using fallback URL",
+			observability.String("service_name", serviceName),
+			observability.String("fallback_url", fallbackURL))
+		return fallbackURL
+	}
+
+	// 从Consul获取健康的服务实例
+	services, err := consulClient.GetHealthyServices(ctx, serviceName)
+	if err != nil {
+		logger.Warn(ctx, "Failed to get healthy services from Consul, using fallback URL",
+			observability.String("service_name", serviceName),
+			observability.String("fallback_url", fallbackURL),
+			observability.Error(err))
+		return fallbackURL
+	}
+
+	// 如果没有健康的服务实例，使用fallback
+	if len(services) == 0 {
+		logger.Warn(ctx, "No healthy services found in Consul, using fallback URL",
+			observability.String("service_name", serviceName),
+			observability.String("fallback_url", fallbackURL))
+		return fallbackURL
+	}
+
+	// 使用第一个健康的服务实例
+	service := services[0]
+	serviceURL := fmt.Sprintf("http://%s:%d", service.Address, service.Port)
+
+	logger.Debug(ctx, "Service discovered from Consul",
+		observability.String("service_name", serviceName),
+		observability.String("service_url", serviceURL))
+
+	return serviceURL
 }

@@ -42,21 +42,21 @@ func main() {
 		logger.Info(ctx, "Storage repository initialized",
 			observability.Int("nodes", len(nodes)))
 
-		// 初始化外部服务客户端
-		metadataClient := client.NewMetadataClient(
-			config.Services.Metadata.URL,
+		// 初始化外部服务客户端 - 支持Consul服务发现
+		metadataClient := client.NewMetadataClientWithConsul(
+			bootstrap.ConsulClient,
 			config.GetMetadataTimeout(),
 			logger,
 		)
 
-		queueClient := client.NewQueueClient(
-			config.Services.Queue.URL,
+		queueClient := client.NewQueueClientWithConsul(
+			bootstrap.ConsulClient,
 			config.GetQueueTimeout(),
 			logger,
 		)
 
-		thirdPartyClient := client.NewThirdPartyClient(
-			config.Services.ThirdParty.URL,
+		thirdPartyClient := client.NewThirdPartyClientWithConsul(
+			bootstrap.ConsulClient,
 			config.GetThirdPartyTimeout(),
 			logger,
 		)
