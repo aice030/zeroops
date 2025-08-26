@@ -65,3 +65,18 @@ func (c *Config) GetDSN() string {
 func (c *Config) GetRedisAddr() string {
 	return c.Redis.Address
 }
+
+// GetServiceName 实现server.ServiceConfig接口
+func (c *Config) GetServiceName() string {
+	return c.Service.Name
+}
+
+// GetHost 实现server.ServiceConfig接口
+func (c *Config) GetHost() string {
+	return c.Service.Host
+}
+
+// GetPort 实现server.ServiceConfig接口
+func (c *Config) GetPort() int {
+	return c.Service.Port
+}

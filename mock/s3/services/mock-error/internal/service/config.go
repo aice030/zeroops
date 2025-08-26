@@ -75,3 +75,18 @@ func LoadConfig(configPath string) (*MockErrorConfig, error) {
 
 	return &config, nil
 }
+
+// GetServiceName 实现server.ServiceConfig接口
+func (c *MockErrorConfig) GetServiceName() string {
+	return c.Service.Name
+}
+
+// GetHost 实现server.ServiceConfig接口
+func (c *MockErrorConfig) GetHost() string {
+	return c.Service.Host
+}
+
+// GetPort 实现server.ServiceConfig接口
+func (c *MockErrorConfig) GetPort() int {
+	return c.Service.Port
+}

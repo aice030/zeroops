@@ -122,7 +122,7 @@ func (m *MemoryLeakInjector) memoryAllocationTask(ctx context.Context) {
 
 			// 分配内存（1MB = 1024*1024 bytes）
 			chunk := make([]byte, chunkSizeMB*1024*1024)
-			
+
 			// 写入数据确保内存真正被使用
 			for i := range chunk {
 				if i%1024 == 0 {

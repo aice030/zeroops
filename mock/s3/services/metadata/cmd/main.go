@@ -7,14 +7,12 @@ import (
 	"mocks3/services/metadata/internal/repository"
 	"mocks3/services/metadata/internal/service"
 	"mocks3/shared/observability"
-	"net/http"
+	"mocks3/shared/server"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
-	"github.com/gin-gonic/gin"
 )
+
+// 全局变量用于在初始化和清理时共享
+var globalRepo *repository.PostgreSQLRepository
 
 func main() {
 	// 1. 加载配置
@@ -24,86 +22,45 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 2. 初始化可观测性组件
-	providers, collector, httpMiddleware, err := observability.Setup(config.Service.Name, "observability.yaml")
-	if err != nil {
-		fmt.Printf("Failed to setup observability: %v\n", err)
-		os.Exit(1)
-	}
-	defer observability.Shutdown(context.Background(), providers)
+	// 2. 创建服务启动器
+	bootstrap := server.NewServiceBootstrap("Metadata Service", config)
 
-	logger := observability.GetLogger(providers)
-	ctx := context.Background()
-
-	logger.Info(ctx, "Starting Metadata Service",
-		observability.String("service", config.Service.Name),
-		observability.String("host", config.Service.Host),
-		observability.Int("port", config.Service.Port))
-
-	// 3. 初始化数据库仓库
-	repo, err := repository.NewPostgreSQLRepository(config.GetDSN())
-	if err != nil {
-		logger.Error(ctx, "Failed to initialize repository", observability.Error(err))
-		os.Exit(1)
-	}
-	defer repo.Close()
-
-	logger.Info(ctx, "Database connection established")
-
-	// 4. 初始化业务服务
-	metadataService := service.NewMetadataService(repo, logger)
-
-	// 5. 初始化HTTP处理器
-	metadataHandler := handler.NewMetadataHandler(metadataService, logger)
-
-	// 6. 设置Gin路由
-	gin.SetMode(gin.ReleaseMode)
-	router := gin.New()
-	router.Use(gin.Recovery())
-
-	// 使用shared/observability中间件
-	observability.SetupGinMiddlewares(router, config.Service.Name, httpMiddleware)
-
-	// 设置业务路由
-	metadataHandler.SetupRoutes(router)
-
-	// 7. 启动系统指标收集
-	observability.StartSystemMetrics(ctx, collector, logger)
-
-	// 8. 创建HTTP服务器
-	addr := fmt.Sprintf("%s:%d", config.Service.Host, config.Service.Port)
-	server := &http.Server{
-		Addr:    addr,
-		Handler: router,
-	}
-
-	// 9. 启动服务器
-	go func() {
-		logger.Info(ctx, "HTTP server starting", observability.String("addr", addr))
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error(ctx, "HTTP server failed", observability.Error(err))
+	// 3. 设置自定义初始化逻辑
+	bootstrap.WithCustomInit(func(ctx context.Context, logger *observability.Logger) error {
+		// 初始化数据库仓库
+		repo, err := repository.NewPostgreSQLRepository(config.GetDSN())
+		if err != nil {
+			return fmt.Errorf("failed to initialize repository: %w", err)
 		}
-	}()
+		globalRepo = repo // 保存供清理使用
 
-	logger.Info(ctx, "Metadata Service started successfully",
-		observability.String("addr", addr))
+		logger.Info(ctx, "Database connection established")
 
-	// 10. 优雅关闭
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+		// 初始化业务服务
+		metadataService := service.NewMetadataService(repo, logger)
 
-	logger.Info(ctx, "Shutting down Metadata Service...")
+		// 初始化HTTP处理器
+		metadataHandler := handler.NewMetadataHandler(metadataService, logger)
 
-	// 关闭HTTP服务器
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+		// 设置处理器到启动器
+		bootstrap.WithHandler(metadataHandler)
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		logger.Error(ctx, "HTTP server shutdown failed", observability.Error(err))
-	} else {
-		logger.Info(ctx, "HTTP server stopped")
+		return nil
+	})
+
+	// 4. 设置自定义清理逻辑
+	bootstrap.WithCustomCleanup(func(ctx context.Context, logger *observability.Logger) error {
+		// 关闭数据库连接
+		if globalRepo != nil {
+			globalRepo.Close()
+			logger.Info(ctx, "Database connection closed")
+		}
+		return nil
+	})
+
+	// 5. 启动服务
+	if err := bootstrap.Start(); err != nil {
+		fmt.Printf("Failed to start service: %v\n", err)
+		os.Exit(1)
 	}
-
-	logger.Info(ctx, "Metadata Service stopped")
 }

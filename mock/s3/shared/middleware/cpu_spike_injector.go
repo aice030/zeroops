@@ -10,10 +10,10 @@ import (
 
 // CPUSpikeInjector CPU峰值异常注入器
 type CPUSpikeInjector struct {
-	logger    *observability.Logger
-	isActive  bool
-	mu        sync.RWMutex
-	stopChan  chan struct{}
+	logger     *observability.Logger
+	isActive   bool
+	mu         sync.RWMutex
+	stopChan   chan struct{}
 	goroutines []chan struct{}
 }
 

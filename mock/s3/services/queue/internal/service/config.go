@@ -67,3 +67,18 @@ func (c *Config) GetRedisURL() string {
 	}
 	return c.Redis.URL
 }
+
+// GetServiceName 实现server.ServiceConfig接口
+func (c *Config) GetServiceName() string {
+	return c.Service.Name
+}
+
+// GetHost 实现server.ServiceConfig接口
+func (c *Config) GetHost() string {
+	return c.Service.Host
+}
+
+// GetPort 实现server.ServiceConfig接口
+func (c *Config) GetPort() int {
+	return c.Service.Port
+}

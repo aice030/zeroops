@@ -76,3 +76,18 @@ func (c *Config) GetEnabledDataSources() []DataSource {
 	}
 	return enabled
 }
+
+// GetServiceName 实现server.ServiceConfig接口
+func (c *Config) GetServiceName() string {
+	return c.Service.Name
+}
+
+// GetHost 实现server.ServiceConfig接口
+func (c *Config) GetHost() string {
+	return c.Service.Host
+}
+
+// GetPort 实现server.ServiceConfig接口
+func (c *Config) GetPort() int {
+	return c.Service.Port
+}

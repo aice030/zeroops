@@ -30,6 +30,11 @@ type NetworkStats struct {
 	requestsTotal int64
 }
 
+// MetricInjector 错误注入器接口
+type MetricInjector interface {
+	InjectMetricAnomaly(ctx context.Context, metricName string, originalValue float64) float64
+}
+
 // MetricCollector 指标收集器
 type MetricCollector struct {
 	meter metric.Meter
@@ -46,6 +51,9 @@ type MetricCollector struct {
 	networkStats *NetworkStats
 	procFS       procfs.FS
 	logger       *Logger
+
+	// 错误注入器
+	metricInjector MetricInjector
 }
 
 // NewMetricCollector 创建指标收集器
@@ -72,6 +80,14 @@ func NewMetricCollector(meter metric.Meter, logger *Logger) (*MetricCollector, e
 	}
 
 	return collector, nil
+}
+
+// SetMetricInjector 设置错误注入器
+func (c *MetricCollector) SetMetricInjector(injector MetricInjector) {
+	c.metricInjector = injector
+	if c.logger != nil {
+		c.logger.Info(context.Background(), "Metric injector set for MetricCollector")
+	}
 }
 
 // initMetrics 初始化指标
@@ -196,7 +212,14 @@ func (c *MetricCollector) collectCPUMetrics(ctx context.Context) {
 		}
 
 		c.cpuStats.lastCPUUsage = cpuUsage
-		c.cpuUsagePercent.Record(ctx, cpuUsage)
+
+		// 应用错误注入
+		finalValue := cpuUsage
+		if c.metricInjector != nil {
+			finalValue = c.metricInjector.InjectMetricAnomaly(ctx, "system_cpu_usage_percent", cpuUsage)
+		}
+
+		c.cpuUsagePercent.Record(ctx, finalValue)
 	}
 
 	// 更新状态
@@ -226,7 +249,14 @@ func (c *MetricCollector) collectMemoryMetrics(ctx context.Context) {
 		used := total - available
 
 		memoryPercent := (used / total) * 100.0
-		c.memoryUsagePercent.Record(ctx, memoryPercent)
+
+		// 应用错误注入
+		finalValue := memoryPercent
+		if c.metricInjector != nil {
+			finalValue = c.metricInjector.InjectMetricAnomaly(ctx, "system_memory_usage_percent", memoryPercent)
+		}
+
+		c.memoryUsagePercent.Record(ctx, finalValue)
 
 	} else {
 		// 记录数据不完整的日志
@@ -252,7 +282,13 @@ func (c *MetricCollector) collectDiskMetrics(ctx context.Context) {
 		return
 	}
 
-	c.diskUsagePercent.Record(ctx, diskUsage)
+	// 应用错误注入
+	finalValue := diskUsage
+	if c.metricInjector != nil {
+		finalValue = c.metricInjector.InjectMetricAnomaly(ctx, "system_disk_usage_percent", diskUsage)
+	}
+
+	c.diskUsagePercent.Record(ctx, finalValue)
 }
 
 // getDiskUsage 获取磁盘使用率
@@ -311,8 +347,13 @@ func (c *MetricCollector) collectNetworkMetrics(ctx context.Context) {
 
 	// 只在有有效数据时记录指标
 	if qps >= 0 {
-		c.networkQPS.Record(ctx, qps)
+		// 应用错误注入
+		finalValue := qps
+		if c.metricInjector != nil {
+			finalValue = c.metricInjector.InjectMetricAnomaly(ctx, "system_network_qps", qps)
+		}
 
+		c.networkQPS.Record(ctx, finalValue)
 	}
 	c.networkStats.lastUpdate = now
 }
@@ -375,5 +416,13 @@ func (c *MetricCollector) calculateNetworkQPS(now time.Time) (float64, error) {
 // updateMachineStatus 更新机器在线状态
 func (c *MetricCollector) updateMachineStatus(ctx context.Context) {
 	// 机器在线状态（1=在线，0=离线）
-	c.machineOnlineStatus.Record(ctx, 1)
+	originalStatus := int64(1)
+
+	// 应用错误注入
+	finalValue := float64(originalStatus)
+	if c.metricInjector != nil {
+		finalValue = c.metricInjector.InjectMetricAnomaly(ctx, "system_machine_online_status", float64(originalStatus))
+	}
+
+	c.machineOnlineStatus.Record(ctx, int64(finalValue))
 }
