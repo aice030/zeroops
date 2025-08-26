@@ -1,0 +1,26 @@
+# Metadata Service 配置
+service:
+  name: "metadata-service"
+  port: 8081
+  host: "0.0.0.0"
+
+consul:
+  address: "localhost:8500"
+
+database:
+  driver: "postgres"
+  host: "localhost"
+  port: 5432
+  name: "mocks3"
+  username: "admin"
+  password: "password"
+  
+redis:
+  address: "localhost:6379"
+  password: ""
+  db: 0
+
+observability:
+  service_name: "metadata-service"
+  otlp_endpoint: "localhost:4318"
+  log_level: "info"

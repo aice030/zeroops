@@ -1,0 +1,37 @@
+# Third-Party Service 配置
+service:
+  name: "third-party-service"
+  port: 8084
+  host: "0.0.0.0"
+
+consul:
+  address: "localhost:8500"
+
+# Mock数据源配置
+data_sources:
+  - name: "primary"
+    url: "https://api.example.com/v1/storage"
+    timeout_ms: 5000
+    retry_count: 3
+    enabled: true
+  - name: "backup"
+    url: "https://backup-api.example.com/v1/storage"
+    timeout_ms: 3000
+    retry_count: 2
+    enabled: true
+
+# Mock行为配置
+mock:
+  # 是否启用Mock模式（true表示返回Mock数据，false表示真实调用第三方API）
+  enabled: true
+  # Mock数据配置
+  default_content_type: "application/octet-stream"
+  # 模拟延迟（毫秒）
+  latency_ms: 100
+  # 模拟成功率（0.0-1.0）
+  success_rate: 0.9
+
+observability:
+  service_name: "third-party-service"
+  otlp_endpoint: "localhost:4318"
+  log_level: "info"

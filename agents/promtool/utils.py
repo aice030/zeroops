@@ -357,4 +357,3 @@ class AnomalyDetector:
                 "method": "STL分解 + 百分位数检测"
             }
         }
-

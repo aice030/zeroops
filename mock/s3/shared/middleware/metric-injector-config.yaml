@@ -1,0 +1,11 @@
+# MetricInjector 指标异常注入器配置示例
+
+mock_error_service:
+  # Mock Error Service的URL地址
+  url: "http://localhost:8085"
+  # 请求超时时间
+  timeout: 5s
+
+cache:
+  # 缓存TTL（生存时间）
+  ttl: 30s
