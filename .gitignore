@@ -1,9 +1,7 @@
 **/.idea/
 
-*.md
-
 testdata/
 
-cmd/
+mcp-server/cmd/
 
 /mcp-server/config.yaml
