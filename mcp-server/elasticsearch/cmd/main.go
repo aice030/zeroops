@@ -13,7 +13,3 @@ func Run() {
 
 	internal.StartElasticsearchMcpServer()
 }
-
-func main() {
-	Run()
-}
