@@ -317,7 +317,7 @@ mock/s3/
 ```bash
 # 场景1: 存储服务高负载
 curl -X POST http://100.100.57.39:8085/api/v1/inject \
-  -d '{"service":"storage-service","anomaly_type":"cpu_spike","duration":"10m"}'
+  -d '{"service":"storage-service","anomaly_type":"cpu_spike","duration":"1m"}'
 
 # 场景2: 数据库连接异常
 curl -X POST http://100.100.57.39:8085/api/v1/inject \

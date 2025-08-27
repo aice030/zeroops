@@ -27,7 +27,7 @@ func NewStorageClient(baseURL string, timeout time.Duration, logger *observabili
 // NewStorageClientWithConsul 创建支持Consul服务发现的存储服务客户端
 func NewStorageClientWithConsul(consulClient consul.ConsulClient, timeout time.Duration, logger *observability.Logger) *StorageClient {
 	ctx := context.Background()
-	baseURL := getServiceURL(ctx, consulClient, "storage-service", "http://localhost:8082", logger)
+	baseURL := getServiceURL(ctx, consulClient, "storage-service", "http://storage-service:8082", logger)
 	return &StorageClient{
 		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "storage-client", logger),
 	}

@@ -25,7 +25,7 @@ func NewThirdPartyClient(baseURL string, timeout time.Duration, logger *observab
 // NewThirdPartyClientWithConsul 创建支持Consul服务发现的第三方服务客户端
 func NewThirdPartyClientWithConsul(consulClient consul.ConsulClient, timeout time.Duration, logger *observability.Logger) *ThirdPartyClient {
 	ctx := context.Background()
-	baseURL := getServiceURL(ctx, consulClient, "third-party-service", "http://localhost:8084", logger)
+	baseURL := getServiceURL(ctx, consulClient, "third-party-service", "http://third-party-service:8084", logger)
 	return &ThirdPartyClient{
 		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "third-party-client", logger),
 	}
