@@ -40,8 +40,8 @@ func LoadObservabilityConfig(serviceName, configPath string) (*ObservabilityConf
 		}
 	}
 
-	// 设置服务名称（如果配置文件中没有指定）
-	if config.ServiceName == "" {
+	// 强制使用传入的服务名称，不被YAML配置覆盖
+	if serviceName != "" {
 		config.ServiceName = serviceName
 	}
 

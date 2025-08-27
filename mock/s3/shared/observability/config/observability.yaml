@@ -1,7 +1,7 @@
 # MockS3 可观测性配置文件
 
 # 服务基本信息
-service_name: "mocks3"
+# service_name: 由各服务启动时动态设置，不在此配置文件中硬编码
 service_version: "1.0.0"
 environment: "development" # development, staging, production
 

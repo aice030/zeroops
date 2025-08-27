@@ -238,33 +238,6 @@ services:
   # Mock S3 Services (Built from Source)
   # ===================
 
-  # API Gateway - Nginx with Consul Template
-  gateway:
-    build:
-      context: ./gateway
-      dockerfile: Dockerfile
-    image: mock-s3/gateway:latest
-    container_name: mock-s3-gateway
-    hostname: gateway
-    networks:
-      mock-s3-network:
-        ipv4_address: 172.20.0.30
-    ports:
-      - "8080:8080"
-    environment:
-      - CONSUL_HTTP_ADDR=consul:8500
-      - CONSUL_TEMPLATE_LOG=INFO
-      - DEBUG=false
-    depends_on:
-      consul:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
   # Metadata Service - Built from Go Source
   metadata-service:
     build:

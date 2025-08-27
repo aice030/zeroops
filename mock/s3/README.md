@@ -33,7 +33,6 @@ MockS3 是一个完整的 S3 兼容对象存储服务，专为**混沌工程**�
 
 | 服务 | 端口 | 职责 |
 |-----|------|------|
-| **Nginx Gateway** | 8080 | S3 API入口，负载均衡 |
 | **Metadata Service** | 8081 | 对象元数据管理 |
 | **Storage Service** | 8082 | 文件存储和检索 |
 | **Queue Service** | 8083 | 异步任务处理 |
@@ -75,13 +74,12 @@ docker-compose up --build otel-collector prometheus -d
 docker-compose up --build elasticsearch -d
 
 # 等待ES启动完成
-curl -f http://localhost:9200/_cluster/health
+curl -f http://100.100.57.39:9200/_cluster/health
 
 # 构建可视化服务
 docker-compose up --build grafana kibana -d
 
 # 逐个构建Mock S3服务
-docker-compose up --build gateway -d
 docker-compose up --build metadata-service -d
 docker-compose up --build storage-service -d
 docker-compose up --build queue-service -d
@@ -115,16 +113,16 @@ docker-compose up --build third-party-service mock-error-service -d
 docker-compose up consul postgres redis metadata-service storage-service -d
 
 # 验证核心功能可用
-curl http://localhost:8081/health
-curl http://localhost:8082/health
+curl http://100.100.57.39:8081/health
+curl http://100.100.57.39:8082/health
 ```
 
 ### 访问地址
-- **S3 API**: http://localhost:8080
-- **Consul UI**: http://localhost:8500
-- **Grafana监控**: http://localhost:3000 (admin/admin)
-- **Kibana日志**: http://localhost:5601
-- **Prometheus**: http://localhost:9090
+- **S3 API**: http://100.100.57.39:8080
+- **Consul UI**: http://100.100.57.39:8500
+- **Grafana监控**: http://100.100.57.39:3000 (admin/admin)
+- **Kibana日志**: http://100.100.57.39:5601
+- **Prometheus**: http://100.100.57.39:9090
 
 ## 📖 使用指南
 
@@ -135,11 +133,11 @@ curl http://localhost:8082/health
 #### 服务健康检查
 ```bash
 # 查看所有服务健康状态
-curl http://localhost:8081/health  # Metadata Service
-curl http://localhost:8082/health  # Storage Service
-curl http://localhost:8083/health  # Queue Service
-curl http://localhost:8084/health  # Third-Party Service
-curl http://localhost:8085/health  # Mock Error Service
+curl http://100.100.57.39:8081/health  # Metadata Service
+curl http://100.100.57.39:8082/health  # Storage Service
+curl http://100.100.57.39:8083/health  # Queue Service
+curl http://100.100.57.39:8084/health  # Third-Party Service
+curl http://100.100.57.39:8085/health  # Mock Error Service
 
 # 查看服务注册状态 (Consul)
 docker exec mock-s3-consul consul catalog services -tags
@@ -152,58 +150,58 @@ curl http://100.100.57.39:8082/api/v1/stats
 # 返回: 存储节点状态、总存储空间
 
 # Metadata Service统计
-curl http://localhost:8081/api/v1/stats
+curl http://100.100.57.39:8081/api/v1/stats
 # 返回: 对象总数、总大小、最后更新时间
 
 # Queue Service统计
-curl http://localhost:8083/api/v1/stats
+curl http://100.100.57.39:8083/api/v1/stats
 # 返回: 保存队列、删除队列长度
 
 # Third-Party Service统计
-curl http://localhost:8084/api/v1/stats
+curl http://100.100.57.39:8084/api/v1/stats
 # 返回: 数据源状态、成功率配置
 
 # Mock Error Service统计
-curl http://localhost:8085/api/v1/stats
+curl http://100.100.57.39:8085/api/v1/stats
 # 返回: 总请求数、错误注入次数
 ```
 
 #### 指标监控 (Prometheus)
 ```bash
 # 查看系统状态
-curl "http://localhost:9090/api/v1/query?query=up"
+curl "http://100.100.57.39:9090/api/v1/query?query=up"
 
 # 查看HTTP请求指标
-curl "http://localhost:9090/api/v1/query?query=prometheus_http_requests_total"
+curl "http://100.100.57.39:9090/api/v1/query?query=prometheus_http_requests_total"
 
-# 访问Prometheus UI: http://localhost:9090
+# 访问Prometheus UI: http://100.100.57.39:9090
 ```
 
 #### 日志查看 (Elasticsearch + Kibana)
 ```bash
 # 查看日志总数
-curl "http://localhost:9200/mock-s3-logs/_count"
+curl "http://100.100.57.39:9200/mock-s3-logs/_count"
 
 # 查看最新日志
-curl -s "http://localhost:9200/mock-s3-logs/_search?sort=@timestamp:desc&size=5" | \
+curl -s "http://100.100.57.39:9200/mock-s3-logs/_search?sort=@timestamp:desc&size=5" | \
   jq -r '.hits.hits[]._source | [."@timestamp", .Body] | @tsv'
 
 # 查看成功操作日志
-curl -s "http://localhost:9200/mock-s3-logs/_search?q=Body:*object*&size=5"
+curl -s "http://100.100.57.39:9200/mock-s3-logs/_search?q=Body:*object*&size=5"
 
-# 访问Kibana UI: http://localhost:5601
+# 访问Kibana UI: http://100.100.57.39:5601
 ```
 
 #### 链路追踪 (OpenTelemetry)
 ```bash
 # 查看Trace数量
-curl "http://localhost:9200/mock-s3-traces/_count"
+curl "http://100.100.57.39:9200/mock-s3-traces/_count"
 
 # 检查OTEL Collector状态
-curl "http://localhost:13133/"
+curl "http://100.100.57.39:13133/"
 
 # 查看链路追踪样例
-curl -s "http://localhost:9200/mock-s3-traces/_search?size=2" | \
+curl -s "http://100.100.57.39:9200/mock-s3-traces/_search?size=2" | \
   jq -r '.hits.hits[]._source | [."@timestamp", .TraceId[0:8], .SpanId[0:8]] | @tsv'
 ```
 
@@ -281,7 +279,6 @@ mock/s3/
 │   ├── queue/                 # 队列服务
 │   ├── third-party/           # 第三方服务
 │   └── mock-error/            # 错误注入服务
-├── gateway/                   # Nginx网关
 ├── deployments/               # 部署配置
 │   ├── consul/               # Consul配置
 │   ├── observability/        # 监控配置
