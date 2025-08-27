@@ -12,6 +12,8 @@ func StartPrometheusMcpServer() {
 	mcpServer := server.NewMCPServer(
 		"Prometheus MCP Service",
 		"1.0.0")
+	// 添加静态资源
+	mcpServer.AddResource(metricsListResource, MetricsListResourceHandler)
 
 	// 添加工具
 	mcpServer.AddTool(PromqlQueryTool(), PromqlQueryHandler)

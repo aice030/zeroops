@@ -2,12 +2,38 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"qiniu1024-mcp-server/pkg/formatter"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
+
+func MetricsListResourceHandler(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+	log.Printf("开始加载prometheus指标")
+	// 创建Prometheus客户端
+	client, err := NewPrometheusClient("mock") // 先只支持单实例
+	if err != nil {
+		return nil, fmt.Errorf("error create prometheus client: %w", err)
+	}
+
+	// 拉取数据
+	metrics, err := client.FetchMetricsList(ctx, "__name__", nil, time.Time{}, time.Time{})
+	if err != nil {
+		return nil, fmt.Errorf("error getting metric names: %w", err)
+	}
+
+	metricsJSON, _ := json.Marshal(metrics)
+	return []mcp.ResourceContents{
+		mcp.TextResourceContents{
+			URI:      resourcePrefix + "metricsList",
+			MIMEType: "application/json",
+			Text:     string(metricsJSON),
+		},
+	}, nil
+}
 
 // PromqlQueryHandler 处理PromQL查询请求
 func PromqlQueryHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -46,12 +72,11 @@ func PromqlQueryHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.Call
 		}, nil
 	}
 
-	//log.Printf("成功获取原始数据，长度: %d", len(data))
+	log.Printf("成功获取原始数据，长度: %d", len(data))
 
 	// 格式化数据
 	formatter := formatter.NewPrometheusDataFormatter("Asia/Shanghai")
 	formattedData, err := formatter.FormatPrometheusData(data, true)
-	log.Printf(formattedData)
 
 	if err != nil {
 		log.Printf("格式化数据失败: %v", err)
