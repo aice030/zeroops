@@ -5,9 +5,33 @@ import (
 	"fmt"
 	"log"
 	"qiniu1024-mcp-server/pkg/formatter"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
+
+func MetricsListResourceHandler(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+	log.Printf("开始加载prometheus指标")
+	// 创建Prometheus客户端
+	client, err := NewPrometheusClient("mock") // 先只支持单实例
+	if err != nil {
+		return nil, fmt.Errorf("error create prometheus client: %w", err)
+	}
+
+	// 拉取数据
+	metrics, err := client.FetchMetricsList(ctx, "__name__", nil, time.Time{}, time.Time{})
+	if err != nil {
+		return nil, fmt.Errorf("error getting metric names: %w", err)
+	}
+
+	return []mcp.ResourceContents{
+		mcp.TextResourceContents{
+			URI:      resourcePrefix + "list_metrics",
+			MIMEType: "application/json",
+			Text:     metrics,
+		},
+	}, nil
+}
 
 // PromqlQueryHandler 处理PromQL查询请求
 func PromqlQueryHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

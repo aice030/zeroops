@@ -13,7 +13,3 @@ func Run() {
 
 	internal.StartPrometheusMcpServer()
 }
-
-func main() {
-	Run()
-}
