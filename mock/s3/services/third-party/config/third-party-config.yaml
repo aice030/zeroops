@@ -2,7 +2,7 @@
 service:
   name: "third-party-service"
   port: 8084
-  host: "third-party-service"
+  host: "0.0.0.0"
 
 consul:
   address: "consul:8500"

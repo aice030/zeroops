@@ -2,7 +2,7 @@
 service:
   name: "metadata-service"
   port: 8081
-  host: "metadata-service"
+  host: "0.0.0.0"
 
 consul:
   address: "consul:8500"

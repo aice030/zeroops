@@ -1,7 +1,7 @@
 # Storage Service 配置文件
 service:
   name: "storage-service"
-  host: "storage-service"
+  host: "0.0.0.0"
   port: 8082
 
 consul:

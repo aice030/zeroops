@@ -1,6 +1,6 @@
 service:
   name: "mock-error-service"
-  host: "mock-error-service"
+  host: "0.0.0.0"
   port: 8085
 
 storage:
