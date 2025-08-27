@@ -312,19 +312,4 @@ __debug_bin
 # Docker 相关
 .dockerignore
 
-# 配置文件（可能包含敏感信息）
-config/local.yml
-config/local.yaml
-config/development.yml
-config/development.yaml
-mock-s3-storage/shared/config/local.yml
-mock-s3-storage/shared/config/local.yaml
-mock-s3-storage/shared/config/development.yml
-mock-s3-storage/shared/config/development.yaml
-**/.idea/
-
-testdata/
-
-mcp-server/cmd/
-
-/mcp-server/config.yaml
+CLAUDE.md

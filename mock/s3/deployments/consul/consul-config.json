@@ -1,0 +1,36 @@
+{
+  "datacenter": "mock-s3-dc",
+  "node_name": "consul-server",
+  "server": true,
+  "bootstrap_expect": 1,
+  "bind_addr": "172.20.0.10",
+  "client_addr": "0.0.0.0",
+  "retry_join": [
+    "consul"
+  ],
+  "ui_config": {
+    "enabled": true
+  },
+  "connect": {
+    "enabled": true
+  },
+  "ports": {
+    "grpc": 8502,
+    "grpc_tls": 8503
+  },
+  "acl": {
+    "enabled": false,
+    "default_policy": "allow"
+  },
+  "log_level": "INFO",
+  "enable_syslog": false,
+  "data_dir": "/consul/data",
+  "encrypt_verify_incoming": false,
+  "encrypt_verify_outgoing": false,
+  "verify_incoming": false,
+  "verify_outgoing": false,
+  "ca_file": "",
+  "cert_file": "",
+  "key_file": "",
+  "verify_server_hostname": false
+}
