@@ -3,6 +3,8 @@ package observability
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
 	"time"
 
 	"go.opentelemetry.io/otel/log"
@@ -71,9 +73,15 @@ func NewLogger(serviceName string, level string) *Logger {
 
 	logLevel := parseLogLevel(level)
 
+	// 获取主机信息
+	hostname, _ := os.Hostname()
+	hostAddress := getHostAddress()
+
 	// 预创建基础属性
 	baseAttrs := []log.KeyValue{
 		log.String("service", serviceName),
+		log.String("hostname", hostname),
+		log.String("host_address", hostAddress),
 	}
 
 	return &Logger{
@@ -161,6 +169,25 @@ func (l *Logger) emit(ctx context.Context, severity log.Severity, msg string, fi
 	logRecord.AddAttributes(attrs...)
 
 	l.logger.Emit(ctx, logRecord)
+}
+
+// getHostAddress 获取主机地址
+func getHostAddress() string {
+	// 尝试获取本机IP地址
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "unknown"
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+
+	return "unknown"
 }
 
 // parseLogLevel 解析日志级别字符串
