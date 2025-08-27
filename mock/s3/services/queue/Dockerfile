@@ -35,7 +35,7 @@ COPY --from=builder /app/queue-service .
 
 # 复制配置文件
 COPY services/queue/config/ ./config/
-COPY observability.yaml ./
+COPY shared/observability/config/observability.yaml ./
 
 # 设置权限
 RUN chown -R appuser:appuser /app

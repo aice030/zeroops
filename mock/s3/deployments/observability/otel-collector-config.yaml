@@ -36,7 +36,7 @@ exporters:
 
   # 日志导出到Elasticsearch
   elasticsearch/logs:
-    endpoint: "http://elasticsearch:9200"
+    endpoints: ["http://elasticsearch:9200"]
     logs_index: "mock-s3-logs"
     mapping:
       mode: "ecs"
@@ -44,7 +44,7 @@ exporters:
 
   # Traces导出到Elasticsearch
   elasticsearch/traces:
-    endpoint: "http://elasticsearch:9200"  
+    endpoints: ["http://elasticsearch:9200"]
     traces_index: "mock-s3-traces"
     timeout: 30s
 

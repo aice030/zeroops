@@ -91,7 +91,7 @@ func (c *MockErrorConfig) GetPort() int {
 	return c.Service.Port
 }
 
-// GetConsulAddress 获取Consul地址
+// GetConsulAddress 实现server.ConsulServiceConfig接口
 func (c *MockErrorConfig) GetConsulAddress() string {
 	return c.Consul.Address
 }

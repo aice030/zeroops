@@ -5,7 +5,7 @@ service:
   port: 8082
 
 consul:
-  address: "localhost:8500"
+  address: "consul:8500"
 
 # 存储配置
 storage:
@@ -24,13 +24,13 @@ storage:
 # 外部服务配置
 services:
   metadata:
-    url: "http://localhost:8081"
+    url: "http://metadata-service:8081"
     timeout: "30s"
 
   queue:
-    url: "http://localhost:8083"
+    url: "http://queue-service:8083"
     timeout: "10s"
   
   third_party:
-    url: "http://localhost:8084"
+    url: "http://third-party-service:8084"
     timeout: "15s"

@@ -35,7 +35,7 @@ COPY --from=builder /app/mock-error-service .
 
 # 复制配置文件
 COPY services/mock-error/config/ ./config/
-COPY observability.yaml ./
+COPY shared/observability/config/observability.yaml ./
 
 # 创建数据目录
 RUN mkdir -p ./data

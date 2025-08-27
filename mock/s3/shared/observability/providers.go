@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
@@ -90,7 +91,8 @@ func (p *Providers) initLogProvider() error {
 
 // initMetricProvider 初始化指标提供者
 func (p *Providers) initMetricProvider() error {
-	exporter, err := otlpmetrichttp.New(context.Background(),
+	// OTLP 导出器
+	otlpExporter, err := otlpmetrichttp.New(context.Background(),
 		otlpmetrichttp.WithEndpoint(p.config.OTLPEndpoint),
 		otlpmetrichttp.WithInsecure(),
 	)
@@ -98,11 +100,20 @@ func (p *Providers) initMetricProvider() error {
 		return err
 	}
 
+	// Prometheus 导出器
+	prometheusExporter, err := prometheus.New()
+	if err != nil {
+		return err
+	}
+
 	p.metricProvider = sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(p.resource),
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter,
+		// OTLP 导出器用于发送到 OTEL Collector
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(otlpExporter,
 			sdkmetric.WithInterval(p.config.ExportInterval),
 		)),
+		// Prometheus 导出器用于 /metrics 端点
+		sdkmetric.WithReader(prometheusExporter),
 	)
 
 	otel.SetMeterProvider(p.metricProvider)

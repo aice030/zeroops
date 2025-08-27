@@ -25,7 +25,7 @@ func NewMetadataClient(baseURL string, timeout time.Duration, logger *observabil
 // NewMetadataClientWithConsul 创建支持Consul服务发现的元数据服务客户端
 func NewMetadataClientWithConsul(consulClient consul.ConsulClient, timeout time.Duration, logger *observability.Logger) *MetadataClient {
 	ctx := context.Background()
-	baseURL := getServiceURL(ctx, consulClient, "metadata-service", "http://localhost:8081", logger)
+	baseURL := getServiceURL(ctx, consulClient, "metadata-service", "http://metadata-service:8081", logger)
 	return &MetadataClient{
 		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "metadata-client", logger),
 	}

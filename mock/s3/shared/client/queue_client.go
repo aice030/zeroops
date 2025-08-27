@@ -26,7 +26,7 @@ func NewQueueClient(baseURL string, timeout time.Duration, logger *observability
 // NewQueueClientWithConsul 创建支持Consul服务发现的队列服务客户端
 func NewQueueClientWithConsul(consulClient consul.ConsulClient, timeout time.Duration, logger *observability.Logger) *QueueClient {
 	ctx := context.Background()
-	baseURL := getServiceURL(ctx, consulClient, "queue-service", "http://localhost:8083", logger)
+	baseURL := getServiceURL(ctx, consulClient, "queue-service", "http://queue-service:8083", logger)
 	return &QueueClient{
 		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "queue-client", logger),
 	}

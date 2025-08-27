@@ -33,7 +33,6 @@ MockS3 是一个完整的 S3 兼容对象存储服务，专为**混沌工程**�
 
 | 服务 | 端口 | 职责 |
 |-----|------|------|
-| **Nginx Gateway** | 8080 | S3 API入口，负载均衡 |
 | **Metadata Service** | 8081 | 对象元数据管理 |
 | **Storage Service** | 8082 | 文件存储和检索 |
 | **Queue Service** | 8083 | 异步任务处理 |
@@ -50,9 +49,6 @@ MockS3 是一个完整的 S3 兼容对象存储服务，专为**混沌工程**�
 
 #### 🚀 一键部署
 ```bash
-# 克隆项目
-git clone <repository-url>
-cd mock/s3
 
 # 启动所有服务
 docker-compose up --build -d
@@ -81,8 +77,7 @@ curl -f http://localhost:9200/_cluster/health
 docker-compose up --build grafana kibana -d
 
 # 逐个构建Mock S3服务
-docker-compose up --build gateway -d
-docker-compose up --build metadata-service -d  
+docker-compose up --build metadata-service -d
 docker-compose up --build storage-service -d
 docker-compose up --build queue-service -d
 docker-compose up --build third-party-service -d
@@ -111,7 +106,7 @@ docker-compose up --build third-party-service mock-error-service -d
 
 #### ⚡ 快速验证构建
 ```bash
-# 只启动核心功能（最小化内存使用）
+# 只启动核心功能
 docker-compose up consul postgres redis metadata-service storage-service -d
 
 # 验证核心功能可用
@@ -120,7 +115,6 @@ curl http://localhost:8082/health
 ```
 
 ### 访问地址
-- **S3 API**: http://localhost:8080
 - **Consul UI**: http://localhost:8500
 - **Grafana监控**: http://localhost:3000 (admin/admin)
 - **Kibana日志**: http://localhost:5601
@@ -130,83 +124,141 @@ curl http://localhost:8082/health
 
 ### S3 API操作
 
-```bash
-# 上传对象
-curl -X PUT http://localhost:8080/my-bucket/my-object.txt \
-  -H "Content-Type: text/plain" \
-  -d "Hello MockS3!"
-
-# 下载对象
-curl http://localhost:8080/my-bucket/my-object.txt
-
-# 列出对象
-curl http://localhost:8081/api/v1/metadata?bucket=my-bucket
-
-# 删除对象
-curl -X DELETE http://localhost:8080/my-bucket/my-object.txt
-```
-
-### 错误注入
-
-```bash
-# 注入CPU峰值异常 (持续2分钟)
-curl -X POST http://localhost:8085/api/v1/inject \
-  -H "Content-Type: application/json" \
-  -d '{
-    "service": "storage-service",
-    "anomaly_type": "cpu_spike", 
-    "target_value": 85.0,
-    "duration": "2m"
-  }'
-
-# 注入内存泄露 (分配1GB内存)
-curl -X POST http://localhost:8085/api/v1/inject \
-  -H "Content-Type: application/json" \
-  -d '{
-    "service": "metadata-service",
-    "anomaly_type": "memory_leak",
-    "target_value": 1024,
-    "duration": "5m"
-  }'
-
-# 停止所有异常注入
-curl -X POST http://localhost:8085/api/v1/stop-all
-```
-
 ### 监控和日志
 
+#### 服务健康检查
 ```bash
-# 查看服务健康状态
-curl http://localhost:8081/health
-curl http://localhost:8082/health
+# 查看所有服务健康状态
+curl http://localhost:8081/health  # Metadata Service
+curl http://localhost:8082/health  # Storage Service
+curl http://localhost:8083/health  # Queue Service
+curl http://localhost:8084/health  # Third-Party Service
+curl http://localhost:8085/health  # Mock Error Service
 
-# 查看错误注入状态
-curl http://localhost:8085/api/v1/status
-
-# 查看队列长度
-curl http://localhost:8083/api/v1/queues/status
+# 查看服务注册状态 (Consul)
+docker exec mock-s3-consul consul catalog services -tags
 ```
 
-## 🔧 开发指南
-
-### 本地开发环境
-
+#### 业务统计监控
 ```bash
-# 只启动基础设施
-docker-compose up consul postgres redis elasticsearch -d
+# Storage Service统计
+curl http://localhost:8082/api/v1/stats
+# 返回: 存储节点状态、总存储空间
 
-# 设置环境变量
-export CONSUL_ADDR=localhost:8500
-export POSTGRES_HOST=localhost
-export REDIS_ADDR=localhost:6379
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+# Metadata Service统计
+curl http://localhost:8081/api/v1/stats
+# 返回: 对象总数、总大小、最后更新时间
 
-# 运行单个服务
-cd services/metadata
-go run cmd/main.go
+# Queue Service统计
+curl http://localhost:8083/api/v1/stats
+# 返回: 保存队列、删除队列长度
+
+# Third-Party Service统计
+curl http://localhost:8084/api/v1/stats
+# 返回: 数据源状态、成功率配置
+
+# Mock Error Service统计
+curl http://localhost:8085/api/v1/stats
+# 返回: 总请求数、错误注入次数
 ```
 
-### 项目结构
+#### 指标监控 (Prometheus)
+```bash
+# 查看系统状态
+curl "http://localhost:9090/api/v1/query?query=up"
+
+# 查看HTTP请求指标
+curl "http://localhost:9090/api/v1/query?query=prometheus_http_requests_total"
+
+# 访问Prometheus UI: http://localhost:9090
+```
+
+#### 日志查看 (Elasticsearch + Kibana)
+```bash
+# 查看日志总数
+curl "http://localhost:9200/mock-s3-logs/_count"
+
+# 查看最新日志
+curl -s "http://localhost:9200/mock-s3-logs/_search?sort=@timestamp:desc&size=5" | \
+  jq -r '.hits.hits[]._source | [."@timestamp", .Body] | @tsv'
+
+# 查看成功操作日志
+curl -s "http://localhost:9200/mock-s3-logs/_search?q=Body:*object*&size=5"
+
+# 访问Kibana UI: http://localhost:5601
+```
+
+#### 链路追踪 (OpenTelemetry)
+```bash
+# 查看Trace数量
+curl "http://localhost:9200/mock-s3-traces/_count"
+
+# 检查OTEL Collector状态
+curl "http://localhost:13133/"
+
+# 查看链路追踪样例
+curl -s "http://localhost:9200/mock-s3-traces/_search?size=2" | \
+  jq -r '.hits.hits[]._source | [."@timestamp", .TraceId[0:8], .SpanId[0:8]] | @tsv'
+```
+
+## 完整测试示例
+
+### 端到端S3操作测试
+```bash
+
+# 1. 上传对象
+curl -X POST http://localhost:8082/api/v1/objects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bucket": "test-bucket",
+    "key": "test-file.json",
+    "data": "'$(cat test-file.json | base64)'",
+    "content_type": "application/json"
+  }' | jq .
+
+# 2. 验证上传结果
+curl "http://localhost:8082/api/v1/objects?bucket=test-bucket" | jq .
+
+# 3. 下载并验证内容
+curl http://localhost:8082/api/v1/objects/test-bucket/test-file.json
+
+# 4. 更新元数据
+curl -X POST http://localhost:8081/api/v1/metadata \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"bucket\": \"test-bucket\",
+    \"key\": \"test-file.json\",
+    \"size\": $(wc -c < test-file.json),
+    \"content_type\": \"application/json\"
+  }" | jq .
+
+# 5. 查看统计信息
+echo "=== Storage Stats ===" && curl -s http://localhost:8082/api/v1/stats | jq .
+echo "=== Metadata Stats ===" && curl -s http://localhost:8081/api/v1/stats | jq .
+
+# 6. 删除对象
+curl -X DELETE http://localhost:8082/api/v1/objects/test-bucket/test-file.json
+
+# 7. 验证删除结果
+curl "http://localhost:8082/api/v1/objects?bucket=test-bucket" | jq .
+```
+
+### 队列任务测试
+```bash
+# 创建保存任务
+curl -X POST http://localhost:8083/api/v1/save-tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bucket": "test-bucket",
+    "key": "queue-test.txt",
+    "content_type": "text/plain",
+    "size": 100
+  }'
+
+# 查看队列统计
+curl http://localhost:8083/api/v1/stats | jq .
+```
+## 项目结构
 
 ```
 mock/s3/
@@ -223,7 +275,6 @@ mock/s3/
 │   ├── queue/                 # 队列服务
 │   ├── third-party/           # 第三方服务
 │   └── mock-error/            # 错误注入服务
-├── gateway/                   # Nginx网关
 ├── deployments/               # 部署配置
 │   ├── consul/               # Consul配置
 │   ├── observability/        # 监控配置
@@ -257,20 +308,85 @@ mock/s3/
 
 ## 🧪 混沌工程实践
 
+### 支持的异常类型
+- **cpu_spike**: CPU峰值异常
+- **memory_leak**: 内存泄露异常
+- **disk_full**: 磁盘容量异常
+- **network_flood**: 网络风暴异常
+- **machine_down**: 机器宕机异常
+
+### 预定义指标名称
+- **system_cpu_usage_percent**: CPU使用率
+- **system_memory_usage_percent**: 内存使用率
+- **system_disk_usage_percent**: 磁盘使用率
+- **system_network_qps**: 网络QPS
+- **system_machine_online_status**: 机器在线状态
+
 ### 常见测试场景
 
+#### 1. 创建指标异常规则
 ```bash
-# 场景1: 存储服务高负载
-curl -X POST http://localhost:8085/api/v1/inject \
-  -d '{"service":"storage-service","anomaly_type":"cpu_spike","duration":"10m"}'
+# 创建内存异常规则 (持续2分钟)
+curl -X POST http://localhost:8085/api/v1/metric-anomaly \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "内存异常测试",
+    "service": "storage-service",
+    "metric_name": "system_memory_usage_percent",
+    "anomaly_type": "memory_leak",
+    "target_value": 90.0,
+    "duration": 120000000000,
+    "enabled": true
+  }'
 
-# 场景2: 数据库连接异常
-curl -X POST http://localhost:8085/api/v1/inject \
-  -d '{"service":"metadata-service","anomaly_type":"machine_down","duration":"30s"}'
+# 创建CPU异常规则
+curl -X POST http://localhost:8085/api/v1/metric-anomaly \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "CPU峰值测试",
+    "service": "storage-service",
+    "metric_name": "system_cpu_usage_percent",
+    "anomaly_type": "cpu_spike",
+    "target_value": 95.0,
+    "duration": 60000000000,
+    "enabled": true
+  }'
 
-# 场景3: 网络拥堵模拟
-curl -X POST http://localhost:8085/api/v1/inject \
-  -d '{"service":"queue-service","anomaly_type":"network_flood","duration":"5m"}'
+# 创建磁盘异常规则
+curl -X POST http://localhost:8085/api/v1/metric-anomaly \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "磁盘容量测试",
+    "service": "storage-service",
+    "metric_name": "system_disk_usage_percent",
+    "anomaly_type": "disk_full",
+    "target_value": 95.0,
+    "duration": 300000000000,
+    "enabled": true
+  }'
+```
+
+#### 2. 检查指标异常注入状态
+```bash
+# 检查是否有指标异常被注入 (需要提供服务名和指标名)
+curl -X POST http://localhost:8085/api/v1/metric-inject/check \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service": "storage-service",
+    "metric_name": "system_memory_usage_percent"
+  }'
+```
+
+#### 3. 删除异常规则
+```bash
+# 删除指定ID的异常规则
+curl -X DELETE http://localhost:8085/api/v1/metric-anomaly/{rule_id}
+```
+
+#### 4. 查看错误注入统计
+```bash
+# 查看错误注入服务统计信息
+curl http://localhost:8085/api/v1/stats
 ```
 
 ### 测试指标

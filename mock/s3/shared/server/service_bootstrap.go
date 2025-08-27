@@ -191,9 +191,22 @@ func (sb *ServiceBootstrap) setupConsulRegistration() error {
 	sb.ConsulClient = consulClient
 
 	// 注册服务到Consul
+	// 使用hostname作为注册地址，而不是绑定地址"0.0.0.0"
+	var registerAddress string
+	if sb.Config.GetHost() == "0.0.0.0" {
+		// 如果绑定地址是0.0.0.0，使用hostname进行注册
+		hostname, err := os.Hostname()
+		if err != nil {
+			return fmt.Errorf("failed to get hostname for Consul registration: %w", err)
+		}
+		registerAddress = hostname
+	} else {
+		registerAddress = sb.Config.GetHost()
+	}
+
 	err = consul.RegisterService(ctx, consulClient,
 		sb.Config.GetServiceName(),
-		sb.Config.GetHost(),
+		registerAddress,
 		sb.Config.GetPort())
 	if err != nil {
 		return fmt.Errorf("failed to register service with Consul: %w", err)
@@ -201,7 +214,8 @@ func (sb *ServiceBootstrap) setupConsulRegistration() error {
 
 	sb.Logger.Info(ctx, "Service registered with Consul successfully",
 		observability.String("consul_addr", consulConfig.GetConsulAddress()),
-		observability.String("service_name", sb.Config.GetServiceName()))
+		observability.String("service_name", sb.Config.GetServiceName()),
+		observability.String("register_address", registerAddress))
 
 	return nil
 }
@@ -222,7 +236,7 @@ func (sb *ServiceBootstrap) setupErrorInjection() error {
 			observability.Error(err))
 		// 使用默认配置创建
 		sb.MetricInjector = error_injection.NewMetricInjectorWithDefaults(
-			"http://localhost:8085",
+			"http://mock-error-service:8085",
 			sb.Config.GetServiceName(),
 			sb.Logger,
 		)
@@ -353,9 +367,22 @@ func (sb *ServiceBootstrap) deregisterFromConsul() {
 	}
 
 	// 生成服务ID (与注册时保持一致)
+	var registerAddress string
+	if sb.Config.GetHost() == "0.0.0.0" {
+		// 如果绑定地址是0.0.0.0，使用hostname进行注销
+		hostname, err := os.Hostname()
+		if err != nil {
+			sb.Logger.Error(ctx, "Failed to get hostname for Consul deregistration", observability.Error(err))
+			return
+		}
+		registerAddress = hostname
+	} else {
+		registerAddress = sb.Config.GetHost()
+	}
+	
 	serviceID := fmt.Sprintf("%s-%s-%d", 
 		sb.Config.GetServiceName(), 
-		sb.Config.GetHost(), 
+		registerAddress, 
 		sb.Config.GetPort())
 
 	if err := sb.ConsulClient.DeregisterService(ctx, serviceID); err != nil {

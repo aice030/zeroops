@@ -81,7 +81,7 @@ func (c *Config) GetPort() int {
 	return c.Service.Port
 }
 
-// GetConsulAddress 获取Consul地址
+// GetConsulAddress 实现server.ConsulServiceConfig接口
 func (c *Config) GetConsulAddress() string {
 	return c.Consul.Address
 }
