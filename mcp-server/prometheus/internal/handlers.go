@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"qiniu1024-mcp-server/pkg/formatter"
@@ -24,11 +25,12 @@ func MetricsListResourceHandler(ctx context.Context, req mcp.ReadResourceRequest
 		return nil, fmt.Errorf("error getting metric names: %w", err)
 	}
 
+	metricsJSON, _ := json.Marshal(metrics)
 	return []mcp.ResourceContents{
 		mcp.TextResourceContents{
-			URI:      resourcePrefix + "list_metrics",
+			URI:      resourcePrefix + "metricsList",
 			MIMEType: "application/json",
-			Text:     metrics,
+			Text:     string(metricsJSON),
 		},
 	}, nil
 }
@@ -70,12 +72,11 @@ func PromqlQueryHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.Call
 		}, nil
 	}
 
-	//log.Printf("成功获取原始数据，长度: %d", len(data))
+	log.Printf("成功获取原始数据，长度: %d", len(data))
 
 	// 格式化数据
 	formatter := formatter.NewPrometheusDataFormatter("Asia/Shanghai")
 	formattedData, err := formatter.FormatPrometheusData(data, true)
-	log.Printf(formattedData)
 
 	if err != nil {
 		log.Printf("格式化数据失败: %v", err)

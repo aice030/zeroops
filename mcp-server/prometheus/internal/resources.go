@@ -8,9 +8,9 @@ var (
 	resourcePrefix = "prometheus://"
 
 	metricsListResource = mcp.NewResource(
-		resourcePrefix+"list_metrics",
-		"Metrics List",
-		mcp.WithResourceDescription("List metrics available"),
+		resourcePrefix+"metricsList",
+		"Prometheus Metrics List",
+		mcp.WithResourceDescription("加载Prometheus平台监测的全部指标列表"),
 		mcp.WithMIMEType("application/json"),
 	)
 

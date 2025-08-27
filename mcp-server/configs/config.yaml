@@ -6,8 +6,8 @@ global:
 prometheus:
   regions:
     mock: "http://127.0.0.1:9090/"
-    port: 8090  # prometheus-mcp服务端口
-    endpoint: "/prometheus"  # prometheus-mcp 服务路径
+  port: 8090  # prometheus-mcp服务端口
+  endpoint: "/prometheus"  # prometheus-mcp 服务路径
 
 # Superset 相关配置
 superset:
