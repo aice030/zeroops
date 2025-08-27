@@ -230,7 +230,7 @@ func (r *PostgreSQLRepository) GetStats(ctx context.Context) (*models.Stats, err
 		SELECT 
 			COUNT(*) as total_objects,
 			COALESCE(SUM(size), 0) as total_size,
-			MAX(created_at) as last_updated
+			COALESCE(MAX(created_at), NOW()) as last_updated
 		FROM metadata 
 		WHERE status = 'active'
 	`

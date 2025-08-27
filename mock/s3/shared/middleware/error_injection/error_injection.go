@@ -65,7 +65,7 @@ func NewMetricInjector(configPath string, serviceName string, logger *observabil
 
 	// 设置默认值
 	if config.MockErrorService.URL == "" {
-		config.MockErrorService.URL = "http://localhost:8085" // 默认Mock Error Service地址
+		config.MockErrorService.URL = "http://mock-error-service:8085" // 默认Mock Error Service地址
 	}
 	if config.MockErrorService.Timeout == 0 {
 		config.MockErrorService.Timeout = 5 * time.Second // 默认5秒超时

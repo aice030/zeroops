@@ -2,7 +2,7 @@
 
 mock_error_service:
   # Mock Error Service的URL地址
-  url: "http://localhost:8085"
+  url: "http://mock-error-service:8085"
   # 请求超时时间
   timeout: 5s
 

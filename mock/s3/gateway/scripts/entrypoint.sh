@@ -72,7 +72,7 @@ log_level = "${CONSUL_TEMPLATE_LOG:-INFO}"
 template {
   source      = "/etc/nginx/templates/upstreams.conf.ctmpl"
   destination = "/etc/nginx/conf.d/upstreams.conf"
-  command     = "nginx -s reload || true"
+  command     = "nginx -t && nginx -s reload || echo 'Config validation failed, keeping current config'"
   command_timeout = "60s"
   perms = 0644
 }
@@ -133,12 +133,10 @@ main() {
     log_info "  Consul地址: $CONSUL_HTTP_ADDR"
     log_info "  日志级别: ${CONSUL_TEMPLATE_LOG:-INFO}"
     
-    # 等待Consul服务启动
-    if ! wait_for_consul 60 2; then
-        log_error "Consul服务不可用，将使用默认配置启动"
-        # 创建默认的upstream配置
-        cat > /etc/nginx/conf.d/upstreams.conf <<EOF
-# 默认upstream配置（Consul不可用时使用）
+    # 先创建默认的upstream配置，确保nginx能正常启动
+    log_info "创建默认upstream配置..."
+    cat > /etc/nginx/conf.d/upstreams.conf <<EOF
+# 默认upstream配置
 upstream storage_service {
     server storage-service:8082 max_fails=3 fail_timeout=30s;
     keepalive 32;
@@ -160,6 +158,10 @@ upstream mock_error_service {
     keepalive 32;
 }
 EOF
+
+    # 等待Consul服务启动
+    if ! wait_for_consul 60 2; then
+        log_warn "Consul服务不可用，使用默认配置启动"
     else
         # 启动consul-template进行动态配置
         start_consul_template

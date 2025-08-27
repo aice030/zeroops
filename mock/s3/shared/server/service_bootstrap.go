@@ -222,7 +222,7 @@ func (sb *ServiceBootstrap) setupErrorInjection() error {
 			observability.Error(err))
 		// 使用默认配置创建
 		sb.MetricInjector = error_injection.NewMetricInjectorWithDefaults(
-			"http://localhost:8085",
+			"http://mock-error-service:8085",
 			sb.Config.GetServiceName(),
 			sb.Logger,
 		)

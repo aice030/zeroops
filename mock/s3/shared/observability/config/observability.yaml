@@ -6,7 +6,7 @@ service_version: "1.0.0"
 environment: "development" # development, staging, production
 
 # OpenTelemetry 配置
-otlp_endpoint: "localhost:4318"
+otlp_endpoint: "otel-collector:4318"
 
 # 日志配置
 log_level: "info" # debug, info, warn, error
