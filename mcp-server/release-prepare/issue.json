@@ -56,7 +56,7 @@
           "batches": [
             {
               "batch_id": 1,
-              "nodes": [
+              "hosts": [
                 {
                   "host_id": "bj1-node-001",
                   "host_ip": "127.0.0.1"
@@ -65,7 +65,7 @@
             },
             {
               "batch_id": 2,
-              "nodes": [
+              "hosts": [
                 {
                   "host_id": "sh1-node-001",
                   "host_ip": "192.168.1.11"
@@ -78,7 +78,7 @@
             },
             {
               "batch_id": 3,
-              "nodes": [
+              "hosts": [
                 {
                   "host_id": "sh1-node-002",
                   "host_ip": "192.168.1.12"
