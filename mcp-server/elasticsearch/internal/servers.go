@@ -2,14 +2,15 @@ package internal
 
 import (
 	"fmt"
-	"github.com/mark3labs/mcp-go/server"
 	"log"
 	"qiniu1024-mcp-server/pkg/common/config"
+
+	"github.com/mark3labs/mcp-go/server"
 )
 
 func StartElasticsearchMcpServer() {
 	mcpServer := server.NewMCPServer(
-		"ElasticSearch MCP Service",
+		"ElasticSearch MCP Server",
 		"1.0.0")
 
 	// 添加工具

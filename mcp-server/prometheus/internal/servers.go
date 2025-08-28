@@ -10,7 +10,7 @@ import (
 
 func StartPrometheusMcpServer() {
 	mcpServer := server.NewMCPServer(
-		"Prometheus MCP Service",
+		"Prometheus MCP Server",
 		"1.0.0")
 	// 添加静态资源
 	mcpServer.AddResource(metricsListResource, MetricsListResourceHandler)

@@ -50,7 +50,7 @@
     {
       "step_name": "ReleasePlan",
       "status": "success",
-      "summary": "2 batches created",
+      "summary": "3 batches created",
       "details": {
         "gray_strategy": {
           "batches": [
@@ -58,8 +58,8 @@
               "batch_id": 1,
               "nodes": [
                 {
-                  "host_id": "127.0.0.1",
-                  "node_id": "bj1-node-001"
+                  "host_id": "bj1-node-001",
+                  "host_ip": "127.0.0.1"
                 }
               ]
             },
@@ -67,12 +67,12 @@
               "batch_id": 2,
               "nodes": [
                 {
-                  "host_id": "192.168.1.11",
-                  "node_id": "sh1-node-001"
+                  "host_id": "sh1-node-001",
+                  "host_ip": "192.168.1.11"
                 },
                 {
-                  "host_id": "192.168.2.11",
-                  "node_id": "sh2-node-001"
+                  "host_id": "sh2-node-001",
+                  "host_ip": "192.168.2.11"
                 }
               ]
             },
@@ -80,20 +80,20 @@
               "batch_id": 3,
               "nodes": [
                 {
-                  "host_id": "192.168.1.12",
-                  "node_id": "sh1-node-002"
+                  "host_id": "sh1-node-002",
+                  "host_ip": "192.168.1.12"
                 },
                 {
-                  "host_id": "192.168.1.13",
-                  "node_id": "sh1-node-003"
+                  "host_id": "sh1-node-003",
+                  "host_ip": "192.168.1.13"
                 },
                 {
-                  "host_id": "192.168.2.12",
-                  "node_id": "sh2-node-002"
+                  "host_id": "sh2-node-002",
+                  "host_ip": "192.168.2.12"
                 },
                 {
-                  "host_id": "192.168.2.13",
-                  "node_id": "sh2-node-003"
+                  "host_id": "sh2-node-003",
+                  "host_ip": "192.168.2.13"
                 }
               ]
             }
