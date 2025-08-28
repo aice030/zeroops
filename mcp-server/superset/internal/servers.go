@@ -10,7 +10,7 @@ import (
 
 func StartSupersetMcpServer() {
 	s := server.NewMCPServer(
-		"Superset MCP Service",
+		"Superset MCP Server",
 		"1.0.0")
 	SqlQueryTool(s)
 
