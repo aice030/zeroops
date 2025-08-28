@@ -3,8 +3,10 @@ package observability
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel/log"
@@ -58,7 +60,7 @@ func Duration(key string, duration time.Duration) Field {
 	return Field{Key: key, Value: duration.String()}
 }
 
-// Logger 优化后的日志器
+// Logger 日志器
 type Logger struct {
 	logger      log.Logger
 	serviceName string
@@ -74,13 +76,13 @@ func NewLogger(serviceName string, level string) *Logger {
 	logLevel := parseLogLevel(level)
 
 	// 获取主机信息
-	hostname, _ := os.Hostname()
+	hostname := getMachineIdentifier()
 	hostAddress := getHostAddress()
 
 	// 预创建基础属性
 	baseAttrs := []log.KeyValue{
 		log.String("service", serviceName),
-		log.String("hostname", hostname),
+		log.String("host_id", hostname),
 		log.String("host_address", hostAddress),
 	}
 
@@ -188,6 +190,72 @@ func getHostAddress() string {
 	}
 
 	return "unknown"
+}
+
+// getMachineIdentifier 获取机器唯一标识符
+func getMachineIdentifier() string {
+	// 1. 首先尝试获取容器ID（Docker环境）
+	if containerID := getContainerID(); containerID != "" {
+		return containerID[:12] // 使用前12位，类似Docker显示
+	}
+
+	// 2. 尝试获取系统machine-id
+	if machineID := getMachineID(); machineID != "" {
+		return machineID[:8] // 使用前8位作为标识
+	}
+
+	// 3. 使用hostname作为备用方案
+	if hostname, err := os.Hostname(); err == nil {
+		return hostname
+	}
+
+	// 4. 最后的备用方案
+	return "unknown-host"
+}
+
+// getContainerID 获取Docker容器ID
+func getContainerID() string {
+	// 在Docker容器中，可以从/proc/1/cgroup文件中获取容器ID
+	file, err := os.Open("/proc/1/cgroup")
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return ""
+	}
+
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "docker") {
+			// 格式通常是: 1:name=systemd:/docker/容器ID
+			parts := strings.Split(line, "/")
+			if len(parts) > 0 {
+				containerID := parts[len(parts)-1]
+				if len(containerID) >= 12 {
+					return containerID
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// getMachineID 获取系统machine-id
+func getMachineID() string {
+	// 尝试读取/etc/machine-id
+	if content, err := os.ReadFile("/etc/machine-id"); err == nil {
+		return strings.TrimSpace(string(content))
+	}
+
+	// 尝试读取/var/lib/dbus/machine-id (备用位置)
+	if content, err := os.ReadFile("/var/lib/dbus/machine-id"); err == nil {
+		return strings.TrimSpace(string(content))
+	}
+
+	return ""
 }
 
 // parseLogLevel 解析日志级别字符串
