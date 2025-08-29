@@ -4,9 +4,12 @@ service:
   host: "0.0.0.0"
   port: 8083
 
+consul:
+  address: "consul:8500"
+
 # Redis配置
 redis:
-  url: "redis://localhost:6379"
+  url: "redis://redis:6379"
   password: ""
   db: 0
 
@@ -18,5 +21,5 @@ worker:
 # 可观测性配置
 observability:
   service_name: "queue-service"
-  otlp_endpoint: "localhost:4318"
+  otlp_endpoint: "otel-collector:4318"
   log_level: "info"

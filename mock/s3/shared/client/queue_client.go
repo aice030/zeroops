@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mocks3/shared/middleware/consul"
 	"mocks3/shared/models"
 	"mocks3/shared/observability"
 	"net/http"
@@ -17,6 +18,15 @@ type QueueClient struct {
 
 // NewQueueClient 创建队列服务客户端
 func NewQueueClient(baseURL string, timeout time.Duration, logger *observability.Logger) *QueueClient {
+	return &QueueClient{
+		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "queue-client", logger),
+	}
+}
+
+// NewQueueClientWithConsul 创建支持Consul服务发现的队列服务客户端
+func NewQueueClientWithConsul(consulClient consul.ConsulClient, timeout time.Duration, logger *observability.Logger) *QueueClient {
+	ctx := context.Background()
+	baseURL := getServiceURL(ctx, consulClient, "queue-service", "http://queue-service:8083", logger)
 	return &QueueClient{
 		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "queue-client", logger),
 	}

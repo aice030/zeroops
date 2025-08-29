@@ -7,6 +7,7 @@ import (
 	"mocks3/shared/observability/config"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Setup 设置所有可观测性组件
@@ -53,6 +54,9 @@ func SetupGinMiddlewares(router *gin.Engine, serviceName string, httpMiddleware 
 
 	// 添加HTTP日志中间件
 	router.Use(httpMiddleware.GinMetricsMiddleware())
+
+	// 添加 Prometheus 指标端点
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 }
 
 // Shutdown 优雅关闭所有组件

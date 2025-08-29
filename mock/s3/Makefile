@@ -55,7 +55,7 @@ test-integration: ## 运行集成测试
 # ======= 构建相关 =======
 
 .PHONY: build-all
-build-all: $(SERVICES) gateway ## 构建所有服务
+build-all: $(SERVICES) ## 构建所有服务
 
 .PHONY: $(SERVICES)
 $(SERVICES): ## 构建指定微服务
@@ -63,11 +63,6 @@ $(SERVICES): ## 构建指定微服务
 	@docker build -f services/$@/Dockerfile -t $(DOCKER_REGISTRY)/$@-service:$(VERSION) .
 	@echo "$@ 服务构建完成"
 
-.PHONY: gateway
-gateway: ## 构建网关
-	@echo "构建 Nginx Gateway..."
-	@docker build -f gateway/Dockerfile -t $(DOCKER_REGISTRY)/gateway:$(VERSION) gateway/
-	@echo "Gateway 构建完成"
 
 .PHONY: build-local
 build-local: ## 本地构建所有服务二进制文件
@@ -114,7 +109,7 @@ up-infra: ## 仅启动基础设施服务
 .PHONY: up-services
 up-services: ## 仅启动微服务
 	@echo "启动微服务..."
-	@docker-compose up -d metadata-service storage-service queue-service third-party-service mock-error-service nginx-gateway
+	@docker-compose up -d metadata-service storage-service queue-service third-party-service mock-error-service
 	@echo "微服务启动完成"
 
 .PHONY: logs
@@ -143,7 +138,7 @@ status: ## 查看服务状态
 	@docker-compose ps
 	@echo ""
 	@echo "=== 服务端点 ==="
-	@echo "S3 API Gateway: http://localhost:8080"
+	@echo "服务已启动，直接通过各服务端口访问"
 	@echo "Consul UI: http://localhost:8500"
 	@echo "Grafana: http://localhost:3000 (admin/admin)"
 	@echo "Prometheus: http://localhost:9090"
@@ -266,7 +261,6 @@ push-images: ## 推送镜像到仓库
 		echo "推送 $$image..."; \
 		docker push $$image; \
 	done
-	@docker push $(DOCKER_REGISTRY)/gateway:$(VERSION)
 	@echo "镜像推送完成"
 
 .PHONY: release

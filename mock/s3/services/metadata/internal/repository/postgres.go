@@ -148,7 +148,7 @@ func (r *PostgreSQLRepository) Delete(ctx context.Context, bucket, key string) e
 // List 列出元数据
 func (r *PostgreSQLRepository) List(ctx context.Context, bucket, prefix string, limit, offset int) ([]*models.Metadata, error) {
 	var query string
-	var args []interface{}
+	var args []any
 
 	if prefix != "" {
 		query = `
@@ -158,7 +158,7 @@ func (r *PostgreSQLRepository) List(ctx context.Context, bucket, prefix string, 
 			ORDER BY key
 			LIMIT $3 OFFSET $4
 		`
-		args = []interface{}{bucket, prefix + "%", limit, offset}
+		args = []any{bucket, prefix + "%", limit, offset}
 	} else {
 		query = `
 			SELECT bucket, key, size, content_type, md5_hash, status, created_at
@@ -167,7 +167,7 @@ func (r *PostgreSQLRepository) List(ctx context.Context, bucket, prefix string, 
 			ORDER BY key
 			LIMIT $2 OFFSET $3
 		`
-		args = []interface{}{bucket, limit, offset}
+		args = []any{bucket, limit, offset}
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -230,7 +230,7 @@ func (r *PostgreSQLRepository) GetStats(ctx context.Context) (*models.Stats, err
 		SELECT 
 			COUNT(*) as total_objects,
 			COALESCE(SUM(size), 0) as total_size,
-			MAX(created_at) as last_updated
+			COALESCE(MAX(created_at), NOW()) as last_updated
 		FROM metadata 
 		WHERE status = 'active'
 	`

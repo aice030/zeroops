@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"mocks3/shared/middleware"
 	"mocks3/shared/observability"
 	"net/http"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"mocks3/shared/middleware/consul"
+	"mocks3/shared/middleware/error_injection"
 )
 
 // ServiceConfig 服务配置接口
@@ -19,6 +20,12 @@ type ServiceConfig interface {
 	GetServiceName() string
 	GetHost() string
 	GetPort() int
+}
+
+// ConsulServiceConfig 支持Consul的服务配置接口
+type ConsulServiceConfig interface {
+	ServiceConfig
+	GetConsulAddress() string
 }
 
 // ServiceHandler 服务处理器接口
@@ -39,7 +46,10 @@ type ServiceBootstrap struct {
 	HTTPMiddleware *observability.HTTPMiddleware
 
 	// 错误注入
-	MetricInjector *middleware.MetricInjector
+	MetricInjector *error_injection.MetricInjector
+
+	// Consul客户端
+	ConsulClient consul.ConsulClient
 
 	// 配置路径
 	ObservabilityConfigPath  string
@@ -108,31 +118,36 @@ func (sb *ServiceBootstrap) Start() error {
 		observability.String("host", sb.Config.GetHost()),
 		observability.Int("port", sb.Config.GetPort()))
 
-	// 2. 初始化错误注入中间件
+	// 2. 初始化Consul服务注册
+	if err := sb.setupConsulRegistration(); err != nil {
+		sb.Logger.Warn(ctx, "Failed to setup Consul registration", observability.Error(err))
+	}
+
+	// 3. 初始化错误注入中间件
 	if err := sb.setupErrorInjection(); err != nil {
 		sb.Logger.Warn(ctx, "Failed to setup error injection", observability.Error(err))
 	}
 
-	// 3. 执行自定义初始化
+	// 4. 执行自定义初始化
 	if sb.CustomInit != nil {
 		if err := sb.CustomInit(ctx, sb.Logger); err != nil {
 			return fmt.Errorf("custom initialization failed: %w", err)
 		}
 	}
 
-	// 4. 设置HTTP服务器
+	// 5. 设置HTTP服务器
 	router := sb.setupRouter()
 
-	// 5. 启动系统指标收集
+	// 6. 启动系统指标收集
 	observability.StartSystemMetrics(ctx, sb.Collector, sb.Logger)
 
-	// 6. 连接错误注入器到指标收集器
+	// 7. 连接错误注入器到指标收集器
 	sb.connectErrorInjection()
 
-	// 7. 启动HTTP服务器
+	// 8. 启动HTTP服务器
 	server := sb.startHTTPServer(router)
 
-	// 8. 等待关闭信号
+	// 9. 等待关闭信号
 	sb.waitForShutdown(server)
 
 	return nil
@@ -156,12 +171,61 @@ func (sb *ServiceBootstrap) setupObservability() error {
 	return nil
 }
 
+// setupConsulRegistration 设置Consul服务注册
+func (sb *ServiceBootstrap) setupConsulRegistration() error {
+	ctx := context.Background()
+
+	// 检查配置是否支持Consul
+	consulConfig, ok := sb.Config.(ConsulServiceConfig)
+	if !ok {
+		sb.Logger.Warn(ctx, "Service config does not support Consul, skipping registration")
+		return nil
+	}
+
+	// 创建Consul客户端
+	consulClient, err := consul.CreateConsulClient(consulConfig.GetConsulAddress(), sb.Logger)
+	if err != nil {
+		return fmt.Errorf("failed to create Consul client: %w", err)
+	}
+
+	sb.ConsulClient = consulClient
+
+	// 注册服务到Consul
+	// 使用hostname作为注册地址，而不是绑定地址"0.0.0.0"
+	var registerAddress string
+	if sb.Config.GetHost() == "0.0.0.0" {
+		// 如果绑定地址是0.0.0.0，使用hostname进行注册
+		hostname, err := os.Hostname()
+		if err != nil {
+			return fmt.Errorf("failed to get hostname for Consul registration: %w", err)
+		}
+		registerAddress = hostname
+	} else {
+		registerAddress = sb.Config.GetHost()
+	}
+
+	err = consul.RegisterService(ctx, consulClient,
+		sb.Config.GetServiceName(),
+		registerAddress,
+		sb.Config.GetPort())
+	if err != nil {
+		return fmt.Errorf("failed to register service with Consul: %w", err)
+	}
+
+	sb.Logger.Info(ctx, "Service registered with Consul successfully",
+		observability.String("consul_addr", consulConfig.GetConsulAddress()),
+		observability.String("service_name", sb.Config.GetServiceName()),
+		observability.String("register_address", registerAddress))
+
+	return nil
+}
+
 // setupErrorInjection 设置错误注入中间件
 func (sb *ServiceBootstrap) setupErrorInjection() error {
 	ctx := context.Background()
 
 	// 尝试从配置文件加载
-	metricInjector, err := middleware.NewMetricInjector(
+	metricInjector, err := error_injection.NewMetricInjector(
 		sb.MetricInjectorConfigPath,
 		sb.Config.GetServiceName(),
 		sb.Logger,
@@ -171,8 +235,8 @@ func (sb *ServiceBootstrap) setupErrorInjection() error {
 		sb.Logger.Warn(ctx, "Failed to load metric injector config, using defaults",
 			observability.Error(err))
 		// 使用默认配置创建
-		sb.MetricInjector = middleware.NewMetricInjectorWithDefaults(
-			"http://localhost:8085",
+		sb.MetricInjector = error_injection.NewMetricInjectorWithDefaults(
+			"http://mock-error-service:8085",
 			sb.Config.GetServiceName(),
 			sb.Logger,
 		)
@@ -265,6 +329,9 @@ func (sb *ServiceBootstrap) waitForShutdown(server *http.Server) {
 
 	sb.Logger.Info(ctx, fmt.Sprintf("Shutting down %s...", sb.ServiceName))
 
+	// 注销Consul服务
+	sb.deregisterFromConsul()
+
 	// 执行自定义清理
 	if sb.CustomCleanup != nil {
 		if err := sb.CustomCleanup(ctx, sb.Logger); err != nil {
@@ -289,4 +356,38 @@ func (sb *ServiceBootstrap) waitForShutdown(server *http.Server) {
 	}
 
 	sb.Logger.Info(ctx, fmt.Sprintf("%s stopped", sb.ServiceName))
+}
+
+// deregisterFromConsul 从Consul注销服务
+func (sb *ServiceBootstrap) deregisterFromConsul() {
+	ctx := context.Background()
+
+	if sb.ConsulClient == nil {
+		return
+	}
+
+	// 生成服务ID (与注册时保持一致)
+	var registerAddress string
+	if sb.Config.GetHost() == "0.0.0.0" {
+		// 如果绑定地址是0.0.0.0，使用hostname进行注销
+		hostname, err := os.Hostname()
+		if err != nil {
+			sb.Logger.Error(ctx, "Failed to get hostname for Consul deregistration", observability.Error(err))
+			return
+		}
+		registerAddress = hostname
+	} else {
+		registerAddress = sb.Config.GetHost()
+	}
+
+	serviceID := fmt.Sprintf("%s-%s-%d",
+		sb.Config.GetServiceName(),
+		registerAddress,
+		sb.Config.GetPort())
+
+	if err := sb.ConsulClient.DeregisterService(ctx, serviceID); err != nil {
+		sb.Logger.Error(ctx, "Failed to deregister service from Consul", observability.Error(err))
+	} else {
+		sb.Logger.Info(ctx, "Service deregistered from Consul successfully")
+	}
 }

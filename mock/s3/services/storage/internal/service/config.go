@@ -38,9 +38,15 @@ type ServicesConfig struct {
 	ThirdParty ExternalService `yaml:"third_party"`
 }
 
+// ConsulConfig Consul配置
+type ConsulConfig struct {
+	Address string `yaml:"address"`
+}
+
 // Config 完整配置结构
 type Config struct {
 	Service  ServiceConfig  `yaml:"service"`
+	Consul   ConsulConfig   `yaml:"consul"`
 	Storage  StorageConfig  `yaml:"storage"`
 	Services ServicesConfig `yaml:"services"`
 }
@@ -54,6 +60,11 @@ func LoadConfig(configPath string) (*Config, error) {
 
 	if err := config.validate(); err != nil {
 		return nil, fmt.Errorf("validate config: %w", err)
+	}
+
+	// 设置默认值
+	if config.Consul.Address == "" {
+		config.Consul.Address = "localhost:8500"
 	}
 
 	return &config, nil
@@ -110,4 +121,9 @@ func (c *Config) GetHost() string {
 // GetPort 实现server.ServiceConfig接口
 func (c *Config) GetPort() int {
 	return c.Service.Port
+}
+
+// GetConsulAddress 实现server.ConsulServiceConfig接口
+func (c *Config) GetConsulAddress() string {
+	return c.Consul.Address
 }

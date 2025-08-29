@@ -1,0 +1,83 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Memory限制器，防止OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+
+  # 批处理器，提升性能
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  # 资源处理器，添加全局属性
+  resource:
+    attributes:
+      - key: service.namespace
+        value: mock-s3
+        action: insert
+      - key: deployment.environment
+        value: docker
+        action: insert
+
+exporters:
+  # 发送到Prometheus
+  prometheusremotewrite:
+    endpoint: "http://prometheus:9090/api/v1/write"
+    tls:
+      insecure: true
+
+  # 日志导出到Elasticsearch
+  elasticsearch/logs:
+    endpoints: ["http://elasticsearch:9200"]
+    logs_index: "mock-s3-logs"
+    mapping:
+      mode: "ecs"
+    timeout: 30s
+
+  # Traces导出到Elasticsearch
+  elasticsearch/traces:
+    endpoints: ["http://elasticsearch:9200"]
+    traces_index: "mock-s3-traces"
+    timeout: 30s
+
+service:
+  pipelines:
+    # 指标管道
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheusremotewrite]
+
+    # 日志管道 - 导出到Elasticsearch
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [elasticsearch/logs]
+
+    # 链路追踪管道 - 导出到Elasticsearch
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [elasticsearch/traces]
+
+  extensions: [health_check]
+  
+  # 遥测配置
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888
+
+extensions:
+  # 健康检查
+  health_check:
+    endpoint: 0.0.0.0:13133

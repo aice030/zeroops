@@ -1,0 +1,398 @@
+version: '3.8'
+
+networks:
+  mock-s3-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  consul-data:
+  postgres-data:
+  redis-data:
+  storage-data:
+  prometheus-data:
+  grafana-data:
+  elasticsearch-data:  # Elasticsearch数据存储
+  otel-data:           # OpenTelemetry Collector数据
+  mock-error-data:     # Mock Error Service数据
+  config-data:         # 共享配置文件
+
+services:
+  # ===================
+  # Infrastructure Services
+  # ===================
+  
+  # Consul - Service Discovery & Configuration
+  consul:
+    image: hashicorp/consul:1.16
+    container_name: mock-s3-consul
+    hostname: consul
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.10
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    volumes:
+      - consul-data:/consul/data
+      - ./deployments/consul/consul-config.json:/consul/config/consul-config.json:ro
+    command: >
+      consul agent 
+      -server 
+      -bootstrap 
+      -ui 
+      -node=consul-server 
+      -bind=172.20.0.10 
+      -client=0.0.0.0 
+      -config-file=/consul/config/consul-config.json
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # PostgreSQL - Metadata Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: mock-s3-postgres
+    hostname: postgres
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.11
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deployments/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      POSTGRES_DB: mocks3
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d mocks3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Redis - Queue & Cache
+  redis:
+    image: redis:7-alpine
+    container_name: mock-s3-redis
+    hostname: redis
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.12
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ===================
+  # Observability Services
+  # ===================
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.89.0
+    container_name: mock-s3-otel-collector
+    hostname: otel-collector
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.20
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8888:8888"   # Prometheus metrics
+      - "13133:13133" # Health check
+    volumes:
+      - otel-data:/tmp/otel
+      - ./deployments/observability/otel-collector-config.yaml:/etc/otelcol-contrib/otel-collector-config.yaml:ro
+    command: ["--config=/etc/otelcol-contrib/otel-collector-config.yaml"]
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:13133/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Prometheus - Metrics Storage
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: mock-s3-prometheus
+    hostname: prometheus
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.21
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus-data:/prometheus
+      - ./deployments/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=168h'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Elasticsearch - Logs & Traces Storage
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: mock-s3-elasticsearch
+    hostname: elasticsearch
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.22
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Kibana - Logs & Traces Visualization  
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.8.0
+    container_name: mock-s3-kibana
+    hostname: kibana
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.23
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - XPACK_SECURITY_ENABLED=false
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Grafana - Metrics Visualization
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: mock-s3-grafana
+    hostname: grafana
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.24
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deployments/observability/grafana/:/etc/grafana/provisioning/:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=localhost
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ===================
+  # Mock S3 Services (Built from Source)
+  # ===================
+
+  # Metadata Service - Built from Go Source
+  metadata-service:
+    build:
+      context: .
+      dockerfile: services/metadata/Dockerfile
+    image: mock-s3/metadata-service:latest
+    container_name: mock-s3-metadata-service
+    hostname: metadata-service
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.31
+    ports:
+      - "8081:8081"
+    environment:
+      - SERVICE_NAME=metadata-service
+      - CONSUL_ADDR=consul:8500
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - REDIS_ADDR=redis:6379
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      consul:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Storage Service - Built from Go Source
+  storage-service:
+    build:
+      context: .
+      dockerfile: services/storage/Dockerfile
+    image: mock-s3/storage-service:latest
+    container_name: mock-s3-storage-service
+    hostname: storage-service
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.32
+    ports:
+      - "8082:8082"
+    volumes:
+      - storage-data:/app/data/storage
+    environment:
+      - SERVICE_NAME=storage-service
+      - CONSUL_ADDR=consul:8500
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      consul:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Queue Service - Built from Go Source
+  queue-service:
+    build:
+      context: .
+      dockerfile: services/queue/Dockerfile
+    image: mock-s3/queue-service:latest
+    container_name: mock-s3-queue-service
+    hostname: queue-service
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.33
+    ports:
+      - "8083:8083"
+    environment:
+      - SERVICE_NAME=queue-service
+      - CONSUL_ADDR=consul:8500
+      - REDIS_URL=redis://redis:6379
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Third-Party Service - Built from Go Source
+  third-party-service:
+    build:
+      context: .
+      dockerfile: services/third-party/Dockerfile
+    image: mock-s3/third-party-service:latest
+    container_name: mock-s3-third-party-service
+    hostname: third-party-service
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.34
+    ports:
+      - "8084:8084"
+    environment:
+      - SERVICE_NAME=third-party-service
+      - CONSUL_ADDR=consul:8500
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      consul:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8084/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Mock Error Service - Built from Go Source
+  mock-error-service:
+    build:
+      context: .
+      dockerfile: services/mock-error/Dockerfile
+    image: mock-s3/mock-error-service:latest
+    container_name: mock-s3-mock-error-service
+    hostname: mock-error-service
+    networks:
+      mock-s3-network:
+        ipv4_address: 172.20.0.35
+    ports:
+      - "8085:8085"
+    volumes:
+      - mock-error-data:/app/data
+    environment:
+      - SERVICE_NAME=mock-error-service
+      - CONSUL_ADDR=consul:8500
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      consul:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

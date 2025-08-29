@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mocks3/shared/middleware/consul"
 	"mocks3/shared/models"
 	"mocks3/shared/observability"
 	"time"
@@ -16,6 +17,15 @@ type ThirdPartyClient struct {
 
 // NewThirdPartyClient 创建第三方服务客户端
 func NewThirdPartyClient(baseURL string, timeout time.Duration, logger *observability.Logger) *ThirdPartyClient {
+	return &ThirdPartyClient{
+		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "third-party-client", logger),
+	}
+}
+
+// NewThirdPartyClientWithConsul 创建支持Consul服务发现的第三方服务客户端
+func NewThirdPartyClientWithConsul(consulClient consul.ConsulClient, timeout time.Duration, logger *observability.Logger) *ThirdPartyClient {
+	ctx := context.Background()
+	baseURL := getServiceURL(ctx, consulClient, "third-party-service", "http://third-party-service:8084", logger)
 	return &ThirdPartyClient{
 		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "third-party-client", logger),
 	}

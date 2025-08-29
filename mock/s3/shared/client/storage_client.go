@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mocks3/shared/middleware/consul"
 	"mocks3/shared/models"
 	"mocks3/shared/observability"
 	"net/http"
@@ -18,6 +19,15 @@ type StorageClient struct {
 
 // NewStorageClient 创建存储服务客户端
 func NewStorageClient(baseURL string, timeout time.Duration, logger *observability.Logger) *StorageClient {
+	return &StorageClient{
+		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "storage-client", logger),
+	}
+}
+
+// NewStorageClientWithConsul 创建支持Consul服务发现的存储服务客户端
+func NewStorageClientWithConsul(consulClient consul.ConsulClient, timeout time.Duration, logger *observability.Logger) *StorageClient {
+	ctx := context.Background()
+	baseURL := getServiceURL(ctx, consulClient, "storage-service", "http://storage-service:8082", logger)
 	return &StorageClient{
 		BaseHTTPClient: NewBaseHTTPClient(baseURL, timeout, "storage-client", logger),
 	}

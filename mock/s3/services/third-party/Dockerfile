@@ -1,5 +1,5 @@
 # 多阶段构建 - 构建阶段
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # 设置工作目录
 WORKDIR /app
@@ -17,7 +17,8 @@ RUN go mod download
 COPY . .
 
 # 编译应用
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o third-party-service ./cmd/main.go
+WORKDIR /app/services/third-party
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/bin/third-party-service ./cmd
 
 # 运行阶段
 FROM alpine:latest
@@ -31,10 +32,11 @@ ENV TZ=Asia/Shanghai
 WORKDIR /root/
 
 # 从构建阶段复制二进制文件
-COPY --from=builder /app/third-party-service .
+COPY --from=builder /app/bin/third-party-service .
 
 # 复制配置文件
-COPY --from=builder /app/config ./config
+COPY --from=builder /app/services/third-party/config ./config
+COPY --from=builder /app/shared/observability/config/observability.yaml ./
 
 # 创建数据目录
 RUN mkdir -p /data

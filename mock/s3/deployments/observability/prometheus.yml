@@ -1,0 +1,39 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: mock-s3
+    environment: docker
+
+scrape_configs:
+  # Prometheus自身的指标
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # OpenTelemetry Collector指标
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8888']
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  # Mock S3服务通过Consul服务发现
+  - job_name: 'mock-s3-services'
+    consul_sd_configs:
+      - server: 'consul:8500'
+        services: 
+          - metadata-service
+          - storage-service  
+          - queue-service
+          - third-party-service
+          - mock-error-service
+    scrape_interval: 15s
+    metrics_path: /metrics
+    relabel_configs:
+      - source_labels: [__meta_consul_service]
+        target_label: service
+      - source_labels: [__meta_consul_node]
+        target_label: node
+
+# 存储配置 - 命令行参数将在docker-compose中配置

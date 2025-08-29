@@ -5,22 +5,22 @@ service:
   host: "0.0.0.0"
 
 consul:
-  address: "localhost:8500"
+  address: "consul:8500"
 
 database:
   driver: "postgres"
-  host: "localhost"
+  host: "postgres"
   port: 5432
   name: "mocks3"
   username: "admin"
   password: "password"
   
 redis:
-  address: "localhost:6379"
+  address: "redis:6379"
   password: ""
   db: 0
 
 observability:
   service_name: "metadata-service"
-  otlp_endpoint: "localhost:4318"
+  otlp_endpoint: "otel-collector:4318"
   log_level: "info"

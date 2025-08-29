@@ -42,6 +42,13 @@ func (m *HTTPMiddleware) GinMetricsMiddleware() gin.HandlerFunc {
 				Duration("duration", duration),
 			)
 		}
+
+		m.logger.Info(c.Request.Context(), "HTTP request completed",
+			String("method", c.Request.Method),
+			String("path", c.FullPath()),
+			Int("status", statusCode),
+			Duration("duration", duration),
+		)
 	}
 }
 
