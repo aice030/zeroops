@@ -59,7 +59,7 @@ func (r *RedisQueueRepository) EnqueueDeleteTask(ctx context.Context, task *mode
 
 	// 同时存储到哈希表中用于状态查询和更新
 	taskKey := fmt.Sprintf("task:delete:%s", task.ID)
-	if err := r.client.HSet(ctx, taskKey, map[string]interface{}{
+	if err := r.client.HSet(ctx, taskKey, map[string]any{
 		"data":       data,
 		"status":     task.Status,
 		"created_at": task.CreatedAt.Unix(),
@@ -105,7 +105,7 @@ func (r *RedisQueueRepository) DequeueDeleteTask(ctx context.Context, timeout ti
 func (r *RedisQueueRepository) UpdateDeleteTaskStatus(ctx context.Context, taskID string, status models.TaskStatus, errorMsg string) error {
 	taskKey := fmt.Sprintf("task:delete:%s", taskID)
 
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"status":     status,
 		"updated_at": time.Now().Unix(),
 	}
@@ -143,7 +143,7 @@ func (r *RedisQueueRepository) EnqueueSaveTask(ctx context.Context, task *models
 
 	// 同时存储到哈希表中用于状态查询和更新
 	taskKey := fmt.Sprintf("task:save:%s", task.ID)
-	if err := r.client.HSet(ctx, taskKey, map[string]interface{}{
+	if err := r.client.HSet(ctx, taskKey, map[string]any{
 		"data":       data,
 		"status":     task.Status,
 		"created_at": task.CreatedAt.Unix(),
@@ -189,7 +189,7 @@ func (r *RedisQueueRepository) DequeueSaveTask(ctx context.Context, timeout time
 func (r *RedisQueueRepository) UpdateSaveTaskStatus(ctx context.Context, taskID string, status models.TaskStatus, errorMsg string) error {
 	taskKey := fmt.Sprintf("task:save:%s", taskID)
 
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"status":     status,
 		"updated_at": time.Now().Unix(),
 	}

@@ -379,10 +379,10 @@ func (sb *ServiceBootstrap) deregisterFromConsul() {
 	} else {
 		registerAddress = sb.Config.GetHost()
 	}
-	
-	serviceID := fmt.Sprintf("%s-%s-%d", 
-		sb.Config.GetServiceName(), 
-		registerAddress, 
+
+	serviceID := fmt.Sprintf("%s-%s-%d",
+		sb.Config.GetServiceName(),
+		registerAddress,
 		sb.Config.GetPort())
 
 	if err := sb.ConsulClient.DeregisterService(ctx, serviceID); err != nil {
