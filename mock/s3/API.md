@@ -1149,7 +1149,7 @@ curl -X POST http://localhost:8085/api/v1/metric-anomaly \
     "metric_name": "system_machine_online_status",
     "anomaly_type": "machine_down",
     "enabled": true,
-    "target_value": 0.0,
+    "target_value": 80.0,
     "duration": 60000000000,
     "max_triggers": 1
   }'
