@@ -19,7 +19,7 @@
     {
       "step_name": "MetricAnalysis",
       "status": "success",
-      "summary": "3 group metrics identified",
+      "summary": "3 group metrics identified with thresholds",
       "details": {
         "metrics": [
           {
@@ -27,20 +27,31 @@
               "user-service_service_cpu_user_seconds_total",
               "user-service_service_cpu_system_seconds_total"
             ],
-            "name": "CPU"
+            "name": "CPU",
+            "thresholds": [
+              "3s",
+              "5s"
+            ]
           },
           {
             "candidates": [
               "user-service_service_memory_used_bytes",
               "user-service_service_memory_active_bytes"
             ],
-            "name": "Memory"
+            "name": "Memory",
+            "thresholds": [
+              "1GB",
+              "2GB"
+            ]
           },
           {
             "candidates": [
               "user-service_service_errors_total"
             ],
-            "name": "Error Rate"
+            "name": "Error Rate",
+            "thresholds": [
+              "0.1%"
+            ]
           }
         ],
         "service": "user-service"
@@ -50,12 +61,13 @@
     {
       "step_name": "ReleasePlan",
       "status": "success",
-      "summary": "3 batches created",
+      "summary": "3 batches created with observation times",
       "details": {
         "gray_strategy": {
           "batches": [
             {
               "batch_id": 1,
+              "observation_time": "600s",
               "hosts": [
                 {
                   "host_id": "bj1-node-001",
@@ -65,6 +77,7 @@
             },
             {
               "batch_id": 2,
+              "observation_time": "1800s",
               "hosts": [
                 {
                   "host_id": "sh1-node-001",
@@ -78,6 +91,7 @@
             },
             {
               "batch_id": 3,
+              "observation_time": "3600s",
               "hosts": [
                 {
                   "host_id": "sh1-node-002",
