@@ -24,19 +24,19 @@ func NewPrometheusDataFormatter(timezone string) *PrometheusDataFormatter {
 
 // FormattedTimeData 格式化后的时间数据结构
 type FormattedTimeData struct {
-	Timestamp     string                 `json:"timestamp"`      // 格式化的时间戳
-	TimestampUnix float64                `json:"timestamp_unix"` // 原始Unix时间戳
-	Value         interface{}            `json:"value"`          // 数据值
-	Metric        map[string]string      `json:"metric"`         // 指标标签
-	Metadata      map[string]interface{} `json:"metadata"`       // 元数据信息
+	Timestamp     string            `json:"timestamp"`      // 格式化的时间戳
+	TimestampUnix float64           `json:"timestamp_unix"` // 原始Unix时间戳
+	Value         any               `json:"value"`          // 数据值
+	Metric        map[string]string `json:"metric"`         // 指标标签
+	Metadata      map[string]any    `json:"metadata"`       // 元数据信息
 }
 
 // PrometheusResponse Prometheus查询响应结构
 type PrometheusResponse struct {
 	Status string `json:"status"`
 	Data   struct {
-		ResultType string        `json:"resultType"`
-		Result     []interface{} `json:"result"`
+		ResultType string `json:"resultType"`
+		Result     []any  `json:"result"`
 	} `json:"data"`
 }
 
@@ -82,7 +82,7 @@ func (f *PrometheusDataFormatter) FormatPrometheusData(rawData string, includeMe
 	var response PrometheusResponse
 	if err := json.Unmarshal([]byte(rawData), &response); err != nil {
 		// 如果标准格式解析失败，尝试解析为数组格式（兼容旧版本）
-		var arrayResult []interface{}
+		var arrayResult []any
 		if arrayErr := json.Unmarshal([]byte(rawData), &arrayResult); arrayErr != nil {
 			return "", fmt.Errorf("解析Prometheus响应失败: %w", err)
 		}
@@ -118,7 +118,7 @@ func (f *PrometheusDataFormatter) FormatPrometheusData(rawData string, includeMe
 	}
 
 	// 创建最终的响应结构
-	finalResponse := map[string]interface{}{
+	finalResponse := map[string]any{
 		"status":       "success",
 		"result_type":  response.Data.ResultType,
 		"result_count": len(formattedResults),
@@ -137,17 +137,17 @@ func (f *PrometheusDataFormatter) FormatPrometheusData(rawData string, includeMe
 }
 
 // formatVectorResult 格式化瞬时向量查询结果
-func (f *PrometheusDataFormatter) formatVectorResult(results []interface{}, includeMetadata bool) []FormattedTimeData {
+func (f *PrometheusDataFormatter) formatVectorResult(results []any, includeMetadata bool) []FormattedTimeData {
 	var formattedResults []FormattedTimeData
 
 	for _, result := range results {
-		if resultMap, ok := result.(map[string]interface{}); ok {
+		if resultMap, ok := result.(map[string]any); ok {
 			formattedData := FormattedTimeData{
 				Metric: make(map[string]string),
 			}
 
 			// 处理指标标签
-			if metric, ok := resultMap["metric"].(map[string]interface{}); ok {
+			if metric, ok := resultMap["metric"].(map[string]any); ok {
 				for key, value := range metric {
 					if strValue, ok := value.(string); ok {
 						formattedData.Metric[key] = strValue
@@ -156,7 +156,7 @@ func (f *PrometheusDataFormatter) formatVectorResult(results []interface{}, incl
 			}
 
 			// 处理值
-			if value, ok := resultMap["value"].([]interface{}); ok && len(value) >= 2 {
+			if value, ok := resultMap["value"].([]any); ok && len(value) >= 2 {
 				if timestamp, ok := value[0].(float64); ok {
 					// 格式化时间戳
 					formattedTime, err := f.FormatTimestampWithTimezone(timestamp, "")
@@ -172,7 +172,7 @@ func (f *PrometheusDataFormatter) formatVectorResult(results []interface{}, incl
 
 			// 添加元数据（可选）
 			if includeMetadata {
-				formattedData.Metadata = map[string]interface{}{
+				formattedData.Metadata = map[string]any{
 					"result_type":  "vector",
 					"processed_at": time.Now().Format("2006-01-02T15:04:05-07:00"),
 				}
@@ -186,14 +186,14 @@ func (f *PrometheusDataFormatter) formatVectorResult(results []interface{}, incl
 }
 
 // formatMatrixResult 格式化范围向量查询结果
-func (f *PrometheusDataFormatter) formatMatrixResult(results []interface{}, includeMetadata bool) []FormattedTimeData {
+func (f *PrometheusDataFormatter) formatMatrixResult(results []any, includeMetadata bool) []FormattedTimeData {
 	var formattedResults []FormattedTimeData
 
 	for _, result := range results {
-		if resultMap, ok := result.(map[string]interface{}); ok {
+		if resultMap, ok := result.(map[string]any); ok {
 			// 处理指标标签
 			metric := make(map[string]string)
-			if metricData, ok := resultMap["metric"].(map[string]interface{}); ok {
+			if metricData, ok := resultMap["metric"].(map[string]any); ok {
 				for key, value := range metricData {
 					if strValue, ok := value.(string); ok {
 						metric[key] = strValue
@@ -202,9 +202,9 @@ func (f *PrometheusDataFormatter) formatMatrixResult(results []interface{}, incl
 			}
 
 			// 处理时间序列数据
-			if values, ok := resultMap["values"].([]interface{}); ok {
+			if values, ok := resultMap["values"].([]any); ok {
 				for _, valuePoint := range values {
-					if point, ok := valuePoint.([]interface{}); ok && len(point) >= 2 {
+					if point, ok := valuePoint.([]any); ok && len(point) >= 2 {
 						formattedData := FormattedTimeData{
 							Metric: metric,
 						}
@@ -223,7 +223,7 @@ func (f *PrometheusDataFormatter) formatMatrixResult(results []interface{}, incl
 
 						// 添加元数据（可选）
 						if includeMetadata {
-							formattedData.Metadata = map[string]interface{}{
+							formattedData.Metadata = map[string]any{
 								"result_type":  "matrix",
 								"processed_at": time.Now().Format("2006-01-02T15:04:05-07:00"),
 							}
@@ -240,11 +240,11 @@ func (f *PrometheusDataFormatter) formatMatrixResult(results []interface{}, incl
 }
 
 // formatScalarResult 格式化标量查询结果
-func (f *PrometheusDataFormatter) formatScalarResult(results []interface{}, includeMetadata bool) []FormattedTimeData {
+func (f *PrometheusDataFormatter) formatScalarResult(results []any, includeMetadata bool) []FormattedTimeData {
 	var formattedResults []FormattedTimeData
 
 	if len(results) > 0 {
-		if scalar, ok := results[0].([]interface{}); ok && len(scalar) >= 2 {
+		if scalar, ok := results[0].([]any); ok && len(scalar) >= 2 {
 			formattedData := FormattedTimeData{
 				Metric: make(map[string]string),
 			}
@@ -263,7 +263,7 @@ func (f *PrometheusDataFormatter) formatScalarResult(results []interface{}, incl
 
 			// 添加元数据（可选）
 			if includeMetadata {
-				formattedData.Metadata = map[string]interface{}{
+				formattedData.Metadata = map[string]any{
 					"result_type":  "scalar",
 					"processed_at": time.Now().Format("2006-01-02T15:04:05-07:00"),
 				}
