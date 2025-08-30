@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -125,34 +126,41 @@ func (d *DiskFullInjector) IsActive() bool {
 func (d *DiskFullInjector) GetCurrentDiskUsage() float64 {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	if !d.isActive {
-		return d.getCurrentDiskUsage()
-	}
-	// 注入期间返回目标值
-	return d.targetPercent
+	return d.getCurrentDiskUsage()
 }
 
 // getCurrentDiskUsage 获取当前真实磁盘使用率
 func (d *DiskFullInjector) getCurrentDiskUsage() float64 {
-	// 获取工作目录大小
+	// 获取当前工作目录
 	workDir, err := os.Getwd()
 	if err != nil {
 		workDir = "/app"
 	}
 
-	dirSize, err := d.calculateDirectorySize(workDir)
-	if err != nil {
-		return 35.0 // 默认基础使用率
+	// 使用syscall.Statfs获取真实的文件系统统计信息
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(workDir, &stat); err != nil {
+		d.logger.Error(context.Background(), "Failed to get disk stats", observability.Error(err))
+		return 0.0
 	}
 
-	// 基于目录大小计算使用率
-	baseUsage := 35.0
-	additionalUsage := float64(dirSize/(1024*1024*1024)) * 5.0
-	totalUsage := baseUsage + additionalUsage
-	if totalUsage > 95.0 {
-		totalUsage = 95.0
-	}
-	return totalUsage
+	// 计算磁盘使用率
+	// stat.Blocks: 总块数
+	// stat.Bavail: 可用块数
+	// stat.Bsize: 块大小
+	totalBytes := stat.Blocks * uint64(stat.Bsize)
+	availableBytes := stat.Bavail * uint64(stat.Bsize)
+	usedBytes := totalBytes - availableBytes
+
+	usagePercent := float64(usedBytes) / float64(totalBytes) * 100.0
+
+	d.logger.Debug(context.Background(), "Real disk usage calculated",
+		observability.String("total_bytes", fmt.Sprintf("%d", totalBytes)),
+		observability.String("used_bytes", fmt.Sprintf("%d", usedBytes)),
+		observability.String("available_bytes", fmt.Sprintf("%d", availableBytes)),
+		observability.Float64("usage_percent", usagePercent))
+
+	return usagePercent
 }
 
 // diskFillTask 磁盘填充任务

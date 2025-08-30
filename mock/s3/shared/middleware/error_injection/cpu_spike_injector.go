@@ -188,14 +188,23 @@ func (c *CPUSpikeInjector) cpuIntensiveTask(stopChan chan struct{}) {
 		case <-stopChan:
 			return
 		default:
-			// 执行CPU密集型计算
-			for i := 0; i < 10000; i++ {
+			// 执行CPU密集型计算，减少频繁让出CPU
+			for i := 0; i < 1000000; i++ {
 				_ = i * i * i
 			}
-			// 短暂让出CPU，避免完全阻塞
-			runtime.Gosched()
+			// 降低让出CPU的频率，每完成大量计算后才让出
+			if c.shouldYield() {
+				runtime.Gosched()
+			}
 		}
 	}
+}
+
+// shouldYield 控制让出CPU的频率，避免过于频繁的调度
+func (c *CPUSpikeInjector) shouldYield() bool {
+	// 只有在非常必要时才让出CPU，大幅减少调度频率
+	// 可以根据系统负载动态调整
+	return false // 暂时完全禁用主动让出，让系统调度器控制
 }
 
 // Cleanup 清理资源
