@@ -12,10 +12,10 @@ func GetServiceByHostIDTool() mcp.Tool {
 			mcp.Description("主机ID，用于定位具体的服务器节点")),
 		mcp.WithString("start_time",
 			mcp.Required(),
-			mcp.Description("查询开始时间，格式为 '2025-08-20T00:00:00Z'")),
+			mcp.Description("查询开始时间，需要北京时间，格式为 'YYYY-mm-ddThh:mm:ss+08:00'")),
 		mcp.WithString("end_time",
 			mcp.Required(),
-			mcp.Description("查询结束时间，格式为 '2025-08-20T23:59:59Z'")),
+			mcp.Description("查询结束时间，需要北京时间，格式为 'YYYY-mm-ddThh:mm:ss+0800'")),
 	)
 }
 
