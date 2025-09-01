@@ -21,3 +21,13 @@ superset:
 elasticsearch:
   port: 8092
   endpoint: "/es"
+  # 索引配置
+  index:
+    pattern: "mock-{service}-logs-{date}"  # 索引模式，支持{service}和{date}占位符
+    date_format: "2006.01.02"              # 日期格式，Go时间格式
+    wildcard_pattern: "mock-*-logs-{date}" # 通配符模式，用于跨服务查询
+  # 连接配置
+  connection:
+    base_url: "http://127.0.0.1:9200"      # Elasticsearch基础URL
+    timeout: 30                            # 请求超时时间（秒）
+    max_retries: 3                         # 最大重试次数
