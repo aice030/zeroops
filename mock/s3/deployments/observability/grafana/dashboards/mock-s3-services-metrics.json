@@ -201,42 +201,6 @@
       }
     },
     {
-      "id": 5,
-      "title": "Services Disk Usage",
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "system_disk_usage_percent_percent{service=~\"$service\"}",
-          "legendFormat": "{{service}} Disk",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisPlacement": "auto",
-            "axisLabel": "Disk Usage (%)",
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "fillOpacity": 20
-          },
-          "unit": "percent",
-          "min": 0,
-          "max": 100
-        }
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 17
-      }
-    },
-    {
       "id": 6,
       "title": "Services Network QPS",
       "type": "timeseries",
@@ -266,8 +230,8 @@
       },
       "gridPos": {
         "h": 9,
-        "w": 12,
-        "x": 12,
+        "w": 24,
+        "x": 0,
         "y": 17
       }
     },
@@ -337,11 +301,6 @@
           "expr": "system_memory_usage_percent_percent{service=~\"$service\"}",
           "legendFormat": "{{service}} Memory",
           "refId": "B"
-        },
-        {
-          "expr": "system_disk_usage_percent_percent{service=~\"$service\"}",
-          "legendFormat": "{{service}} Disk",
-          "refId": "C"
         }
       ],
       "fieldConfig": {
@@ -406,23 +365,16 @@
           "format": "table"
         },
         {
-          "expr": "system_disk_usage_percent_percent{service=~\"$service\"}",
+          "expr": "system_network_qps_per_second{service=~\"$service\"}",
           "legendFormat": "",
           "refId": "C",
           "instant": true,
           "format": "table"
         },
         {
-          "expr": "system_network_qps_per_second{service=~\"$service\"}",
-          "legendFormat": "",
-          "refId": "D",
-          "instant": true,
-          "format": "table"
-        },
-        {
           "expr": "system_machine_online_status{service=~\"$service\"}",
           "legendFormat": "",
-          "refId": "E",
+          "refId": "D",
           "instant": true,
           "format": "table"
         }
@@ -447,9 +399,8 @@
               "service": "Service",
               "Value #A": "CPU (%)",
               "Value #B": "Memory (%)",
-              "Value #C": "Disk (%)",
-              "Value #D": "Network QPS",
-              "Value #E": "Status"
+              "Value #C": "Network QPS",
+              "Value #D": "Status"
             }
           }
         }
