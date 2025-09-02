@@ -30,6 +30,16 @@ type Config struct {
 	ElasticSearch struct {
 		Port     int    `yaml:"port"`
 		Endpoint string `yaml:"endpoint"`
+		Index    struct {
+			Pattern         string `yaml:"pattern"`          // 索引模式，支持{service}和{date}占位符
+			DateFormat      string `yaml:"date_format"`      // 日期格式，Go时间格式
+			WildcardPattern string `yaml:"wildcard_pattern"` // 通配符模式，用于跨服务查询
+		} `yaml:"index"`
+		Connection struct {
+			BaseURL    string `yaml:"base_url"`    // Elasticsearch基础URL
+			Timeout    int    `yaml:"timeout"`     // 请求超时时间（秒）
+			MaxRetries int    `yaml:"max_retries"` // 最大重试次数
+		} `yaml:"connection"`
 	} `yaml:"elasticsearch"`
 }
 

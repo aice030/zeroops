@@ -3,9 +3,9 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // GetServiceByHostID 根据host_id获取对应的service名称
@@ -13,9 +13,17 @@ import (
 // startTime: 开始时间，格式为 "2025-08-20T00:00:00Z"
 // endTime: 结束时间，格式为 "2025-08-20T23:59:59Z"
 func (e *ElasticsearchClient) GetServiceByHostID(hostID string, startTime string, endTime string) (string, error) {
-	// 使用当前日期构建索引模式，查询所有服务
-	currentDate := time.Now().Format("2006.01.02")
-	indexPattern := fmt.Sprintf("mock-*-logs-%s", currentDate)
+	// 根据查询时间范围生成索引模式，而不是使用当前日期
+	indexPatterns, err := e.IndexManager.GenerateIndexPatternsForTimeRange(startTime, endTime, "")
+	if err != nil {
+		return "", fmt.Errorf("生成索引模式失败: %w", err)
+	}
+
+	// 使用第一个索引模式进行查询（简化处理）
+	if len(indexPatterns) == 0 {
+		return "", fmt.Errorf("未生成有效的索引模式")
+	}
+	indexPattern := indexPatterns[0]
 
 	// 构建查询，根据host_id查找对应的service
 	query := map[string]interface{}{
@@ -88,11 +96,17 @@ func (e *ElasticsearchClient) FetchLogsByServiceAndHost(service string, hostID s
 		}
 	}
 
-	// 构建索引名称，格式：mock-服务名-logs-日期
-	// 这里需要根据时间范围生成对应的索引名称
-	// 简化处理：使用当前日期作为示例
-	currentDate := time.Now().Format("2006.01.02")
-	indexName := fmt.Sprintf("mock-%s-logs-%s", service, currentDate)
+	// 根据时间范围生成具体的索引名
+	indexPatterns, err := e.IndexManager.GenerateIndexPatternsForTimeRange(startTime, endTime, service)
+	if err != nil {
+		return "", fmt.Errorf("生成索引模式失败: %w", err)
+	}
+
+	// 使用第一个索引模式
+	if len(indexPatterns) == 0 {
+		return "", fmt.Errorf("未生成有效的索引模式")
+	}
+	indexName := indexPatterns[0]
 
 	// 构建Elasticsearch查询
 	query := map[string]interface{}{
@@ -161,9 +175,17 @@ func (e *ElasticsearchClient) FetchLogsByServiceAndHost(service string, hostID s
 // startTime: 开始时间，格式为 "2025-08-20T00:00:00Z"
 // endTime: 结束时间，格式为 "2025-08-20T23:59:59Z"
 func (e *ElasticsearchClient) FetchRequestTrace(requestID string, startTime string, endTime string) (string, error) {
-	// 由于请求可能经过多个服务，需要查询所有相关的索引
-	// 这里简化处理，查询当前日期的所有服务索引
-	currentDate := time.Now().Format("2006.01.02")
+	// 根据查询时间范围生成索引模式，查询所有服务的索引
+	indexPatterns, err := e.IndexManager.GenerateIndexPatternsForTimeRange(startTime, endTime, "")
+	if err != nil {
+		return "", fmt.Errorf("生成索引模式失败: %w", err)
+	}
+
+	// 使用第一个索引模式进行查询（简化处理）
+	if len(indexPatterns) == 0 {
+		return "", fmt.Errorf("未生成有效的索引模式")
+	}
+	indexPattern := indexPatterns[0]
 
 	// 构建跨索引查询
 	query := map[string]interface{}{
@@ -200,7 +222,6 @@ func (e *ElasticsearchClient) FetchRequestTrace(requestID string, startTime stri
 	}
 
 	// 执行跨索引查询
-	indexPattern := fmt.Sprintf("mock-*-logs-%s", currentDate)
 	result, err := e.executeSearch(indexPattern, searchRequest)
 	if err != nil {
 		return "", fmt.Errorf("查询请求追踪失败: %w", err)
@@ -268,23 +289,28 @@ func (e *ElasticsearchClient) executeSearch(index string, searchRequest map[stri
 	req.Header.Set("Content-Type", "application/json")
 
 	// 发送请求
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: e.Timeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("发送HTTP请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// 读取响应体
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应体失败: %w", err)
+	}
+
 	// 解析响应
 	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
 		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
 
 	// 检查是否有错误
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Elasticsearch返回错误状态码: %d", resp.StatusCode)
+		return nil, fmt.Errorf("Elasticsearch返回错误状态码: %d, 响应: %s", resp.StatusCode, string(bodyBytes))
 	}
-
 	return result, nil
 }
