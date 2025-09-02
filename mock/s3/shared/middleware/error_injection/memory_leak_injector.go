@@ -94,7 +94,8 @@ func (m *MemoryLeakInjector) GetCurrentMemoryMB() int64 {
 
 // memoryAllocationTask 内存分配任务
 func (m *MemoryLeakInjector) memoryAllocationTask(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Second) // 每秒分配一次
+	// 使用更长的分配间隔，减少GC压力
+	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -114,8 +115,8 @@ func (m *MemoryLeakInjector) memoryAllocationTask(ctx context.Context) {
 				continue
 			}
 
-			// 每次分配10MB
-			chunkSizeMB := int64(10)
+			// 增加每次分配的块大小，减少分配频率
+			chunkSizeMB := int64(50) // 从10MB增加到50MB
 			if m.currentMB+chunkSizeMB > m.targetMB {
 				chunkSizeMB = m.targetMB - m.currentMB
 			}
@@ -123,11 +124,10 @@ func (m *MemoryLeakInjector) memoryAllocationTask(ctx context.Context) {
 			// 分配内存（1MB = 1024*1024 bytes）
 			chunk := make([]byte, chunkSizeMB*1024*1024)
 
-			// 写入数据确保内存真正被使用
-			for i := range chunk {
-				if i%1024 == 0 {
-					chunk[i] = byte(i % 256)
-				}
+			// 优化内存写入策略，减少GC触发
+			// 使用更稀疏的写入模式，减少内存访问压力
+			for i := 0; i < len(chunk); i += 4096 { // 每4KB写入一次
+				chunk[i] = byte(i % 256)
 			}
 
 			m.memoryPool = append(m.memoryPool, chunk)
@@ -139,6 +139,9 @@ func (m *MemoryLeakInjector) memoryAllocationTask(ctx context.Context) {
 				observability.Int64("target_mb", m.targetMB))
 
 			m.mu.Unlock()
+
+			// 添加短暂延迟，让系统稳定
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 }

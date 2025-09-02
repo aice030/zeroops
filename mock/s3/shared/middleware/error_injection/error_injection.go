@@ -252,7 +252,8 @@ func (mi *MetricInjector) applyAnomaly(ctx context.Context, anomaly map[string]a
 		if !mi.cpuInjector.IsActive() {
 			mi.cpuInjector.StartCPUSpike(ctx, targetValue, duration)
 		}
-		return targetValue
+		// CPU异常返回真实测量的CPU使用率
+		return mi.cpuInjector.GetCurrentCPUUsage()
 
 	case models.AnomalyMemoryLeak:
 		// 启动内存泄露注入
@@ -269,14 +270,10 @@ func (mi *MetricInjector) applyAnomaly(ctx context.Context, anomaly map[string]a
 	case models.AnomalyDiskFull:
 		// 启动磁盘满载注入
 		if !mi.diskInjector.IsActive() {
-			mi.diskInjector.StartDiskFull(ctx, int64(targetValue), duration)
+			mi.diskInjector.StartDiskFull(ctx, targetValue, duration)
 		}
-		// 磁盘满载返回当前已占用的磁盘空间
-		currentGB := mi.diskInjector.GetCurrentDiskGB()
-		if currentGB > 0 {
-			return float64(currentGB)
-		}
-		return originalValue
+		// 磁盘满载返回当前真实磁盘使用率
+		return mi.diskInjector.GetCurrentDiskUsage()
 
 	case models.AnomalyNetworkFlood:
 		// 启动网络风暴注入
@@ -391,7 +388,7 @@ func (mi *MetricInjector) GetAnomalyStatus(ctx context.Context) map[string]any {
 	// 磁盘异常状态
 	if mi.diskInjector != nil {
 		status["disk_full_active"] = mi.diskInjector.IsActive()
-		status["current_disk_gb"] = mi.diskInjector.GetCurrentDiskGB()
+		status["current_disk_usage_percent"] = mi.diskInjector.GetCurrentDiskUsage()
 	}
 
 	// 网络异常状态
