@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: zeroops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: zeroops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: consul-pvc
+  namespace: zeroops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# 共享存储用于storage-service多实例 - 方案1实现
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: storage-shared-pvc
+  namespace: zeroops
+  annotations:
+    description: "共享存储PVC，支持多个storage-service Pod同时访问，保持3倍冗余"
+spec:
+  accessModes:
+    - ReadWriteMany  # 关键：支持多Pod同时读写
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: default  # 注意：需确保StorageClass支持ReadWriteMany
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: zeroops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: zeroops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: default

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zeroops
+  labels:
+    name: zeroops
+    app: mock-s3-platform
