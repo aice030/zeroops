@@ -1,16 +1,17 @@
 package error_injection
 
 import (
-	"context"
-	"fmt"
-	"mocks3/shared/client"
-	"mocks3/shared/models"
-	"mocks3/shared/observability"
-	"mocks3/shared/utils"
-	"net/http"
-	"strconv"
-	"sync"
-	"time"
+    "context"
+    "fmt"
+    "mocks3/shared/client"
+    "mocks3/shared/models"
+    "mocks3/shared/observability"
+    "mocks3/shared/utils"
+    "net/http"
+    "os"
+    "strconv"
+    "sync"
+    "time"
 )
 
 // MetricInjectorConfig 指标异常注入器配置
@@ -125,8 +126,16 @@ func NewMetricInjectorWithDefaults(mockErrorServiceURL string, serviceName strin
 
 // InjectMetricAnomaly 检查并注入指标异常
 func (mi *MetricInjector) InjectMetricAnomaly(ctx context.Context, metricName string, originalValue float64) float64 {
-	// 检查缓存
-	cacheKey := mi.serviceName + ":" + metricName
+    // 计算实例标识，用于实例级注入与缓存
+    instanceID := os.Getenv("INSTANCE_ID")
+    if instanceID == "" {
+        if h, err := os.Hostname(); err == nil && h != "" {
+            instanceID = h
+        }
+    }
+
+    // 检查缓存（加入实例维度）
+    cacheKey := mi.serviceName + ":" + instanceID + ":" + metricName
 	mi.cacheMu.RLock()
 	if cached, exists := mi.cache[cacheKey]; exists && time.Now().Before(cached.ExpiresAt) {
 		mi.cacheMu.RUnlock()
@@ -138,17 +147,19 @@ func (mi *MetricInjector) InjectMetricAnomaly(ctx context.Context, metricName st
 	mi.cacheMu.RUnlock()
 
 	// 查询Mock Error Service获取异常规则
-	request := map[string]string{
-		"service":     mi.serviceName,
-		"metric_name": metricName,
-	}
+    request := map[string]string{
+        "service":     mi.serviceName,
+        "metric_name": metricName,
+        "instance":    instanceID,
+    }
 
-	var response struct {
-		ShouldInject bool           `json:"should_inject"`
-		Service      string         `json:"service"`
-		MetricName   string         `json:"metric_name"`
-		Anomaly      map[string]any `json:"anomaly,omitempty"`
-	}
+    var response struct {
+        ShouldInject bool           `json:"should_inject"`
+        Service      string         `json:"service"`
+        MetricName   string         `json:"metric_name"`
+        Instance     string         `json:"instance"`
+        Anomaly      map[string]any `json:"anomaly,omitempty"`
+    }
 
 	// 使用较短的超时时间避免影响正常指标收集
 	opts := client.RequestOptions{
