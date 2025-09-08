@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   mock-s3-network:
     driver: bridge
@@ -244,13 +242,11 @@ services:
       context: .
       dockerfile: services/metadata/Dockerfile
     image: mock-s3/metadata-service:latest
-    container_name: mock-s3-metadata-service
     hostname: metadata-service
     networks:
-      mock-s3-network:
-        ipv4_address: 172.20.0.31
+      - mock-s3-network
     ports:
-      - "8081:8081"
+      - "8081-8090:8081"
     environment:
       - SERVICE_NAME=metadata-service
       - CONSUL_ADDR=consul:8500
@@ -280,13 +276,11 @@ services:
       context: .
       dockerfile: services/storage/Dockerfile
     image: mock-s3/storage-service:latest
-    container_name: mock-s3-storage-service
     hostname: storage-service
     networks:
-      mock-s3-network:
-        ipv4_address: 172.20.0.32
+      - mock-s3-network
     ports:
-      - "8082:8082"
+      - "8082-8092:8082"
     volumes:
       - storage-data:/app/data/storage
     environment:
@@ -311,13 +305,11 @@ services:
       context: .
       dockerfile: services/queue/Dockerfile
     image: mock-s3/queue-service:latest
-    container_name: mock-s3-queue-service
     hostname: queue-service
     networks:
-      mock-s3-network:
-        ipv4_address: 172.20.0.33
+      - mock-s3-network
     ports:
-      - "8083:8083"
+      - "8083-8093:8083"
     environment:
       - SERVICE_NAME=queue-service
       - CONSUL_ADDR=consul:8500
@@ -343,13 +335,11 @@ services:
       context: .
       dockerfile: services/third-party/Dockerfile
     image: mock-s3/third-party-service:latest
-    container_name: mock-s3-third-party-service
     hostname: third-party-service
     networks:
-      mock-s3-network:
-        ipv4_address: 172.20.0.34
+      - mock-s3-network
     ports:
-      - "8084:8084"
+      - "8084-8094:8084"
     environment:
       - SERVICE_NAME=third-party-service
       - CONSUL_ADDR=consul:8500
@@ -372,13 +362,11 @@ services:
       context: .
       dockerfile: services/mock-error/Dockerfile
     image: mock-s3/mock-error-service:latest
-    container_name: mock-s3-mock-error-service
     hostname: mock-error-service
     networks:
-      mock-s3-network:
-        ipv4_address: 172.20.0.35
+      - mock-s3-network
     ports:
-      - "8085:8085"
+      - "8085-8095:8085"
     volumes:
       - mock-error-data:/app/data
     environment:
