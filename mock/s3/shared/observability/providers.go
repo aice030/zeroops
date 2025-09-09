@@ -4,7 +4,7 @@ import (
     "context"
     "fmt"
     "mocks3/shared/observability/config"
-    "os"
+    "mocks3/shared/utils"
 
     "go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
@@ -183,15 +183,8 @@ func (p *Providers) Shutdown(ctx context.Context) error {
 
 // createResource 创建OTEL资源
 func createResource(config *config.ObservabilityConfig) (*resource.Resource, error) {
-    // Derive a stable service instance id
-    instanceID := os.Getenv("INSTANCE_ID")
-    if instanceID == "" {
-        if h, err := os.Hostname(); err == nil && h != "" {
-            instanceID = h
-        } else {
-            instanceID = "unknown-instance"
-        }
-    }
+    // 使用统一的实例ID生成器
+    instanceID := utils.GetInstanceID(config.ServiceName)
     return resource.New(context.Background(),
         resource.WithAttributes(
             semconv.ServiceName(config.ServiceName),

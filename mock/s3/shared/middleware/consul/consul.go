@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/hashicorp/consul/api"
 )
 
@@ -51,10 +50,10 @@ func CreateConsulClient(address string, logger *observability.Logger) (ConsulCli
 
 // RegisterService 注册服务到Consul
 func (c *DefaultConsulClient) RegisterService(ctx context.Context, service *models.ServiceInfo) error {
-	// 使用UUID确保每个服务实例有唯一的ServiceID
-	serviceUUID := uuid.New().String()
+	// 使用地址+端口确保每个服务实例有唯一且稳定的ServiceID
+	serviceID := fmt.Sprintf("%s-%s-%d", service.Name, service.Address, service.Port)
 	registration := &api.AgentServiceRegistration{
-		ID:      fmt.Sprintf("%s-%s", service.Name, serviceUUID),
+		ID:      serviceID,
 		Name:    service.Name,
 		Address: service.Address,
 		Port:    service.Port,

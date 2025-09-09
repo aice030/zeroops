@@ -431,13 +431,17 @@ func (sb *ServiceBootstrap) deregisterFromConsul() {
 	// 生成服务ID (与注册时保持一致)
 	var registerAddress string
 	if sb.Config.GetHost() == "0.0.0.0" {
-		// 如果绑定地址是0.0.0.0，使用hostname进行注销
-		hostname, err := os.Hostname()
-		if err != nil {
-			sb.Logger.Error(ctx, "Failed to get hostname for Consul deregistration", observability.Error(err))
-			return
+		// 允许通过环境变量覆盖对外公布地址
+		if envAddr := os.Getenv("ADVERTISE_ADDR"); envAddr != "" {
+			registerAddress = envAddr
+		} else {
+			ip, err := detectAdvertiseAddr()
+			if err != nil {
+				sb.Logger.Error(ctx, "Failed to detect advertise address for Consul deregistration", observability.Error(err))
+				return
+			}
+			registerAddress = ip
 		}
-		registerAddress = hostname
 	} else {
 		registerAddress = sb.Config.GetHost()
 	}

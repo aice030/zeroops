@@ -8,7 +8,6 @@ import (
     "mocks3/shared/observability"
     "mocks3/shared/utils"
     "net/http"
-    "os"
     "strconv"
     "sync"
     "time"
@@ -127,12 +126,7 @@ func NewMetricInjectorWithDefaults(mockErrorServiceURL string, serviceName strin
 // InjectMetricAnomaly 检查并注入指标异常
 func (mi *MetricInjector) InjectMetricAnomaly(ctx context.Context, metricName string, originalValue float64) float64 {
     // 计算实例标识，用于实例级注入与缓存
-    instanceID := os.Getenv("INSTANCE_ID")
-    if instanceID == "" {
-        if h, err := os.Hostname(); err == nil && h != "" {
-            instanceID = h
-        }
-    }
+    instanceID := utils.GetInstanceID(mi.serviceName)
 
     // 检查缓存（加入实例维度）
     cacheKey := mi.serviceName + ":" + instanceID + ":" + metricName
