@@ -21,3 +21,4 @@ lerna-debug.log*
 
 # 忽略prototyping目录（React原型项目）
 prototyping/
+node_modules/
