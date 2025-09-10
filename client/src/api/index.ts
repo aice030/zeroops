@@ -35,6 +35,41 @@ api.interceptors.response.use(
 
 // API 接口定义
 export const apiService = {
+  // 获取服务列表 - 新的接口
+  getServices: () => {
+    return api.get('/v1/services')
+  },
+  
+  // 获取服务详情 - 新的接口
+  getServiceDetail: (serviceName: string) => {
+    return api.get(`/v1/services/${serviceName}`)
+  },
+  
+  // 获取服务活跃版本 - 新的接口
+  getServiceActiveVersions: (serviceName: string) => {
+    return api.get(`/v1/services/${serviceName}/activeVersions`)
+  },
+  
+  // 获取服务指标数据 - 新的接口
+  getServiceMetrics: (serviceName: string) => {
+    return api.get(`/v1/services/${serviceName}/metricStats`)
+  },
+  
+  // 获取服务可发布版本列表 - 新的接口
+  getServiceAvailableVersions: (serviceName: string) => {
+    return api.get(`/v1/services/${serviceName}/availableVersions?type=unrelease`)
+  },
+  
+  // 获取服务发布计划列表 - 新的接口
+  getServiceDeploymentPlans: (serviceName: string) => {
+    return api.get(`/v1/deployments?type=schedule&service=${serviceName}`)
+  },
+  
+  // 获取版本选项 - 新的接口
+  getVersionOptions: () => {
+    return api.get('/v1/versions')
+  },
+  
   // 验证服务信息
   validateService: (serviceData: any) => {
     return api.post('/validate-service', serviceData)
