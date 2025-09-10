@@ -28,6 +28,20 @@
           "text": "All",
           "value": "$__all"
         }
+      },
+      {
+        "name": "instance",
+        "type": "query",
+        "query": "label_values(system_cpu_usage_percent_percent{service=~\"$service\"}, instance)",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
@@ -38,8 +52,8 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "system_cpu_usage_percent_percent{service=~\"$service\"}",
-          "legendFormat": "{{service}} CPU",
+          "expr": "system_cpu_usage_percent_percent{service=~\"$service\",instance=~\"$instance\"}",
+          "legendFormat": "{{service}} {{instance}} CPU",
           "refId": "A"
         }
       ],
@@ -74,8 +88,8 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "system_memory_usage_percent_percent{service=~\"$service\"}",
-          "legendFormat": "{{service}} Memory",
+          "expr": "system_memory_usage_percent_percent{service=~\"$service\",instance=~\"$instance\"}",
+          "legendFormat": "{{service}} {{instance}} Memory",
           "refId": "A"
         }
       ],
@@ -110,7 +124,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "system_cpu_usage_percent_percent{service=~\"$service\"}",
+          "expr": "system_cpu_usage_percent_percent{service=~\"$service\",instance=~\"$instance\"}",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -158,7 +172,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "system_memory_usage_percent_percent{service=~\"$service\"}",
+          "expr": "system_memory_usage_percent_percent{service=~\"$service\",instance=~\"$instance\"}",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -206,8 +220,8 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "system_network_qps_per_second{service=~\"$service\"}",
-          "legendFormat": "{{service}} QPS",
+          "expr": "system_network_qps_per_second{service=~\"$service\",instance=~\"$instance\"}",
+          "legendFormat": "{{service}} {{instance}} QPS",
           "refId": "A"
         }
       ],
@@ -241,7 +255,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "system_machine_online_status{service=~\"$service\"}",
+          "expr": "system_machine_online_status{service=~\"$service\",instance=~\"$instance\"}",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -351,28 +365,28 @@
       "type": "table",
       "targets": [
         {
-          "expr": "system_cpu_usage_percent_percent{service=~\"$service\"}",
+          "expr": "system_cpu_usage_percent_percent{service=~\"$service\",instance=~\"$instance\"}",
           "legendFormat": "",
           "refId": "A",
           "instant": true,
           "format": "table"
         },
         {
-          "expr": "system_memory_usage_percent_percent{service=~\"$service\"}",
+          "expr": "system_memory_usage_percent_percent{service=~\"$service\",instance=~\"$instance\"}",
           "legendFormat": "",
           "refId": "B",
           "instant": true,
           "format": "table"
         },
         {
-          "expr": "system_network_qps_per_second{service=~\"$service\"}",
+          "expr": "system_network_qps_per_second{service=~\"$service\",instance=~\"$instance\"}",
           "legendFormat": "",
           "refId": "C",
           "instant": true,
           "format": "table"
         },
         {
-          "expr": "system_machine_online_status{service=~\"$service\"}",
+          "expr": "system_machine_online_status{service=~\"$service\",instance=~\"$instance\"}",
           "legendFormat": "",
           "refId": "D",
           "instant": true,
@@ -389,7 +403,6 @@
           "options": {
             "excludeByName": {
               "Time": true,
-              "instance": true,
               "job": true,
               "node": true,
               "otel_scope_name": true,
@@ -397,6 +410,7 @@
             },
             "renameByName": {
               "service": "Service",
+              "instance": "Instance",
               "Value #A": "CPU (%)",
               "Value #B": "Memory (%)",
               "Value #C": "Network QPS",
@@ -494,8 +508,8 @@
       "type": "piechart",
       "targets": [
         {
-          "expr": "topk(5, system_cpu_usage_percent_percent{service=~\"$service\"})",
-          "legendFormat": "{{service}}",
+          "expr": "topk(5, system_cpu_usage_percent_percent{service=~\"$service\",instance=~\"$instance\"})",
+          "legendFormat": "{{service}} {{instance}}",
           "refId": "A"
         }
       ],
@@ -534,8 +548,8 @@
       "type": "heatmap",
       "targets": [
         {
-          "expr": "avg_over_time(system_cpu_usage_percent_percent{service=~\"$service\"}[5m])",
-          "legendFormat": "{{service}}",
+          "expr": "avg_over_time(system_cpu_usage_percent_percent{service=~\"$service\",instance=~\"$instance\"}[5m])",
+          "legendFormat": "{{service}} {{instance}}",
           "refId": "A"
         }
       ],

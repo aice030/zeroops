@@ -73,18 +73,28 @@
 
 #### 网络架构
 ```
-Docker网络：172.20.0.0/16
-├─ 基础设施层：172.20.0.10-29
+Docker网络：172.20.0.0/16 (支持动态多实例扩容)
+├─ 基础设施层：固定IP (172.20.0.10-29)
 │  ├─ consul: 172.20.0.10
 │  ├─ postgres: 172.20.0.11  
 │  ├─ redis: 172.20.0.12
 │  └─ 监控组件: 172.20.0.20-24
-└─ 业务服务层：172.20.0.30-39
-   ├─ metadata-service: 172.20.0.31
-   ├─ storage-service: 172.20.0.32
-   ├─ queue-service: 172.20.0.33
-   ├─ third-party-service: 172.20.0.34
-   └─ mock-error-service: 172.20.0.35
+└─ 业务服务层：动态分配IP (支持多实例)
+   ├─ metadata-service: 可扩容到多个实例
+   ├─ storage-service: 可扩容到多个实例
+   ├─ queue-service: 可扩容到多个实例
+   ├─ third-party-service: 可扩容到多个实例
+   └─ mock-error-service: 可扩容到多个实例
+
+服务发现：
+• 每个服务实例使用UUID生成唯一ServiceID
+• Consul自动负载均衡到健康实例
+• 端口范围映射支持多实例访问
+
+技术实现：
+• ServiceID格式: {service-name}-{uuid}
+• 支持动态扩缩容: docker-compose up -d --scale service=N
+• 无状态设计: 实例间无依赖，可随意增减
 ```
 
 ---
@@ -111,14 +121,54 @@ Docker网络：172.20.0.0/16
 docker --version && docker-compose --version
 ```
 
-### 第二步：一键启动
-```bash
+### 第二步：启动服务栈
 
-# 启动完整服务栈
+#### 单实例模式
+```bash
+# 启动完整服务栈（每个服务1个实例）
 docker-compose up --build -d
 
 # 等待服务就绪
 docker-compose ps
+```
+
+#### 多实例模式
+
+**一次性构建**
+```bash
+# 启动多实例服务栈
+docker-compose up --build -d \
+  --scale metadata-service=3 \
+  --scale storage-service=2 \
+  --scale queue-service=2 \
+  --scale third-party-service=2 \
+  --scale mock-error-service=1
+```
+
+**分批构建**
+```bash
+# 第一步：启动基础设施服务
+docker-compose up -d consul postgres redis elasticsearch prometheus grafana kibana otel-collector
+
+# 第二步：分别构建各个服务镜像
+docker-compose build metadata-service
+docker-compose build storage-service  
+docker-compose build queue-service
+docker-compose build third-party-service
+docker-compose build mock-error-service
+
+# 第三步：分批启动业务服务
+docker-compose up -d --scale metadata-service=3 metadata-service
+docker-compose up -d --scale storage-service=2 storage-service
+docker-compose up -d --scale queue-service=2 queue-service
+docker-compose up -d --scale third-party-service=2 third-party-service
+docker-compose up -d --scale mock-error-service=1 mock-error-service
+
+# 验证所有实例运行状态
+docker-compose ps
+
+# 查看Consul服务发现状态
+curl -s "http://localhost:8500/v1/catalog/services" | jq .
 ```
 
 ### 第三步：故障注入体验

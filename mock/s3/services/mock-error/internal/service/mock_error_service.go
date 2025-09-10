@@ -111,22 +111,26 @@ func (s *MockErrorService) DeleteRule(ctx context.Context, ruleID string) error 
 }
 
 // ShouldInjectError 判断是否应该注入指标异常
-func (s *MockErrorService) ShouldInjectError(ctx context.Context, service, metricName string) (map[string]any, bool) {
+func (s *MockErrorService) ShouldInjectError(ctx context.Context, service, metricName, instance string) (map[string]any, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	s.stats.TotalRequests++
 	s.stats.LastUpdated = time.Now()
 
-	for _, rule := range s.rules {
-		if !rule.Enabled {
-			continue
-		}
+    for _, rule := range s.rules {
+        if !rule.Enabled {
+            continue
+        }
 
-		// 检查服务匹配
-		if rule.Service != "" && rule.Service != service {
-			continue
-		}
+        // 检查服务匹配
+        if rule.Service != "" && rule.Service != service {
+            continue
+        }
+        // 检查实例匹配（如果指定了实例，则必须匹配）
+        if rule.Instance != "" && rule.Instance != instance {
+            continue
+        }
 
 		// 检查指标名称匹配
 		if rule.MetricName != "" && rule.MetricName != metricName {
@@ -163,13 +167,14 @@ func (s *MockErrorService) ShouldInjectError(ctx context.Context, service, metri
 			"rule_id":      rule.ID,
 		}
 
-		s.logger.Info(ctx, "Metric anomaly injected",
-			observability.String("rule_id", rule.ID),
-			observability.String("service", service),
-			observability.String("metric_name", metricName),
-			observability.String("anomaly_type", rule.AnomalyType),
-			observability.Float64("target_value", rule.TargetValue),
-			observability.Int("triggered_count", rule.Triggered))
+        s.logger.Info(ctx, "Metric anomaly injected",
+            observability.String("rule_id", rule.ID),
+            observability.String("service", service),
+            observability.String("instance", instance),
+            observability.String("metric_name", metricName),
+            observability.String("anomaly_type", rule.AnomalyType),
+            observability.Float64("target_value", rule.TargetValue),
+            observability.Int("triggered_count", rule.Triggered))
 
 		return anomaly, true
 	}
