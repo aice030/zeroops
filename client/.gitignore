@@ -19,6 +19,10 @@ lerna-debug.log*
 
 *.tsbuildinfo
 
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
 # 忽略prototyping目录（React原型项目）
 prototyping/
-node_modules/
