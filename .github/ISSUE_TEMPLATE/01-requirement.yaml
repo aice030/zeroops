@@ -1,0 +1,16 @@
+name: 功能需求
+description: 产品功能需求
+projects:
+  - qiniu/zeroops
+
+body:
+  - type: textarea
+    attributes:
+      label: 需求文档
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ Issue 必须设置 Assignee， 如当前无合适人选，请先设置为自己！
