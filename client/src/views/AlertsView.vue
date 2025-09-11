@@ -157,7 +157,7 @@
               <span class="result-time">{{ formatRelativeTime(comment.createAt) }}</span>
             </div>
             <div class="result-content">
-              <pre class="markdown-content">{{ comment.content }}</pre>
+              <div class="markdown-content" v-html="renderMarkdown(comment.content)"></div>
             </div>
           </div>
         </div>
@@ -219,6 +219,7 @@ import {
 import { ElMessage } from 'element-plus'
 import { mockApi } from '@/mock/api'
 import type { AlertsResponse, AlertIssue, AlertDetail } from '@/mock/services'
+import { marked } from 'marked'
 
 const router = useRouter()
 
@@ -332,6 +333,16 @@ const getStateText = (alertState: string) => {
 
 const canShowAnalysis = (alertState: string) => {
   return ['InProcessing', 'Restored', 'AutoRestored'].includes(alertState)
+}
+
+// Markdown渲染方法
+const renderMarkdown = (content: string) => {
+  try {
+    return marked.parse(content)
+  } catch (error) {
+    console.error('Markdown渲染失败:', error)
+    return content // 如果渲染失败，返回原始内容
+  }
 }
 
 const showAIAnalysis = async (alert: AlertIssue) => {
@@ -484,16 +495,75 @@ onMounted(() => {
 }
 
 .markdown-content {
-  white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
   background: #f8f9fa;
   padding: 16px;
   border-radius: 6px;
   border: 1px solid #e9ecef;
   margin: 0;
+}
+
+/* Markdown内容样式 */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.markdown-content h1 { font-size: 20px; }
+.markdown-content h2 { font-size: 18px; }
+.markdown-content h3 { font-size: 16px; }
+
+.markdown-content p {
+  margin: 0 0 12px 0;
+  color: #374151;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0 0 12px 0;
+  padding-left: 20px;
+}
+
+.markdown-content li {
+  margin-bottom: 4px;
+  color: #374151;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.markdown-content code {
+  background: #e5e7eb;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+}
+
+.markdown-content pre {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.markdown-content pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
 }
 
 .result-time {
