@@ -173,6 +173,24 @@
                   </el-tag>
                 </template>
               </el-table-column>
+              <el-table-column width="120">
+                <template #default="{ row }">
+                  <div class="table-actions">
+                    <span 
+                      :class="['action-link', row.isPaused ? 'continue' : 'pause']" 
+                      @click="togglePauseResumeForVersion(row)"
+                    >
+                      {{ row.isPaused ? '继续' : '暂停' }}
+                    </span>
+                    <span 
+                      class="action-link rollback" 
+                      @click="rollbackVersion(row)"
+                    >
+                      回滚
+                    </span>
+                  </div>
+                </template>
+              </el-table-column>
               <template #empty>
                 <div class="no-data">暂无数据</div>
               </template>
@@ -224,8 +242,8 @@
                             <div>{{ plan.time }}</div>
                             <div>状态: 
                               <el-tag 
-                                :type="plan.originalStatus === 'completed' ? 'success' : 
-                                       plan.originalStatus === 'rollbacked' ? 'danger' : 'warning'"
+                                :type="plan.originalStatus === 'Finished' ? 'success' : 
+                                       plan.originalStatus === 'Schedule' ? 'info' : 'warning'"
                                 size="small"
                               >
                                 {{ plan.status }}
@@ -233,29 +251,18 @@
                             </div>
                           </div>
                         </div>
-         <!-- 未开始的发布计划：编辑、取消 -->
-         <div class="plan-actions" v-if="plan.originalStatus !== 'completed' && plan.originalStatus !== 'rollbacked' && (!plan.scheduleTime || plan.scheduleTime === '')">
+         <!-- 待发布和发布中的计划：编辑、取消 -->
+         <div class="plan-actions" v-if="plan.originalStatus === 'Schedule' || plan.originalStatus === 'InDeployment'">
            <div class="action-column">
-             <el-button size="small" @click="editRelease(plan)">编辑</el-button>
-             <el-button size="small" type="danger" @click="confirmCancel(plan)">取消</el-button>
+             <span class="action-link edit" @click="editRelease(plan)">编辑</span>
+             <span class="action-link cancel" @click="confirmCancel(plan)">取消</span>
            </div>
          </div>
          
-         <!-- 部署中的发布计划：暂停/继续、回滚、取消 -->
-         <div class="plan-actions" v-else-if="plan.originalStatus === 'InDeployment' && !plan.isPaused">
+         <!-- 已完成的计划：只显示状态，无操作按钮 -->
+         <div class="plan-actions" v-else-if="plan.originalStatus === 'Finished'">
            <div class="action-column">
-             <el-button size="small" type="warning" @click="togglePauseResume(plan)">暂停</el-button>
-             <el-button size="small" type="info" @click="rollbackRelease(plan)">回滚</el-button>
-             <el-button size="small" type="danger" @click="confirmCancel(plan)">取消</el-button>
-           </div>
-         </div>
-         
-         <!-- 暂停中的发布计划：继续、回滚、取消 -->
-         <div class="plan-actions" v-else-if="plan.originalStatus === 'InDeployment' && plan.isPaused">
-           <div class="action-column">
-             <el-button size="small" type="success" @click="togglePauseResume(plan)">继续</el-button>
-             <el-button size="small" type="info" @click="rollbackRelease(plan)">回滚</el-button>
-             <el-button size="small" type="danger" @click="confirmCancel(plan)">取消</el-button>
+             <span class="completed-text">已完成</span>
            </div>
          </div>
                       </div>
@@ -744,9 +751,9 @@ const deploymentPlansForDisplay = computed(() => {
   return currentServiceDeploymentPlans.value.items.map(plan => {
     // 状态映射
     const statusMap = {
+      'Schedule': '待发布',
       'InDeployment': '部署中',
-      'completed': '已完成',
-      'rollbacked': '已回滚'
+      'Finished': '已完成'
     }
     
     // 时间格式化
@@ -771,7 +778,7 @@ const deploymentPlansForDisplay = computed(() => {
           } else {
             return '已开始'
           }
-        case 'completed':
+        case 'Finished':
           // 已完成：显示开始时间 → 结束时间
           if (plan.scheduleTime && plan.finishTime) {
             return `开始时间: ${formatTime(plan.scheduleTime)} → 结束时间: ${formatTime(plan.finishTime)}`
@@ -779,15 +786,6 @@ const deploymentPlansForDisplay = computed(() => {
             return `结束时间: ${formatTime(plan.finishTime)}`
           } else {
             return '已完成'
-          }
-        case 'rollbacked':
-          // 已回滚：显示开始时间 → 回滚时间
-          if (plan.scheduleTime && plan.finishTime) {
-            return `开始时间: ${formatTime(plan.scheduleTime)} → 回滚时间: ${formatTime(plan.finishTime)}`
-          } else if (plan.finishTime) {
-            return `回滚时间: ${formatTime(plan.finishTime)}`
-          } else {
-            return '已回滚'
           }
         default:
           return '未知状态'
@@ -967,7 +965,21 @@ const transformMetricsToTableData = (versions: any[], metricsResponse: ServiceMe
 }
 
 const getVersionTableData = (versions: any[]) => {
-  return transformMetricsToTableData(versions, currentServiceMetrics.value)
+  const tableData = transformMetricsToTableData(versions, currentServiceMetrics.value)
+  
+  // 为每个版本添加部署状态信息（用于操作按钮）
+  return tableData.map(version => {
+    // 检查是否有正在进行的部署
+    const activeDeployment = currentServiceDeploymentPlans.value?.items?.find((plan: any) => 
+      plan.version === version.version && plan.status === 'InDeployment'
+    )
+    
+    return {
+      ...version,
+      isPaused: activeDeployment?.isPaused || false,
+      deployId: activeDeployment?.id || version.version // 如果没有deployId，使用version作为标识
+    }
+  })
 }
 
 const handleCloseDialog = () => {
@@ -1091,6 +1103,44 @@ const rollbackRelease = async (plan: any) => {
   } catch (error) {
     console.error('回滚发布计划失败:', error)
     ElMessage.error('回滚发布计划失败')
+  }
+}
+
+// 版本表格中的操作
+const togglePauseResumeForVersion = async (version: any) => {
+  try {
+    if (version.isPaused) {
+      await mockApi.continueDeployment(version.deployId)
+      ElMessage.success('继续部署成功')
+      // 更新本地状态
+      version.isPaused = false
+    } else {
+      await mockApi.pauseDeployment(version.deployId)
+      ElMessage.success('暂停部署成功')
+      // 更新本地状态
+      version.isPaused = true
+    }
+    // 刷新服务详情数据
+    if (selectedNode.value) {
+      await loadServiceDetail(selectedNode.value.name)
+    }
+  } catch (error) {
+    console.error('操作失败:', error)
+    ElMessage.error('操作失败')
+  }
+}
+
+const rollbackVersion = async (version: any) => {
+  try {
+    await mockApi.rollbackDeployment(version.deployId)
+    ElMessage.success('回滚成功')
+    // 刷新服务详情数据
+    if (selectedNode.value) {
+      await loadServiceDetail(selectedNode.value.name)
+    }
+  } catch (error) {
+    console.error('回滚失败:', error)
+    ElMessage.error('回滚失败')
   }
 }
 
@@ -1654,16 +1704,96 @@ const disposeMetricsCharts = () => {
 
 .plan-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: flex-end;
   min-width: 100px;
+  padding-left: 10px;
 }
 
 .action-column {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-end;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 表格操作样式 */
+.table-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+}
+
+.action-link {
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: none;
+  padding: 2px 4px;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+
+.action-link:hover {
+  opacity: 0.8;
+}
+
+/* 暂停按钮 - 黄色 */
+.action-link.pause {
+  color: #e6a23c;
+}
+
+.action-link.pause:hover {
+  background-color: #fdf6ec;
+}
+
+/* 继续按钮 - 绿色 */
+.action-link.continue {
+  color: #67c23a;
+}
+
+.action-link.continue:hover {
+  background-color: #f0f9ff;
+}
+
+/* 编辑按钮 - 黑色 */
+.action-link.edit {
+  color: #303133;
+}
+
+.action-link.edit:hover {
+  background-color: #f5f7fa;
+}
+
+/* 取消按钮 - 红色 */
+.action-link.cancel {
+  color: #f56c6c;
+}
+
+.action-link.cancel:hover {
+  background-color: #fef0f0;
+}
+
+/* 回滚按钮 - 蓝色（保持原有颜色） */
+.action-link.rollback {
+  color: #409eff;
+}
+
+.action-link.rollback:hover {
+  background-color: #ecf5ff;
+}
+
+.action-link:not(:last-child)::after {
+  content: '|';
+  margin-left: 8px;
+  color: #dcdfe6;
+}
+
+.completed-text {
+  color: #67c23a;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .no-plans {
