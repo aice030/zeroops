@@ -1,145 +1,130 @@
-好的 ✅
-我帮你整理一个完整的 README 文档，包括模块说明、目录结构、API 示例、数据库设计、以及后续扩展说明。这样团队成员在接手或协作时能快速上手。
+# Monitoring & Alerting Service
 
-⸻
+## 概述
 
-Monitoring & Alerting Service
+本模块提供 监控/告警处理能力，实现从告警接收到自动治愈的完整生命周期管理。
 
-📌 概述
+**核心思想：**
+- 告警规则采用 模版 + 服务元数据 (Metadata) 的方式定义，便于统一管理和灵活扩展。
+- 支持自动化处理、AI 辅助分析和多级告警分级。
 
-本服务为 监控 / 告警处理模块，用于统一接收、存储、处理、恢复和记录告警信息。它提供了标准化的 API 接口，支持告警生命周期管理、规则调整、告警元数据管理、周期性健康检查、告警等级计算，以及自动化治愈行为处理。
+---
 
-目标：
-	•	提高告警处理自动化程度
-	•	支持 AI/系统/人工协同处理
-	•	为平台提供可追踪的告警问题管理与分析
+## 目录结构
 
-⸻
-
-📂 目录结构
-
+```
 alerting/
-├── api/            # API 接口层，定义 HTTP handler
-├── database/       # 数据库相关定义和 migration
-├── model/          # 数据模型 (ORM/DTO)
+├── api/            # API 接口层，提供 RESTful 访问
+├── database/       # 数据库定义和 migration
+├── model/          # 数据模型 (ORM / DTO)
 ├── service/        # 核心业务逻辑
 │   ├── receiver/      # 告警接收与处理
-│   ├── rules/         # 告警规则调整
-│   ├── metadata/      # 监控与告警元数据
+│   ├── ruleset/       # 告警规则模版 + metadata
 │   ├── healthcheck/   # 周期体检任务
 │   ├── severity/      # 告警等级计算
 │   └── remediation/   # 自动化治愈行为
 └── README.md       # 项目说明文档
+```
 
 
-⸻
+---
 
-🗄 数据库设计
+## 数据库设计
 
-1) alert_issues（告警问题表）
+数据库采用4张核心表设计：告警问题表、评论表、模版表和服务元数据表。
 
-字段名	类型	说明
-id	varchar(255) PK	告警 issue ID
-state	enum(Closed, Open)	告警状态
-level	varchar(32)	告警等级，如 P0/P1/P2/Warning
-alertState	enum(Restored, AutoRestored, InProcessing)	告警处理状态
-title	varchar(255)	告警标题
-label	json	标签，格式：[{key, value}]
-alertSince	timestamp	告警发生时间
+详细的表结构设计、索引建议和性能优化方案请参考：**[数据库设计文档](../../docs/alerting/database-design.md)**
 
 
-⸻
+---
 
-2) alert_issue_comments（告警评论表）
+## 告警规则机制
 
-字段名	类型	说明
-issueID	varchar(255) FK	对应 alert_issues.id
-createAt	timestamp	评论创建时间
-content	text	Markdown 格式，记录 AI/系统/人工动作
+告警规则由两部分组成：
 
+### 1. 模版 (Template)
 
-⸻
+定义规则逻辑，带占位符：
 
-🌐 API 接口
-
-1. 获取告警列表
-
-GET /v1/issues?start=xxxx&limit=10[&state=Closed]
-
-Response
-
+```json
 {
-  "items": [
-    {
-      "id": "xxx",
-      "state": "Closed",
-      "level": "P0",
-      "alertState": "Restored",
-      "title": "yzh S3APIV2s3apiv2.putobject 0_64K上传响应时间95值:50012ms > 450ms",
-      "labels": [
-        {"key": "api", "value": "s3apiv2.putobject"},
-        {"key": "idc", "value": "yzh"}
-      ],
-      "alertSince": "2025-05-05 11:00:00.0000Z"
-    }
-  ]
+  "id": "tmpl_apitime",
+  "expr": "apitime > {apitime_threshold}",
+  "level": "P1"
 }
+```
 
+### 2. 服务 Metadata (Service Config)
 
-⸻
+不同服务定义不同的阈值：
 
-2. 获取告警详情
-
-GET /v1/issues/:issueID
-
-Response
-
+```json
 {
-  "id": "xxx",
-  "state": "Closed",
-  "level": "P0",
-  "alertState": "Restored",
-  "title": "yzh S3APIV2s3apiv2.putobject 0_64K上传响应时间95值:50012ms > 450ms",
-  "labels": [
-    {"key": "api", "value": "s3apiv2.putobject"},
-    {"key": "idc", "value": "yzh"}
-  ],
-  "alertSince": "2025-05-05 11:00:00.0000Z",
-  "comments": [
-    {
-      "createAt": "2024-01-03T03:00:00Z",
-      "content": "markdown content"
-    }
-  ]
+  "serviceA": { "apitime_threshold": 100 },
+  "serviceB": { "apitime_threshold": 50 }
 }
+```
+
+### 3. 展开后的实际规则 (Resolved Rule)
+
+模版 + metadata → 生成实际规则：
+
+```json
+{
+  "service": "serviceA",
+  "expr": "apitime > 100",
+  "level": "P1"
+}
+```
+
+```json
+{
+  "service": "serviceB",
+  "expr": "apitime > 50",
+  "level": "P1"
+}
+```
 
 
-⸻
+---
 
-⚙️ Service 模块功能
+## 流程图
 
-1. receiver/ 告警接收与处理
-	•	统一接收外部监控系统告警（如 Prometheus、Grafana、内部 SDK）
-	•	将原始告警写入数据库
-	•	触发告警处理流程
+### 规则生成流程
 
-2. rules/ 告警规则调整
-	•	支持动态调整告警触发规则（如阈值、持续时间、条件组合）
-	•	提供规则存储、加载与热更新
+```mermaid
+flowchart TD
+    TPL[告警模版<br/>(Templates)<br/>例: apitime > {apitime_threshold}] --> META
+    META[服务 Metadata<br/>(Service Config)<br/>例: serviceA=100, serviceB=50] --> RESOLVED
+    RESOLVED[实际告警规则<br/>(Resolved Rules)<br/>例: serviceA: apitime>100<br/>serviceB: apitime>50] --> ALERT
+    ALERT[告警触发<br/>(Alert Trigger)<br/>生成 Issue & 进入处理流程]
+```
 
-3. metadata/ 监控与告警元数据
-	•	存储告警相关上下文（服务信息、监控指标、依赖关系）
-	•	便于查询与告警溯源
 
-4. healthcheck/ 周期体检任务
-	•	定时扫描核心服务，生成健康报告
-	•	与告警系统集成，主动发现潜在风险
+---
 
-5. severity/ 告警等级计算
-	•	综合 告警原始等级 + 影响范围（服务/用户/地区）
-	•	动态调整告警优先级（如 P2 → P1）
+## API 接口
 
-6. remediation/ 自动化治愈行为
-	•	提供预定义自动修复动作（重启服务、扩容、流量切换）
-	•	支持 AI 推荐修复方案
-	•	记录执行结果到 alert_issue_comments
+服务提供 RESTful API 接口，支持告警列表查询、详情获取等核心功能。
+
+主要接口包括：
+- `GET /v1/issues` - 获取告警列表
+- `GET /v1/issues/{issueID}` - 获取告警详情
+
+完整的接口文档、请求参数、响应格式和使用示例请参考：**[API 文档](../../docs/alerting/api.md)**
+
+
+---
+
+## 模块功能说明
+
+- **receiver/**：统一接收告警，写入数据库，触发处理流程
+- **ruleset/**：管理告警模版 & 服务 metadata，生成实际规则
+- **healthcheck/**：周期性体检，提前发现潜在问题
+- **severity/**：计算告警等级 = 原始等级 + 影响范围
+- **remediation/**：自动化治愈动作（回滚），并记录处理日志
+
+## 相关文档
+
+- [数据库设计文档](../../docs/alerting/database-design.md) - 详细的表结构和索引设计
+- [API 文档](../../docs/alerting/api.md) - RESTful API 接口规范
