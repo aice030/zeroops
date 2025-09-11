@@ -65,6 +65,18 @@ export const apiService = {
     return api.get(`/v1/deployments?type=schedule&service=${serviceName}`)
   },
   
+  // 获取服务指标数据 - 新的接口
+  getServiceMetricsData: (serviceName: string, metricName: string, version: string) => {
+    const now = new Date()
+    const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000) // 30分钟前
+    
+    const start = thirtyMinutesAgo.toISOString()
+    const end = now.toISOString()
+    const granule = '5m' // 写死，每5分钟一个数据点
+    
+    return api.get(`/v1/metrics/${serviceName}/${metricName}?version=${version}&start=${start}&end=${end}&granule=${granule}`)
+  },
+  
   // 获取版本选项 - 新的接口
   getVersionOptions: () => {
     return api.get('/v1/versions')

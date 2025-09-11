@@ -241,6 +241,83 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 指标展示弹窗 -->
+    <el-dialog
+      v-model="metricsDialogVisible"
+      title="服务指标详情"
+      width="70%"
+      :close-on-click-modal="false"
+      top="2vh"
+      @close="handleCloseMetricsDialog"
+    >
+      <div class="metrics-dialog-content">
+        <div class="metrics-header">
+          <h3>{{ selectedNode?.name }} 服务指标详情</h3>
+          <p class="metrics-subtitle">四大黄金指标监控</p>
+        </div>
+        
+        <div class="metrics-grid">
+          <!-- 延迟指标 -->
+          <div class="metric-panel">
+            <div class="metric-header">
+              <h4>Latency (p95)</h4>
+              <p class="metric-note">指标说明：请求延迟 p95</p>
+            </div>
+            <div class="metric-value">
+              <span class="value">{{ getCurrentMetricValue('latency') }}</span>
+              <span class="unit">ms</span>
+            </div>
+            <div class="metric-chart" ref="latencyChartRef"></div>
+          </div>
+
+          <!-- 流量指标 -->
+          <div class="metric-panel">
+            <div class="metric-header">
+              <h4>Traffic (qps)</h4>
+              <p class="metric-note">指标说明：每秒请求数</p>
+            </div>
+            <div class="metric-value">
+              <span class="value">{{ getCurrentMetricValue('traffic') }}</span>
+              <span class="unit">qps</span>
+            </div>
+            <div class="metric-chart" ref="trafficChartRef"></div>
+          </div>
+
+          <!-- 错误率指标 -->
+          <div class="metric-panel">
+            <div class="metric-header">
+              <h4>Errors (%)</h4>
+              <p class="metric-note">指标说明：错误率</p>
+            </div>
+            <div class="metric-value">
+              <span class="value">{{ getCurrentMetricValue('errors') }}</span>
+              <span class="unit">%</span>
+            </div>
+            <div class="metric-chart" ref="errorsChartRef"></div>
+          </div>
+
+          <!-- 饱和度指标 -->
+          <div class="metric-panel">
+            <div class="metric-header">
+              <h4>Saturation (%)</h4>
+              <p class="metric-note">指标说明：资源饱和度</p>
+            </div>
+            <div class="metric-value">
+              <span class="value">{{ getCurrentMetricValue('saturation') }}</span>
+              <span class="unit">%</span>
+            </div>
+            <div class="metric-chart" ref="saturationChartRef"></div>
+          </div>
+        </div>
+      </div>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="handleCloseMetricsDialog">返回服务详情页</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -252,7 +329,7 @@ import { Loading, Warning } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { apiService } from '@/api'
 import { mockApi } from '@/mock/api'
-import type { ServicesResponse, ServiceDetail, ServiceActiveVersionsResponse, ServiceMetricsResponse, AvailableVersionsResponse, DeploymentPlansResponse } from '@/mock/services'
+import type { ServicesResponse, ServiceDetail, ServiceActiveVersionsResponse, ServiceMetricsResponse, AvailableVersionsResponse, DeploymentPlansResponse, MetricsResponse } from '@/mock/services'
 
 const router = useRouter()
 
@@ -277,6 +354,24 @@ const currentServiceAvailableVersions = ref<AvailableVersionsResponse | null>(nu
 
 // 存储当前服务的发布计划列表
 const currentServiceDeploymentPlans = ref<DeploymentPlansResponse | null>(null)
+
+// 指标展示相关状态
+const metricsDialogVisible = ref(false)
+const selectedSlice = ref<{ nodeId: string; label: string } | null>(null)
+
+// 指标图表引用
+const latencyChartRef = ref<HTMLElement>()
+const trafficChartRef = ref<HTMLElement>()
+const errorsChartRef = ref<HTMLElement>()
+const saturationChartRef = ref<HTMLElement>()
+
+// 存储指标数据
+const metricsData = ref<{
+  latency?: MetricsResponse
+  traffic?: MetricsResponse
+  errors?: MetricsResponse
+  saturation?: MetricsResponse
+}>({})
 
 // 自动布局算法
 const calculateAutoLayout = (services: any[]) => {
@@ -572,6 +667,30 @@ const loadServiceDeploymentPlans = async (serviceName: string) => {
   }
 }
 
+// 获取服务指标数据 - 使用新的API接口
+const loadServiceMetricsData = async (serviceName: string, version: string) => {
+  try {
+    // 并行获取四大黄金指标数据
+    const [latencyData, trafficData, errorsData, saturationData] = await Promise.all([
+      mockApi.getServiceMetricsData(serviceName, 'latency', version),
+      mockApi.getServiceMetricsData(serviceName, 'traffic', version),
+      mockApi.getServiceMetricsData(serviceName, 'errors', version),
+      mockApi.getServiceMetricsData(serviceName, 'saturation', version)
+    ])
+    
+    return {
+      latency: latencyData,
+      traffic: trafficData,
+      errors: errorsData,
+      saturation: saturationData
+    }
+  } catch (err) {
+    console.error('获取服务指标数据失败:', err)
+    ElMessage.error('获取服务指标数据失败')
+    return null
+  }
+}
+
 // 生命周期
 onMounted(() => {
   loadServicesData()
@@ -814,6 +933,28 @@ const handleCloseDialog = () => {
   currentServiceDeploymentPlans.value = null
 }
 
+// 处理指标弹窗关闭
+const handleCloseMetricsDialog = () => {
+  metricsDialogVisible.value = false
+  selectedSlice.value = null
+  // 清理指标图表
+  disposeMetricsCharts()
+  // 清理指标数据
+  metricsData.value = {}
+}
+
+// 获取当前指标值
+const getCurrentMetricValue = (metricName: keyof typeof metricsData.value) => {
+  const metricData = metricsData.value[metricName]
+  if (!metricData || !metricData.data.result[0]?.values.length) {
+    return '--'
+  }
+  
+  // 获取最后一个数据点的值
+  const lastValue = metricData.data.result[0].values[metricData.data.result[0].values.length - 1]
+  return parseFloat(lastValue[1]).toFixed(1)
+}
+
 const createRelease = async () => {
   try {
     ElMessage.success('发布计划创建成功')
@@ -832,6 +973,12 @@ const confirmCancel = (release: any) => {
 
 // 初始化饼图
 let pieChart: echarts.ECharts | null = null
+
+// 指标图表实例
+let latencyChart: echarts.ECharts | null = null
+let trafficChart: echarts.ECharts | null = null
+let errorsChart: echarts.ECharts | null = null
+let saturationChart: echarts.ECharts | null = null
 
 const initPieChart = () => {
   if (pieChartRef.value && selectedNode.value) {
@@ -939,6 +1086,29 @@ const initPieChart = () => {
     }
     
     pieChart.setOption(option)
+    
+    // 添加点击事件
+    pieChart.on('click', (params: any) => {
+      if (selectedNode.value) {
+        selectedSlice.value = {
+          nodeId: selectedNode.value.id,
+          label: params.data.name
+        }
+        
+        // 异步加载指标数据
+        loadServiceMetricsData(selectedNode.value.name, params.data.name).then(metricsDataResult => {
+          if (metricsDataResult) {
+            metricsData.value = metricsDataResult
+            // 数据加载完成后，重新初始化图表
+            nextTick(() => {
+              initMetricsCharts()
+            })
+          }
+        })
+        
+        metricsDialogVisible.value = true
+      }
+    })
   }
 }
 
@@ -951,6 +1121,15 @@ watch(() => selectedNode.value, () => {
   })
 })
 
+// 监听指标弹窗打开，初始化指标图表
+watch(() => metricsDialogVisible.value, (newVal) => {
+  if (newVal) {
+    nextTick(() => {
+      initMetricsCharts()
+    })
+  }
+})
+
 // 加载发布计划数据
 const loadScheduledReleases = async () => {
   try {
@@ -958,6 +1137,110 @@ const loadScheduledReleases = async () => {
     scheduledReleases.value = response
   } catch (err) {
     console.error('加载发布计划失败:', err)
+  }
+}
+
+
+// 初始化指标图表
+const initMetricsCharts = () => {
+  // 延迟图表
+  if (latencyChartRef.value && metricsData.value.latency) {
+    latencyChart = echarts.init(latencyChartRef.value)
+    const latencyValues = metricsData.value.latency.data.result[0]?.values || []
+    const latencyData = latencyValues.map(([timestamp, value]) => [timestamp * 1000, parseFloat(value)])
+    
+    latencyChart.setOption({
+      grid: { top: 8, right: 8, bottom: 0, left: 0 },
+      xAxis: { type: 'time', show: false },
+      yAxis: { type: 'value', show: false },
+      series: [{
+        type: 'line',
+        data: latencyData,
+        smooth: true,
+        lineStyle: { width: 2 },
+        symbol: 'none'
+      }]
+    })
+  }
+  
+  // 流量图表
+  if (trafficChartRef.value && metricsData.value.traffic) {
+    trafficChart = echarts.init(trafficChartRef.value)
+    const trafficValues = metricsData.value.traffic.data.result[0]?.values || []
+    const trafficData = trafficValues.map(([timestamp, value]) => [timestamp * 1000, parseFloat(value)])
+    
+    trafficChart.setOption({
+      grid: { top: 8, right: 8, bottom: 0, left: 0 },
+      xAxis: { type: 'time', show: false },
+      yAxis: { type: 'value', show: false },
+      series: [{
+        type: 'line',
+        data: trafficData,
+        smooth: true,
+        lineStyle: { width: 2 },
+        symbol: 'none'
+      }]
+    })
+  }
+  
+  // 错误率图表
+  if (errorsChartRef.value && metricsData.value.errors) {
+    errorsChart = echarts.init(errorsChartRef.value)
+    const errorsValues = metricsData.value.errors.data.result[0]?.values || []
+    const errorsData = errorsValues.map(([timestamp, value]) => [timestamp * 1000, parseFloat(value)])
+    
+    errorsChart.setOption({
+      grid: { top: 8, right: 8, bottom: 0, left: 0 },
+      xAxis: { type: 'time', show: false },
+      yAxis: { type: 'value', show: false },
+      series: [{
+        type: 'line',
+        data: errorsData,
+        smooth: true,
+        lineStyle: { width: 2 },
+        symbol: 'none'
+      }]
+    })
+  }
+  
+  // 饱和度图表
+  if (saturationChartRef.value && metricsData.value.saturation) {
+    saturationChart = echarts.init(saturationChartRef.value)
+    const saturationValues = metricsData.value.saturation.data.result[0]?.values || []
+    const saturationData = saturationValues.map(([timestamp, value]) => [timestamp * 1000, parseFloat(value)])
+    
+    saturationChart.setOption({
+      grid: { top: 8, right: 8, bottom: 0, left: 0 },
+      xAxis: { type: 'time', show: false },
+      yAxis: { type: 'value', show: false },
+      series: [{
+        type: 'line',
+        data: saturationData,
+        smooth: true,
+        lineStyle: { width: 2 },
+        symbol: 'none'
+      }]
+    })
+  }
+}
+
+// 清理指标图表
+const disposeMetricsCharts = () => {
+  if (latencyChart) {
+    latencyChart.dispose()
+    latencyChart = null
+  }
+  if (trafficChart) {
+    trafficChart.dispose()
+    trafficChart = null
+  }
+  if (errorsChart) {
+    errorsChart.dispose()
+    errorsChart = null
+  }
+  if (saturationChart) {
+    saturationChart.dispose()
+    saturationChart = null
   }
 }
 </script>
@@ -1257,6 +1540,95 @@ const loadScheduledReleases = async () => {
   color: #6b7280;
   font-size: 14px;
   padding: 16px;
+}
+
+/* 指标弹窗样式 */
+.metrics-dialog-content {
+  padding: 0;
+}
+
+.metrics-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.metrics-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.metrics-subtitle {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.metric-panel {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.2s ease;
+}
+
+.metric-panel:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-color: #d1d5db;
+}
+
+.metric-header {
+  margin-bottom: 16px;
+}
+
+.metric-header h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.metric-note {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.metric-value {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 16px;
+}
+
+.metric-value .value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-right: 8px;
+}
+
+.metric-value .unit {
+  font-size: 16px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.metric-chart {
+  height: 160px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
