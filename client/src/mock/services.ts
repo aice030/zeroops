@@ -206,7 +206,7 @@ export interface DeploymentPlan {
   id: string
   service: string
   version: string
-  status: 'InDeployment' | 'rollbacked' | 'completed'
+  status: 'Schedule' | 'InDeployment' | 'Finished'
   scheduleTime?: string
   finishTime?: string
   isPaused?: boolean
@@ -240,7 +240,8 @@ export const mockDeploymentPlans: Record<string, DeploymentPlansResponse> = {
         id: "1003",
         service: "s3",
         version: "v1.0.3",
-        status: "completed",
+        status: "Finished",
+        scheduleTime: "2024-01-14T09:00:00Z",
         finishTime: "2024-01-14T18:00:00Z"
       }
     ]
@@ -267,14 +268,7 @@ export const mockDeploymentPlans: Record<string, DeploymentPlansResponse> = {
         id: "2003",
         service: "stg",
         version: "v1.0.3",
-        status: "completed",
-        finishTime: "2024-01-03T05:00:00Z"
-      },
-      {
-        id: "2004",
-        service: "stg",
-        version: "v1.0.3",
-        status: "rollbacked",
+        status: "Finished",
         finishTime: "2024-01-03T05:00:00Z"
       }
     ]
@@ -292,7 +286,7 @@ export const mockDeploymentPlans: Record<string, DeploymentPlansResponse> = {
         id: "3002",
         service: "meta",
         version: "v1.0.5",
-        status: "completed",
+        status: "Finished",
         finishTime: "2024-01-16T15:30:00Z"
       }
     ]
@@ -310,7 +304,7 @@ export const mockDeploymentPlans: Record<string, DeploymentPlansResponse> = {
         id: "4002",
         service: "mq",
         version: "v1.0.3",
-        status: "rollbacked",
+        status: "Finished",
         finishTime: "2024-01-17T20:00:00Z"
       }
     ]
@@ -328,7 +322,7 @@ export const mockDeploymentPlans: Record<string, DeploymentPlansResponse> = {
         id: "5002",
         service: "worker",
         version: "v1.0.3",
-        status: "completed",
+        status: "Finished",
         finishTime: "2024-01-18T16:00:00Z"
       },
       {
@@ -353,7 +347,7 @@ export const mockDeploymentPlans: Record<string, DeploymentPlansResponse> = {
         id: "6002",
         service: "mongodb",
         version: "v1.0.3",
-        status: "completed",
+        status: "Finished",
         finishTime: "2024-01-19T11:00:00Z"
       }
     ]
