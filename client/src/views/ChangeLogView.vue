@@ -65,7 +65,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAppStore, type ChangeItem, type AlarmChangeItem } from '@/stores/app'
 import { mockApi } from '@/mock/api'
-import type { DeploymentChangelogResponse, DeploymentChangelogItem } from '@/mock/services'
+import type { DeploymentChangelogResponse, DeploymentChangelogItem, AlertRuleChangelogResponse, AlertRuleChangeItem } from '@/mock/services'
 import ChangeCard from '@/components/ChangeCard.vue'
 import AlarmChangeCard from '@/components/AlarmChangeCard.vue'
 
@@ -79,6 +79,10 @@ const error = ref<string | null>(null)
 // 部署变更记录数据
 const deploymentChangelog = ref<DeploymentChangelogResponse | null>(null)
 const changeItems = ref<ChangeItem[]>([])
+
+// 告警规则变更记录数据
+const alertRuleChangelog = ref<AlertRuleChangelogResponse | null>(null)
+const alarmChangeItems = ref<AlarmChangeItem[]>([])
 
 // 数据转换函数：将API返回的数据转换为前端需要的格式
 const transformDeploymentChangelogToChangeItems = (changelogData: any[]): ChangeItem[] => {
@@ -128,6 +132,30 @@ const transformDeploymentChangelogToChangeItems = (changelogData: any[]): Change
   })
 }
 
+// 数据转换函数：将告警规则变更记录API返回的数据转换为前端需要的格式
+const transformAlertRuleChangelogToAlarmChangeItems = (changelogData: AlertRuleChangeItem[]): AlarmChangeItem[] => {
+  return changelogData.map((item, index) => {
+    // 从scope中提取服务名
+    const serviceName = item.scope ? item.scope.replace('service:', '') + '服务' : '全局服务'
+    
+    // 构建变更描述
+    const changeDescription = item.values.map(value => {
+      return `${value.name}: ${value.old} -> ${value.new}`
+    }).join(', ')
+    
+    // 格式化时间
+    const timestamp = new Date(item.editTime).toLocaleString('zh-CN')
+    
+    return {
+      id: `alarm-${index + 1}`,
+      service: serviceName,
+      change: `${item.name}: ${changeDescription}`,
+      timestamp,
+      details: item.reason
+    }
+  })
+}
+
 // 加载部署变更记录
 const loadDeploymentChangelog = async (start?: string, limit?: number) => {
   try {
@@ -149,36 +177,27 @@ const loadDeploymentChangelog = async (start?: string, limit?: number) => {
   }
 }
 
-const alarmChangeItems = ref<AlarmChangeItem[]>([
-  {
-    id: 'alarm-1',
-    service: 'Stg服务',
-    change: '延时告警阈值调整: 10ms -> 15ms',
-    timestamp: '2025/9/4 12:00:00',
-    details: '由于业务增长，系统负载增加，原有10ms的延时阈值过于严格，导致频繁告警。经过AI分析历史数据，建议将阈值调整为15ms，既能及时发现性能问题，又避免误报。'
-  },
-  {
-    id: 'alarm-2',
-    service: 'Stg服务',
-    change: '饱和度告警阈值调整: 50% -> 45%',
-    timestamp: '2025/9/3 15:00:00',
-    details: '监控发现系统在50%饱和度时已出现性能下降，提前预警有助于避免系统过载。调整后可以更早发现资源瓶颈，确保服务稳定性。'
-  },
-  {
-    id: 'alarm-3',
-    service: 'Mongo服务',
-    change: '延时告警阈值调整: 10ms -> 5ms',
-    timestamp: '2025/9/3 10:00:00',
-    details: 'MongoDB服务经过优化后性能显著提升，原有10ms阈值已不适用。调整为5ms可以更精确地监控数据库性能，及时发现潜在问题。'
-  },
-  {
-    id: 'alarm-4',
-    service: 'Meta服务',
-    change: '错误告警阈值调整: 10 -> 5',
-    timestamp: '2025/9/1 15:00:00',
-    details: 'Meta服务作为核心服务，对错误率要求更加严格。将错误告警阈值从10降低到5，可以更敏感地发现服务异常，确保数据一致性。'
+// 加载告警规则变更记录
+const loadAlertRuleChangelog = async (start?: string, limit?: number) => {
+  try {
+    loading.value = true
+    error.value = null
+    
+    const response = await mockApi.getAlertRuleChangelog(start, limit)
+    alertRuleChangelog.value = response
+    
+    // 转换数据格式
+    alarmChangeItems.value = transformAlertRuleChangelogToAlarmChangeItems(response.items)
+    
+    console.log('告警规则变更记录加载成功:', response)
+  } catch (err) {
+    error.value = '加载告警规则变更记录失败'
+    console.error('加载告警规则变更记录失败:', err)
+  } finally {
+    loading.value = false
   }
-])
+}
+
 
 // 计算属性
 const filteredChangeItems = computed(() => {
@@ -200,6 +219,7 @@ const handleSearch = () => {
 // 生命周期
 onMounted(() => {
   loadDeploymentChangelog()
+  loadAlertRuleChangelog()
 })
 </script>
 

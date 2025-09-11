@@ -98,6 +98,14 @@ export const apiService = {
     if (start) params.start = start
     if (limit) params.limit = limit
     return api.get('/v1/changelog/deployment', { params })
+  },
+
+  // 获取告警规则变更记录
+  getAlertRuleChangelog: (start?: string, limit?: number) => {
+    const params: any = {}
+    if (start) params.start = start
+    if (limit) params.limit = limit
+    return api.get('/v1/changelog/alertrules', { params })
   }
 }
 
