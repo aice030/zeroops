@@ -156,7 +156,7 @@
           
           <!-- 版本信息表格 -->
           <div class="version-info">
-            <div class="version-title">各版本：延迟、流量、错误、饱和度（示例数据）</div>
+            <div class="version-title">各版本：延迟、流量、错误、饱和度</div>
             <el-table :data="getVersionTableData(selectedNode.versions)" size="small" class="version-table">
               <el-table-column prop="version" label="版本" width="80" />
               <el-table-column prop="latency" label="延迟" width="80" />
@@ -173,6 +173,9 @@
                   </el-tag>
                 </template>
               </el-table-column>
+              <template #empty>
+                <div class="no-data">暂无数据</div>
+              </template>
             </el-table>
             
             <!-- 发布管理 -->
@@ -212,24 +215,49 @@
                       :key="plan.id"
                       class="plan-item"
                     >
-                      <div class="plan-header">
-                        <span class="plan-version">{{ plan.version }}</span>
-                        <div class="plan-actions" v-if="plan.originalStatus === 'InDeployment'">
-                          <el-button size="small" @click="editRelease(plan)">编辑</el-button>
-                          <el-button size="small" type="danger" @click="confirmCancel(plan)">取消</el-button>
+                      <div class="plan-content">
+                        <div class="plan-info">
+                          <div class="plan-header">
+                            <span class="plan-version">{{ plan.version }}</span>
+                          </div>
+                          <div class="plan-details">
+                            <div>{{ plan.time }}</div>
+                            <div>状态: 
+                              <el-tag 
+                                :type="plan.originalStatus === 'completed' ? 'success' : 
+                                       plan.originalStatus === 'rollbacked' ? 'danger' : 'warning'"
+                                size="small"
+                              >
+                                {{ plan.status }}
+                              </el-tag>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div class="plan-details">
-                        <div>时间: {{ plan.time }}</div>
-                        <div>状态: 
-                          <el-tag 
-                            :type="plan.originalStatus === 'completed' ? 'success' : 
-                                   plan.originalStatus === 'rollbacked' ? 'danger' : 'warning'"
-                            size="small"
-                          >
-                            {{ plan.status }}
-                          </el-tag>
-                        </div>
+         <!-- 未开始的发布计划：编辑、取消 -->
+         <div class="plan-actions" v-if="plan.originalStatus !== 'completed' && plan.originalStatus !== 'rollbacked' && (!plan.scheduleTime || plan.scheduleTime === '')">
+           <div class="action-column">
+             <el-button size="small" @click="editRelease(plan)">编辑</el-button>
+             <el-button size="small" type="danger" @click="confirmCancel(plan)">取消</el-button>
+           </div>
+         </div>
+         
+         <!-- 部署中的发布计划：暂停/继续、回滚、取消 -->
+         <div class="plan-actions" v-else-if="plan.originalStatus === 'InDeployment' && !plan.isPaused">
+           <div class="action-column">
+             <el-button size="small" type="warning" @click="togglePauseResume(plan)">暂停</el-button>
+             <el-button size="small" type="info" @click="rollbackRelease(plan)">回滚</el-button>
+             <el-button size="small" type="danger" @click="confirmCancel(plan)">取消</el-button>
+           </div>
+         </div>
+         
+         <!-- 暂停中的发布计划：继续、回滚、取消 -->
+         <div class="plan-actions" v-else-if="plan.originalStatus === 'InDeployment' && plan.isPaused">
+           <div class="action-column">
+             <el-button size="small" type="success" @click="togglePauseResume(plan)">继续</el-button>
+             <el-button size="small" type="info" @click="rollbackRelease(plan)">回滚</el-button>
+             <el-button size="small" type="danger" @click="confirmCancel(plan)">取消</el-button>
+           </div>
+         </div>
                       </div>
                     </div>
                   </div>
@@ -338,7 +366,6 @@ const dialogVisible = ref(false)
 const selectedNode = ref<any>(null)
 const selectedVersion = ref('v1.0.7')
 const scheduledStart = ref('')
-const scheduledReleases = ref<any[]>([])
 const pieChartRef = ref<HTMLElement>()
 
 // 服务数据
@@ -538,14 +565,10 @@ const loadServicesData = async () => {
   error.value = null
   
   try {
-    // 并行加载服务数据和版本选项
-    const [servicesResponse, versionsResponse] = await Promise.all([
-      mockApi.getServices(),
-      mockApi.getVersionOptions()
-    ])
+    // 加载服务数据
+    const servicesResponse = await mockApi.getServices()
     
     servicesData.value = servicesResponse
-    versionOptions.value = versionsResponse
     
     // 转换数据
     const { nodes: transformedNodes, edges: transformedEdges } = transformServiceData(servicesResponse)
@@ -553,7 +576,6 @@ const loadServicesData = async () => {
     edges.value = transformedEdges
     
     console.log('服务数据加载成功:', servicesResponse)
-    console.log('版本选项加载成功:', versionsResponse)
   } catch (err) {
     error.value = '加载服务数据失败'
     console.error('加载服务数据失败:', err)
@@ -694,15 +716,12 @@ const loadServiceMetricsData = async (serviceName: string, version: string) => {
 // 生命周期
 onMounted(() => {
   loadServicesData()
-  loadScheduledReleases()
 })
 
 // 服务拓扑数据（通过API获取）
 const nodes = ref<any[]>([])
 const edges = ref<any[]>([])
 
-// 版本选项（通过API获取）
-const versionOptions = ref<Array<{label: string, value: string}>>([])
 
 // 计算属性：将可发布版本数据转换为下拉框格式
 const availableVersionOptions = computed(() => {
@@ -742,13 +761,47 @@ const deploymentPlansForDisplay = computed(() => {
       })
     }
     
+    // 根据状态生成时间显示
+    const generateTimeDisplay = () => {
+      switch (plan.status) {
+        case 'InDeployment':
+          // 部署中：显示开始时间或"已开始"
+          if (plan.scheduleTime) {
+            return `开始时间: ${formatTime(plan.scheduleTime)}`
+          } else {
+            return '已开始'
+          }
+        case 'completed':
+          // 已完成：显示开始时间 → 结束时间
+          if (plan.scheduleTime && plan.finishTime) {
+            return `开始时间: ${formatTime(plan.scheduleTime)} → 结束时间: ${formatTime(plan.finishTime)}`
+          } else if (plan.finishTime) {
+            return `结束时间: ${formatTime(plan.finishTime)}`
+          } else {
+            return '已完成'
+          }
+        case 'rollbacked':
+          // 已回滚：显示开始时间 → 回滚时间
+          if (plan.scheduleTime && plan.finishTime) {
+            return `开始时间: ${formatTime(plan.scheduleTime)} → 回滚时间: ${formatTime(plan.finishTime)}`
+          } else if (plan.finishTime) {
+            return `回滚时间: ${formatTime(plan.finishTime)}`
+          } else {
+            return '已回滚'
+          }
+        default:
+          return '未知状态'
+      }
+    }
+    
     return {
       id: plan.id,
       version: plan.version,
       status: statusMap[plan.status] || plan.status,
-      time: plan.scheduleTime ? formatTime(plan.scheduleTime) : 
-            plan.finishTime ? formatTime(plan.finishTime) : '已开始',
-      originalStatus: plan.status
+      time: generateTimeDisplay(),
+      originalStatus: plan.status,
+      isPaused: plan.isPaused || false, // 添加暂停状态，默认为false
+      scheduleTime: plan.scheduleTime // 添加scheduleTime字段用于判断是否已开始
     }
   })
 })
@@ -870,15 +923,8 @@ const getNodeStatusText = (status: string) => {
 // 数据转换函数：将后端返回的指标数据转换为前端表格需要的格式
 const transformMetricsToTableData = (versions: any[], metricsResponse: ServiceMetricsResponse | null) => {
   if (!metricsResponse) {
-    // 如果没有指标数据，使用随机数据作为fallback
-    return versions.map(v => ({
-      version: v.label,
-      latency: Math.floor(Math.random() * 40 + 8),
-      traffic: Math.floor(Math.random() * 800 + 400),
-      errors: (Math.random() * 4.7 + 0.3).toFixed(1),
-      saturation: Math.floor(Math.random() * 57 + 35),
-      status: v.anomalous ? '异常' : (v.observing ? '观察中' : '正常')
-    }))
+    // 如果没有指标数据，返回空数组
+    return []
   }
 
   // 使用真实的指标数据
@@ -967,8 +1013,85 @@ const editRelease = (release: any) => {
   ElMessage.info('编辑发布功能待实现')
 }
 
-const confirmCancel = (release: any) => {
-  ElMessage.info('取消发布功能待实现')
+const confirmCancel = async (plan: any) => {
+  try {
+    // 调用取消部署计划API
+    const result = await mockApi.cancelDeployment(plan.id)
+    
+    if (result.status === 200) {
+      ElMessage.success('发布计划已取消')
+      // 刷新发布计划列表
+      await loadServiceDeploymentPlans(selectedNode.value?.name || '')
+    } else {
+      ElMessage.error('取消发布计划失败')
+    }
+  } catch (error) {
+    console.error('取消发布计划失败:', error)
+    ElMessage.error('取消发布计划失败')
+  }
+}
+
+// 暂停/继续发布
+const togglePauseResume = async (plan: any) => {
+  try {
+    const action = plan.isPaused ? '继续' : '暂停'
+    
+    // 先更新前端状态
+    if (currentServiceDeploymentPlans.value) {
+      const targetPlan = currentServiceDeploymentPlans.value.items.find(p => p.id === plan.id)
+      if (targetPlan) {
+        targetPlan.isPaused = !targetPlan.isPaused
+      }
+    }
+    
+    // 根据当前状态调用不同的API
+    const result = plan.isPaused 
+      ? await mockApi.continueDeployment(plan.id)  // 继续
+      : await mockApi.pauseDeployment(plan.id)     // 暂停
+    
+    if (result.status === 200) {
+      ElMessage.success(`发布计划已${action}`)
+      // 不需要刷新列表，状态已经更新
+    } else {
+      ElMessage.error(`${action}发布计划失败`)
+      // 如果API调用失败，回滚前端状态
+      if (currentServiceDeploymentPlans.value) {
+        const targetPlan = currentServiceDeploymentPlans.value.items.find(p => p.id === plan.id)
+        if (targetPlan) {
+          targetPlan.isPaused = !targetPlan.isPaused
+        }
+      }
+    }
+  } catch (error) {
+    console.error('暂停/继续发布计划失败:', error)
+    ElMessage.error('暂停/继续发布计划失败')
+    // 如果API调用失败，回滚前端状态
+    if (currentServiceDeploymentPlans.value) {
+      const targetPlan = currentServiceDeploymentPlans.value.items.find(p => p.id === plan.id)
+      if (targetPlan) {
+        targetPlan.isPaused = !targetPlan.isPaused
+      }
+    }
+  }
+}
+
+// 回滚发布
+const rollbackRelease = async (plan: any) => {
+  try {
+    // 调用回滚部署计划API
+    const result = await mockApi.rollbackDeployment(plan.id)
+    
+    if (result.status === 200) {
+      ElMessage.success('发布计划已回滚')
+      // 刷新发布计划列表
+      await loadServiceDeploymentPlans(selectedNode.value?.name || '')
+    } else {
+      ElMessage.error('回滚发布计划失败')
+    }
+  } catch (error) {
+    console.error('回滚发布计划失败:', error)
+    ElMessage.error('回滚发布计划失败')
+  }
 }
 
 // 初始化饼图
@@ -1130,15 +1253,6 @@ watch(() => metricsDialogVisible.value, (newVal) => {
   }
 })
 
-// 加载发布计划数据
-const loadScheduledReleases = async () => {
-  try {
-    const response = await mockApi.getScheduledReleases()
-    scheduledReleases.value = response
-  } catch (err) {
-    console.error('加载发布计划失败:', err)
-  }
-}
 
 
 // 初始化指标图表
@@ -1510,21 +1624,24 @@ const disposeMetricsCharts = () => {
   background-color: #f9fafb;
 }
 
-.plan-header {
+.plan-content {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.plan-info {
+  flex: 1;
+}
+
+.plan-header {
+  margin-bottom: 8px;
 }
 
 .plan-version {
   font-weight: 500;
   font-size: 14px;
-}
-
-.plan-actions {
-  display: flex;
-  gap: 4px;
 }
 
 .plan-details {
@@ -1535,11 +1652,32 @@ const disposeMetricsCharts = () => {
   gap: 2px;
 }
 
+.plan-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  min-width: 100px;
+}
+
+.action-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+
 .no-plans {
   text-align: center;
   color: #6b7280;
   font-size: 14px;
   padding: 16px;
+}
+
+.no-data {
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+  padding: 20px;
 }
 
 /* 指标弹窗样式 */
