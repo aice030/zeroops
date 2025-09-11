@@ -35,20 +35,16 @@ internal/alerting/
 - 字段：
 - state：问题状态（Open/Closed）
 - level：告警等级（P0/P1/P2/Warning）
-- alert_state：处理状态（InProcessing/AutoRestored/Restored）
+- alertState：处理状态（InProcessing/AutoRestored/Restored）
 - title：标题
-- labels：JSON（[{key,value}...]）
-- alert_since：DATETIME（首次告警时间）
-- resolved_at：DATETIME（恢复时间，可为空）
-- source：来源（prometheus/es/...）
-- fingerprint：去重指纹（同一问题归并）
-- extra：JSON 扩展（原始维度/链接等）
+- label：JSON（单一标签对象 {key,value}）
+- alertSince：DATETIME（首次告警时间）
+- json：JSON 扩展（原始维度/链接等）
 
 2) alert_issue_comments（告警问题评论表）
-- 主键：id（自增）
-- issue_id：外键关联 alert_issues.id
-- created_at：DATETIME
-- author：字符串（如 system/ai/user@name）
+- 主键：无单独主键，按业务以 issueID+createAt 唯一（或可加自增列）
+- issueID：外键关联 alert_issues.id
+- createAt：DATETIME
 - content：TEXT（Markdown，记录AI/系统/人工动作）
 
 建表示例
@@ -57,64 +53,61 @@ CREATE TABLE alert_issues (
   id VARCHAR(64) PRIMARY KEY,
   state VARCHAR(16) NOT NULL,
   level VARCHAR(16) NOT NULL,
-  alert_state VARCHAR(32) NOT NULL,
+  alertState VARCHAR(32) NOT NULL,
   title VARCHAR(255) NOT NULL,
-  labels JSON NULL,
-  alert_since DATETIME(3) NOT NULL,
-  resolved_at DATETIME(3) NULL,
-  source VARCHAR(32) NOT NULL,
-  fingerprint VARCHAR(128) NOT NULL,
-  extra JSON NULL,
+  label JSON NULL,
+  alertSince DATETIME(3) NOT NULL,
+  json JSON NULL,
   KEY idx_state_level (state, level),
-  KEY idx_fingerprint (fingerprint),
-  KEY idx_alert_since (alert_since)
+  KEY idx_alert_since (alertSince)
 );
 
 CREATE TABLE alert_issue_comments (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  issue_id VARCHAR(64) NOT NULL,
-  created_at DATETIME(3) NOT NULL,
-  author VARCHAR(64) NOT NULL,
+  issueID VARCHAR(64) NOT NULL,
+  createAt DATETIME(3) NOT NULL,
   content MEDIUMTEXT NOT NULL,
-  KEY idx_issue (issue_id),
-  CONSTRAINT fk_issue FOREIGN KEY (issue_id) REFERENCES alert_issues(id)
+  KEY idx_issue (issueID),
+  CONSTRAINT fk_issue FOREIGN KEY (issueID) REFERENCES alert_issues(id)
 );
 ```
 
 状态机
 - Issue.state：Open → Closed（单向闭环）
-- Issue.alert_state：
-- InProcessing（触发后处理中）
-- AutoRestored（系统自愈恢复）
-- Restored（人工或外部系统恢复）
+- Issue.alertState：
+- InProcessing（处理中）
+- AutoRestored（自然恢复）
+- Restored（已恢复）
 
 告警等级计算
 - 输入：原始告警等级（来自源头）+ 服务影响面（流量、租户数、区域、核心度）
 - 输出：最终 level（P0/P1/P2/Warning）
 - 计算器放置于 `rules/`，通过接口可热插拔与单元测试
 
-聚合与去重
-- 指纹 fingerprint = hash(source, rule_id, resource, dimensions...)
-- 指纹一致且时间窗口内归为同一 Issue，更新 `alert_since`/计数/最后出现时间
-
 API 接口
 1) 列表
 GET /v1/issues?start=xxx&limit=10&state=Closed|Open
 响应：
 {
-  "items": [
-    {
-      "id": "xxx",
-      "state": "Closed",
-      "level": "P0",
-      "alertState": "Restored",
-      "title": "yzh S3APIV2s3apiv2.putobject 0_64K上传响应时间95值:50012ms > 450ms",
-      "labels": [{"key":"api","value":"s3apiv2.putobject"},{"key":"idc","value":"yzh"}],
-      "alertSince": "2025-05-05T11:00:00Z",
-      "resolved_at": "2025-05-05T12:00:00Z"
-    }
-  ],
-  "next": "cursor-token"
+    "items": [ 
+        {
+            "id": "xxx", // 告警 issue ID
+            "state": "Closed", // 告警条目的状态。Closed处理完成、Open处理中
+            "level": "P0", // 枚举值：P0严重、P1重要、P2、Warning需要关注但不是线上异常
+            "alertState": "Restored", // 告警处理状态。Restored 已恢复、AutoRestored 系统自动恢复、InProcessing 处理中
+            "title": "yzh S3APIV2s3apiv2.putobject 0_64K上传响应时间95值:50012ms > 450ms", // 告警标题
+            "labels": [
+                {
+                    "key": "api",
+                    "value: "s3apiv2.putobject"
+                },
+                {
+                    "key": "idc",
+                    "value": "yzh"
+                }
+            ],
+            "alertSince": "2025-05-05 11:00:00.0000Z"
+        }
+    ]
 }
 
 2) 详情
@@ -125,25 +118,19 @@ GET /v1/issues/:issueID
   "state": "Closed",
   "level": "P0",
   "alertState": "Restored",
-  "title": "yzh S3APIV2s3apiv2.putobject 0_64K上传响应时间95值:50012ms > 450ms",
-  "labels": [{"key":"api","value":"s3apiv2.putobject"},{"key":"idc","value":"yzh"}],
+  "title": "...",
+  "label": {"key":"api","value":"s3apiv2.putobject"},
   "alertSince": "2025-05-05T11:00:00Z",
-  "resolved_at": "2025-05-05T12:00:00Z",
+  "json": {"k":"v"},
   "comments": [
-    {"createdAt": "2024-01-03T03:00:00Z", "author": "ai", "content": "markdown content"}
+    {"issueID": "xxx", "createAt": "2024-01-03T03:00:00Z", "content": "markdown content"}
   ]
 }
 
-3) 新增评论
-POST /v1/issues/:issueID/comments
-请求：
-{ "author": "user@name", "content": "markdown" }
-响应：204
-
-4) 手动关闭/恢复标记
+4) 手动关闭（标记恢复正常）
 POST /v1/issues/:issueID/close
-POST /v1/issues/:issueID/reopen
 响应：200
+
 
 摄入（Ingress）
 - Prometheus Webhook：/v1/ingest/prometheus
@@ -152,7 +139,7 @@ POST /v1/issues/:issueID/reopen
 
 治愈（Healing）
 - `healing/` 定义动作（如重启、扩容、清缓存），由编排器串联
-- 执行结果写入 `alert_issue_comments`，并可更新 `alert_state`
+- 执行结果写入 `alert_issue_comments`，并可更新 `alertState`
 
 通知（Notifier）
 - 在 state 变化或等级升级时触发
