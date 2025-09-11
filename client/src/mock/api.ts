@@ -1,5 +1,5 @@
 // Mock API服务
-import { mockServicesData, mockServiceDetails, mockVersionOptions, mockScheduledReleases, mockServiceActiveVersions, mockServiceMetrics, mockAvailableVersions, mockDeploymentPlans, mockMetricsData, mockDeploymentChangelog, type ServicesResponse, type ServiceDetail, type ServiceActiveVersionsResponse, type ServiceMetricsResponse, type AvailableVersionsResponse, type DeploymentPlansResponse, type MetricsResponse, type DeploymentChangelogResponse } from './services'
+import { mockServicesData, mockServiceDetails, mockVersionOptions, mockScheduledReleases, mockServiceActiveVersions, mockServiceMetrics, mockAvailableVersions, mockDeploymentPlans, mockMetricsData, mockDeploymentChangelog, mockAlertsData, mockAlertDetails, type ServicesResponse, type ServiceDetail, type ServiceActiveVersionsResponse, type ServiceMetricsResponse, type AvailableVersionsResponse, type DeploymentPlansResponse, type MetricsResponse, type DeploymentChangelogResponse, type AlertsResponse, type AlertDetail } from './services'
 
 // 模拟网络延迟
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -150,6 +150,42 @@ export class MockApiService {
       items,
       next: items.length > 0 ? items[items.length - 1].startTime : undefined
     }
+  }
+
+  // 获取告警列表
+  static async getAlerts(start?: string, limit: number = 10, state?: string): Promise<AlertsResponse> {
+    await delay(400) // 模拟网络延迟
+    console.log(`Mock API: 获取告警列表 - start: ${start}, limit: ${limit}, state: ${state}`)
+    
+    let items = [...mockAlertsData.items]
+    
+    // 根据state参数过滤数据
+    if (state) {
+      items = items.filter(alert => alert.state === state)
+    }
+    
+    // 根据limit限制返回数量
+    if (limit && limit > 0) {
+      items = items.slice(0, limit)
+    }
+    
+    return {
+      items,
+      next: items.length > 0 ? items[items.length - 1].alertSince : ''
+    }
+  }
+
+  // 获取告警详情
+  static async getAlertDetail(issueID: string): Promise<AlertDetail> {
+    await delay(300) // 模拟网络延迟
+    console.log(`Mock API: 获取告警详情 - issueID: ${issueID}`)
+    
+    const alertDetail = mockAlertDetails[issueID]
+    if (!alertDetail) {
+      throw new Error(`告警详情不存在: ${issueID}`)
+    }
+    
+    return alertDetail
   }
 }
 
