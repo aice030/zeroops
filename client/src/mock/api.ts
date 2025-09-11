@@ -159,12 +159,21 @@ export class MockApiService {
     
     let items = [...mockAlertsData.items]
     
-    // 根据state参数过滤数据
+    // 1. 先按时间排序（从新到旧）
+    items.sort((a, b) => new Date(b.alertSince).getTime() - new Date(a.alertSince).getTime())
+    
+    // 2. 根据 start 参数筛选数据（分页逻辑）
+    if (start) {
+      const startTime = new Date(start)
+      items = items.filter(alert => new Date(alert.alertSince) <= startTime)
+    }
+    
+    // 3. 根据state参数过滤数据
     if (state) {
       items = items.filter(alert => alert.state === state)
     }
     
-    // 根据limit限制返回数量
+    // 4. 根据limit限制返回数量
     if (limit && limit > 0) {
       items = items.slice(0, limit)
     }
