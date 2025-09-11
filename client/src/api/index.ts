@@ -90,6 +90,14 @@ export const apiService = {
   // 回滚部署计划
   rollbackDeployment: (deployID: string) => {
     return api.post(`/v1/deployments/${deployID}/rollback`)
+  },
+  
+  // 获取部署变更记录
+  getDeploymentChangelog: (start?: string, limit?: number) => {
+    const params: any = {}
+    if (start) params.start = start
+    if (limit) params.limit = limit
+    return api.get('/v1/changelog/deployment', { params })
   }
 }
 
