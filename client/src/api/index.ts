@@ -33,39 +33,34 @@ api.interceptors.response.use(
   }
 )
 
-// API 接口定义
+// API 接口定义 - 只保留你定义的接口
 export const apiService = {
-  // 获取服务列表 - 新的接口
+  // 获取服务列表
   getServices: () => {
     return api.get('/v1/services')
   },
   
-  // 获取服务详情 - 新的接口
-  getServiceDetail: (serviceName: string) => {
-    return api.get(`/v1/services/${serviceName}`)
-  },
-  
-  // 获取服务活跃版本 - 新的接口
+  // 获取服务活跃版本
   getServiceActiveVersions: (serviceName: string) => {
     return api.get(`/v1/services/${serviceName}/activeVersions`)
   },
   
-  // 获取服务指标数据 - 新的接口
+  // 获取服务指标统计
   getServiceMetrics: (serviceName: string) => {
     return api.get(`/v1/services/${serviceName}/metricStats`)
   },
   
-  // 获取服务可发布版本列表 - 新的接口
+  // 获取服务可发布版本列表
   getServiceAvailableVersions: (serviceName: string) => {
     return api.get(`/v1/services/${serviceName}/availableVersions?type=unrelease`)
   },
   
-  // 获取服务发布计划列表 - 新的接口
+  // 获取服务发布计划列表
   getServiceDeploymentPlans: (serviceName: string) => {
     return api.get(`/v1/deployments?type=schedule&service=${serviceName}`)
   },
   
-  // 获取服务指标数据 - 新的接口
+  // 获取服务指标数据
   getServiceMetricsData: (serviceName: string, metricName: string, version: string) => {
     const now = new Date()
     const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000) // 30分钟前
@@ -77,39 +72,24 @@ export const apiService = {
     return api.get(`/v1/metrics/${serviceName}/${metricName}?version=${version}&start=${start}&end=${end}&granule=${granule}`)
   },
   
-  // 获取版本选项 - 新的接口
-  getVersionOptions: () => {
-    return api.get('/v1/versions')
+  // 取消部署计划
+  cancelDeployment: (deployID: string) => {
+    return api.delete(`/v1/deployments/${deployID}`)
   },
   
-  // 验证服务信息
-  validateService: (serviceData: any) => {
-    return api.post('/validate-service', serviceData)
+  // 暂停部署计划
+  pauseDeployment: (deployID: string) => {
+    return api.post(`/v1/deployments/${deployID}/pause`)
   },
   
-  // 获取服务状态
-  getServiceStatus: () => {
-    return api.get('/service-status')
+  // 继续部署计划
+  continueDeployment: (deployID: string) => {
+    return api.post(`/v1/deployments/${deployID}/continue`)
   },
   
-  // 获取发布计划
-  getReleasePlans: () => {
-    return api.get('/release-plans')
-  },
-  
-  // 创建发布计划
-  createReleasePlan: (planData: any) => {
-    return api.post('/release-plans', planData)
-  },
-  
-  // 更新发布计划
-  updateReleasePlan: (id: string, planData: any) => {
-    return api.put(`/release-plans/${id}`, planData)
-  },
-  
-  // 取消发布计划
-  cancelReleasePlan: (id: string) => {
-    return api.delete(`/release-plans/${id}`)
+  // 回滚部署计划
+  rollbackDeployment: (deployID: string) => {
+    return api.post(`/v1/deployments/${deployID}/rollback`)
   }
 }
 
