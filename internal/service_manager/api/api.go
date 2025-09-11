@@ -23,5 +23,9 @@ func NewApi(db *database.Database, service *service.Service, router *fox.Engine)
 }
 
 func (api *Api) setupRouters(router *fox.Engine) {
-	router.GET("/servicemanager/ping", api.Ping)
+	// 服务信息相关路由
+	api.setupInfoRouters(router)
+
+	// 部署管理相关路由
+	api.setupDeployRouters(router)
 }
