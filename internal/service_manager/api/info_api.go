@@ -5,6 +5,7 @@ import (
 
 	"github.com/fox-gonic/fox"
 	"github.com/qiniu/zeroops/internal/service_manager/model"
+	"github.com/qiniu/zeroops/internal/service_manager/service"
 	"github.com/rs/zerolog/log"
 )
 
@@ -197,9 +198,9 @@ func (api *Api) GetServiceByName(c *fox.Context) {
 		return
 	}
 
-	service, err := api.service.GetServiceByName(ctx, serviceName)
+	svc, err := api.service.GetServiceByName(ctx, serviceName)
 	if err != nil {
-		if err.Error() == "service not found" {
+		if err == service.ErrServiceNotFound {
 			c.JSON(http.StatusNotFound, map[string]any{
 				"error":   "not found",
 				"message": "service not found",
@@ -214,7 +215,7 @@ func (api *Api) GetServiceByName(c *fox.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, service)
+	c.JSON(http.StatusOK, svc)
 }
 
 // UpdateService 更新服务信息（PUT /v1/services/:service）
@@ -230,8 +231,8 @@ func (api *Api) UpdateService(c *fox.Context) {
 		return
 	}
 
-	var service model.Service
-	if err := c.ShouldBindJSON(&service); err != nil {
+	var svc model.Service
+	if err := c.ShouldBindJSON(&svc); err != nil {
 		c.JSON(http.StatusBadRequest, map[string]any{
 			"error":   "bad request",
 			"message": "invalid request body: " + err.Error(),
@@ -240,10 +241,10 @@ func (api *Api) UpdateService(c *fox.Context) {
 	}
 
 	// 确保URL参数和请求体中的服务名一致
-	service.Name = serviceName
+	svc.Name = serviceName
 
-	if err := api.service.UpdateService(ctx, &service); err != nil {
-		if err.Error() == "service not found" {
+	if err := api.service.UpdateService(ctx, &svc); err != nil {
+		if err == service.ErrServiceNotFound {
 			c.JSON(http.StatusNotFound, map[string]any{
 				"error":   "not found",
 				"message": "service not found",
@@ -278,7 +279,7 @@ func (api *Api) DeleteService(c *fox.Context) {
 	}
 
 	if err := api.service.DeleteService(ctx, serviceName); err != nil {
-		if err.Error() == "service not found" {
+		if err == service.ErrServiceNotFound {
 			c.JSON(http.StatusNotFound, map[string]any{
 				"error":   "not found",
 				"message": "service not found",
