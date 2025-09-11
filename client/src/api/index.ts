@@ -102,7 +102,7 @@ export const apiService = {
 
   // 获取告警规则变更记录
   getAlertRuleChangelog: (start?: string, limit?: number) => {
-    const params: any = {}
+    const params: { start?: string; limit?: number } = {}
     if (start) params.start = start
     if (limit) params.limit = limit
     return api.get('/v1/changelog/alertrules', { params })
