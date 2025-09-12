@@ -8,7 +8,7 @@ import "time"
 type ServiceItem struct {
 	Name        string       `json:"name"`        // 服务名称
 	DeployState DeployStatus `json:"deployState"` // 发布状态：InDeploying|AllDeployFinish
-	Health      HealthStatus `json:"health"`      // 健康状态：Normal/Warning/Error
+	Health      HealthLevel  `json:"health"`      // 健康状态：Normal/Warning/Error
 	Deps        []string     `json:"deps"`        // 依赖关系（直接使用Service.Deps）
 }
 
@@ -20,12 +20,12 @@ type ServicesResponse struct {
 
 // ActiveVersionItem 活跃版本项目
 type ActiveVersionItem struct {
-	Version                 string       `json:"version"`                 // v1.0.1
-	DeployID                string       `json:"deployID"`                // 1001
-	StartTime               time.Time    `json:"startTime"`               // 开始时间
-	EstimatedCompletionTime time.Time    `json:"estimatedCompletionTime"` // 预估完成时间
-	Instances               int          `json:"instances"`               // 实例个数
-	Health                  HealthStatus `json:"health"`                  // 健康状态：Normal/Warning/Error
+	Version                 string      `json:"version"`                 // v1.0.1
+	DeployID                string      `json:"deployID"`                // 1001
+	StartTime               time.Time   `json:"startTime"`               // 开始时间
+	EstimatedCompletionTime time.Time   `json:"estimatedCompletionTime"` // 预估完成时间
+	Instances               int         `json:"instances"`               // 实例个数
+	Health                  HealthLevel `json:"health"`                  // 健康状态：Normal/Warning/Error
 }
 
 // PrometheusQueryRangeResponse Prometheus query_range接口响应格式

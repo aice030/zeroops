@@ -4,6 +4,7 @@ go 1.24
 
 require (
 	github.com/fox-gonic/fox v0.0.6
+	github.com/lib/pq v1.10.9
 	github.com/rs/zerolog v1.34.0
 )
 

@@ -13,7 +13,6 @@ import (
 func (api *Api) setupInfoRouters(router *fox.Engine) {
 	// 服务列表和信息查询
 	router.GET("/v1/services", api.GetServices)
-	router.GET("/v1/services/:service", api.GetServiceByName)
 	router.GET("/v1/services/:service/activeVersions", api.GetServiceActiveVersions)
 	router.GET("/v1/services/:service/availableVersions", api.GetServiceAvailableVersions)
 	router.GET("/v1/metrics/:service/:name", api.GetServiceMetricTimeSeries)
@@ -183,39 +182,6 @@ func (api *Api) CreateService(c *fox.Context) {
 		"message": "service created successfully",
 		"service": service.Name,
 	})
-}
-
-// GetServiceByName 获取单个服务信息（GET /v1/services/:service）
-func (api *Api) GetServiceByName(c *fox.Context) {
-	ctx := c.Request.Context()
-	serviceName := c.Param("service")
-
-	if serviceName == "" {
-		c.JSON(http.StatusBadRequest, map[string]any{
-			"error":   "bad request",
-			"message": "service name is required",
-		})
-		return
-	}
-
-	svc, err := api.service.GetServiceByName(ctx, serviceName)
-	if err != nil {
-		if err == service.ErrServiceNotFound {
-			c.JSON(http.StatusNotFound, map[string]any{
-				"error":   "not found",
-				"message": "service not found",
-			})
-			return
-		}
-		log.Error().Err(err).Str("service", serviceName).Msg("failed to get service")
-		c.JSON(http.StatusInternalServerError, map[string]any{
-			"error":   "internal server error",
-			"message": "failed to get service",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, svc)
 }
 
 // UpdateService 更新服务信息（PUT /v1/services/:service）

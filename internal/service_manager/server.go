@@ -45,13 +45,10 @@ func (s *ServiceManagerServer) UseApi(router *fox.Engine) error {
 
 func (s *ServiceManagerServer) Close() error {
 	if s.service != nil {
-		return s.service.Close()
-	}
-	if s.service != nil {
 		s.service.Close()
 	}
 	if s.db != nil {
-		s.db.Close()
+		return s.db.Close()
 	}
 	return nil
 }

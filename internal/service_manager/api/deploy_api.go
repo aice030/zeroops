@@ -14,9 +14,9 @@ import (
 func (api *Api) setupDeployRouters(router *fox.Engine) {
 	// 部署任务基本操作
 	router.POST("/v1/deployments", api.CreateDeployment)
+	router.GET("/v1/deployments", api.GetDeployments)
 	router.GET("/v1/deployments/:deployID", api.GetDeploymentByID)
 	router.POST("/v1/deployments/:deployID", api.UpdateDeployment)
-	router.GET("/v1/deployments", api.GetDeployments)
 	router.DELETE("/v1/deployments/:deployID", api.DeleteDeployment)
 
 	// 部署任务控制操作
