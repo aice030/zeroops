@@ -50,7 +50,7 @@
       <!-- 告警列表 -->
       <div v-else class="alerts-list">
         <div 
-          v-for="alert in filteredAlerts" 
+          v-for="alert in alerts" 
           :key="alert.id"
           class="alert-card"
         >
@@ -229,6 +229,7 @@ const showAnalysisDialog = ref(false)
 const selectedAlert = ref<AlertIssue | null>(null)
 const alertDetail = ref<AlertDetail | null>(null)
 const alerts = ref<AlertIssue[]>([])
+const allAlerts = ref<AlertIssue[]>([]) // 存储所有告警数据用于计数
 const loading = ref(false)
 const detailLoading = ref(false)
 const error = ref<string | null>(null)
@@ -238,30 +239,25 @@ const filters = computed(() => [
   { 
     key: 'all', 
     label: 'All', 
-    count: alerts.value.length 
+    count: allAlerts.value.length 
   },
   { 
     key: 'open', 
     label: 'Open', 
-    count: alerts.value.filter(alert => alert.state === 'Open').length 
+    count: allAlerts.value.filter(alert => alert.state === 'Open').length 
   },
   { 
     key: 'closed', 
     label: 'Closed', 
-    count: alerts.value.filter(alert => alert.state === 'Closed').length 
+    count: allAlerts.value.filter(alert => alert.state === 'Closed').length 
   }
 ])
 
-const filteredAlerts = computed(() => {
-  if (filterState.value === 'all') return alerts.value
-  if (filterState.value === 'open') return alerts.value.filter(alert => alert.state === 'Open')
-  if (filterState.value === 'closed') return alerts.value.filter(alert => alert.state === 'Closed')
-  return alerts.value
-})
 
 // 方法
 const setFilterState = (state: 'all' | 'open' | 'closed') => {
   filterState.value = state
+  loadAlerts() // 触发重新加载
 }
 
 const formatRelativeTime = (timestamp: string) => {
@@ -384,8 +380,18 @@ const loadAlerts = async () => {
     loading.value = true
     error.value = null
     
-    const response = await mockApi.getAlerts(undefined, 10)
+    // 根据 filterState 构造 API 参数
+    const apiState = filterState.value === 'all' ? undefined : 
+                    filterState.value === 'open' ? 'Open' : 'Closed'
+    
+    const response = await mockApi.getAlerts(undefined, 10, apiState)
     alerts.value = response.items
+    
+    // 如果是首次加载（allAlerts为空），则加载所有数据用于计数
+    if (allAlerts.value.length === 0) {
+      const allResponse = await mockApi.getAlerts(undefined, 100) // 获取更多数据用于计数
+      allAlerts.value = allResponse.items
+    }
     
     console.log('告警数据加载成功:', response)
   } catch (err) {
