@@ -1,0 +1,16 @@
+name: 日常任务
+description: 任务描述
+projects:
+  - qiniu/zeroops
+
+body:
+  - type: textarea
+    attributes:
+      label: 任务描述
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ Issue 必须设置 Assignee， 如当前无合适人选，请先设置为自己！

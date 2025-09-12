@@ -1,0 +1,35 @@
+name: 线上发布
+description: 线上发布，服务升级
+title: "deploy:"
+projects:
+  - qiniu/zeroops
+
+body:
+  - type: textarea
+    attributes:
+      label: 发布内容
+      value: |
+        服务 | 变更内容 | 变更PR | 对外影响的功能或API
+        -----|--------|--------|------------------
+             |        |        |                  
+
+        gitlab:
+        jenkins:
+
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 升级计划
+      value: |
+        时间 | 操作人员 | 操作步骤 | 如何验证 | 失败预案 | 备注
+        -----|--------|---------|---------|--------|-------
+             |        |         |         |        |
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ Issue 必须设置 Assignee， 如当前无合适人选，请先设置为自己！

@@ -1,0 +1,35 @@
+name: 线上事故
+description: 线上事故，描述事故经过，事故影响面，事故分析，事故反思和后续处理
+labels: ["accident"]
+projects:
+  - qiniu/zeroops
+
+body:
+  - type: textarea
+    attributes:
+      label: 事故经过/现象
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 事故影响面
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 事故分析
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 事故反思和后续处理
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ Issue 必须设置 Assignee， 如当前无合适人选，请先设置为自己！

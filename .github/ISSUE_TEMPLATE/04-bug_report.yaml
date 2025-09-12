@@ -1,0 +1,31 @@
+name: 问题与缺陷
+description: 代码缺陷或实际业务逻辑未按预期的方式进行。
+labels: ["bug"]
+projects:
+  - qiniu/zeroops
+
+body:
+  - type: textarea
+    attributes:
+      label: 此 Issue 容易重现吗，如可以，请描述重现步骤。
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 期望结果与实际结果
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 其他信息（包含日志，截图，有助于帮助理解本 Issue）
+
+  - type: textarea
+    attributes:
+      label: 解决方案
+
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ Issue 必须设置 Assignee， 如当前无合适人选，请先设置为自己！
