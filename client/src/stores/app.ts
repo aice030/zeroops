@@ -62,6 +62,15 @@ export interface ModuleRecord {
   eventData?: any
 }
 
+// 告警变更记录类型定义
+export interface AlarmChangeItem {
+  id: string
+  service: string
+  change: string
+  timestamp: string
+  details: string
+}
+
 export const useAppStore = defineStore('app', () => {
   // 状态
   const currentView = ref<'home' | 'changelog'>('home')
@@ -197,52 +206,6 @@ export const useAppStore = defineStore('app', () => {
     scheduledStart.value = time
   }
 
-  const createReleasePlan = async (planData: any) => {
-    try {
-      loading.value = true
-      error.value = null
-      const response = await apiService.createReleasePlan(planData)
-      scheduledReleases.value.push(response.data)
-      return response.data
-    } catch (err: any) {
-      error.value = err.message || '创建发布计划失败'
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
-
-  const updateReleasePlan = async (id: string, planData: any) => {
-    try {
-      loading.value = true
-      error.value = null
-      const response = await apiService.updateReleasePlan(id, planData)
-      const index = scheduledReleases.value.findIndex(r => r.id === id)
-      if (index !== -1) {
-        scheduledReleases.value[index] = response.data
-      }
-      return response.data
-    } catch (err: any) {
-      error.value = err.message || '更新发布计划失败'
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
-
-  const cancelReleasePlan = async (id: string) => {
-    try {
-      loading.value = true
-      error.value = null
-      await apiService.cancelReleasePlan(id)
-      scheduledReleases.value = scheduledReleases.value.filter(r => r.id !== id)
-    } catch (err: any) {
-      error.value = err.message || '取消发布计划失败'
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
 
   return {
     // 状态
@@ -272,9 +235,6 @@ export const useAppStore = defineStore('app', () => {
     setSelectedSlice,
     setMetricsOpen,
     setSelectedVersion,
-    setScheduledStart,
-    createReleasePlan,
-    updateReleasePlan,
-    cancelReleasePlan
+    setScheduledStart
   }
 })
