@@ -1,5 +1,5 @@
 // Mock API服务
-import { mockServicesData, mockServiceDetails, mockVersionOptions, mockScheduledReleases, mockServiceActiveVersions, mockServiceMetrics, mockAvailableVersions, mockDeploymentPlans, mockMetricsData, mockDeploymentChangelog, mockAlertsData, mockAlertDetails, type ServicesResponse, type ServiceDetail, type ServiceActiveVersionsResponse, type ServiceMetricsResponse, type AvailableVersionsResponse, type DeploymentPlansResponse, type MetricsResponse, type DeploymentChangelogResponse, type AlertsResponse, type AlertDetail } from './services'
+import { mockServicesData, mockServiceDetails, mockVersionOptions, mockScheduledReleases, mockServiceActiveVersions, mockServiceMetrics, mockAvailableVersions, mockDeploymentPlans, mockMetricsData, mockDeploymentChangelog, mockAlertRuleChangelog, mockAlertsData, mockAlertDetails, type ServicesResponse, type ServiceDetail, type ServiceActiveVersionsResponse, type ServiceMetricsResponse, type AvailableVersionsResponse, type DeploymentPlansResponse, type MetricsResponse, type DeploymentChangelogResponse, type AlertRuleChangelogResponse, type AlertsResponse, type AlertDetail } from './services'
 
 // 模拟网络延迟
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -152,6 +152,32 @@ export class MockApiService {
     }
   }
 
+  // 获取告警规则变更记录
+  static async getAlertRuleChangelog(start?: string, limit?: number): Promise<AlertRuleChangelogResponse> {
+    await delay(400) // 模拟网络延迟
+    console.log(`Mock API: 获取告警规则变更记录 - start: ${start}, limit: ${limit}`)
+
+    let items = [...mockAlertRuleChangelog.items]
+
+    // 1. 先按时间排序（从新到旧）
+    items.sort((a, b) => new Date(b.editTime).getTime() - new Date(a.editTime).getTime())
+
+    // 2. 根据 start 参数筛选数据（分页逻辑）
+    if (start) {
+      const startTime = new Date(start)
+      items = items.filter(item => new Date(item.editTime) <= startTime)
+    }
+
+    // 3. 根据limit限制返回数量
+    if (limit && limit > 0) {
+      items = items.slice(0, limit)
+    }
+
+    return {
+      items,
+      next: items.length > 0 ? items[items.length - 1].editTime : undefined
+    }
+  }
 
   // 获取告警列表
   static async getAlerts(start?: string, limit: number = 10, state?: string): Promise<AlertsResponse> {
