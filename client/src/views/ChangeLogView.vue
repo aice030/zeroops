@@ -157,7 +157,7 @@ const transformDeploymentChangelogToChangeItems = (changelogData: any[]): Change
 const transformAlertRuleChangelogToAlarmChangeItems = (changelogData: AlertRuleChangeItem[]): AlarmChangeItem[] => {
   return changelogData.map((item, index) => {
     // 从scope中提取服务名
-    const serviceName = item.scope ? item.scope.replace('service:', '') + '服务' : '全局服务'
+    const serviceName = item.scope?.startsWith('service:') ? item.scope.slice('service:'.length) + '服务' : '全局服务'
     
     // 构建变更描述
     const changeDescription = item.values.map(value => {
