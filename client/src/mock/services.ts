@@ -1274,7 +1274,7 @@ export interface AlertsResponse {
 
 // 告警评论
 export interface AlertComment {
-  createAt: string
+  createdAt: string
   content: string
 }
 
@@ -1397,7 +1397,7 @@ export const mockAlertDetails: Record<string, AlertDetail> = {
     alertSince: '2025-09-01T19:14:12.382331146Z',
     comments: [
       {
-        createAt: '2025-09-01T19:15:00Z',
+        createdAt: '2025-09-01T19:15:00Z',
         content: `## AI分析结果
 
 **问题类型**: 发版本导致的问题
@@ -1451,7 +1451,7 @@ export const mockAlertDetails: Record<string, AlertDetail> = {
     alertSince: '2025-09-01T20:10:15.123456789Z',
     comments: [
       {
-        createAt: '2025-09-01T20:11:00Z',
+        createdAt: '2025-09-01T20:11:00Z',
         content: `## AI分析结果
 
 **问题类型**: 严重性能问题
@@ -1501,7 +1501,7 @@ export const mockAlertDetails: Record<string, AlertDetail> = {
     alertSince: '2025-09-01T18:30:00.000000000Z',
     comments: [
       {
-        createAt: '2025-09-01T18:35:00Z',
+        createdAt: '2025-09-01T18:35:00Z',
         content: `## AI分析结果
 
 **问题类型**: 消息队列积压
@@ -1551,7 +1551,7 @@ export const mockAlertDetails: Record<string, AlertDetail> = {
     alertSince: '2025-09-01T21:00:00.000000000Z',
     comments: [
       {
-        createAt: '2025-09-01T21:01:00Z',
+        createdAt: '2025-09-01T21:01:00Z',
         content: `## AI分析结果
 
 **问题类型**: 资源使用率告警
@@ -1602,7 +1602,7 @@ export const mockAlertDetails: Record<string, AlertDetail> = {
     alertSince: '2025-09-01T17:20:00.000000000Z',
     comments: [
       {
-        createAt: '2025-09-01T17:25:00Z',
+        createdAt: '2025-09-01T17:25:00Z',
         content: `## AI分析结果
 
 **问题类型**: 服务健康检查失败

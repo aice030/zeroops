@@ -154,7 +154,7 @@
             <div class="result-header">
               <el-icon class="brain-icon"><InfoFilled /></el-icon>
               <span class="result-title">AI分析结果</span>
-              <span class="result-time">{{ formatRelativeTime(comment.createAt) }}</span>
+              <span class="result-time">{{ formatRelativeTime(comment.createdAt) }}</span>
             </div>
             <div class="result-content">
               <div class="markdown-content" v-html="renderMarkdown(comment.content)"></div>

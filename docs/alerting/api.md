@@ -33,9 +33,11 @@ GET /v1/issues?start={start}&limit={limit}[&state={state}]
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| start | string | 是 | 分页起始位置标识 |
+| start | string | 否 | 游标。第一页可不传或传空；翻页使用上次响应的 `next` |
 | limit | integer | 是 | 每页返回数量，建议范围：1-100 |
 | state | string | 否 | 问题状态筛选：`Open`、`Closed` |
+
+分页说明：服务采用基于游标（cursor）的分页。首次请求建议省略 `start`；当返回结果较多时，响应体会包含 `next` 字段，表示下一页的游标。继续翻页时，将该 `next` 作为 `start` 传回。
 
 **响应示例：**
 ```json
@@ -95,15 +97,15 @@ GET /v1/issues/{issueID}
   "alertSince": "2025-05-05T11:00:00.000Z",
   "comments": [
     {
-      "createAt": "2025-05-05T11:00:30.000Z",
+      "createdAt": "2025-05-05T11:00:30.000Z",
       "content": "## 自动分析\n\n检测到 S3 API 响应时间异常，可能原因：\n- 后端存储负载过高\n- 网络延迟增加\n\n## 建议处理\n1. 检查存储节点状态\n2. 分析网络监控数据"
     },
     {
-      "createAt": "2025-05-05T11:05:00.000Z",
+      "createdAt": "2025-05-05T11:05:00.000Z",
       "content": "## 自动治愈开始\n\n执行治愈策略：重启相关服务实例"
     },
     {
-      "createAt": "2025-05-05T11:15:00.000Z",
+      "createdAt": "2025-05-05T11:15:00.000Z",
       "content": "## 问题已解决\n\n响应时间恢复正常，告警自动关闭"
     }
   ]
@@ -123,9 +125,9 @@ GET /v1/issues/{issueID}
 | 字段名 | 类型 | 说明 |
 |--------|------|------|
 | id | string | 告警问题唯一标识 |
-| state | string | 问题状态：`Open`、`Closed` |
+| state | string | 告警工单的生命周期状态状态：`Open`、`Closed` |
 | level | string | 告警等级：`P0`、`P1`、`P2`、`Warning` |
-| alertState | string | 处理状态：`Restored`、`AutoRestored`、`InProcessing` |
+| alertState | string | 告警本身的实时状态：`Restored`、`AutoRestored`、`InProcessing` |
 | title | string | 告警标题描述 |
 | labels | Label[] | 标签数组 |
 | alertSince | string | 告警发生时间（ISO 8601格式） |
@@ -142,8 +144,19 @@ GET /v1/issues/{issueID}
 
 | 字段名 | 类型 | 说明 |
 |--------|------|------|
-| createAt | string | 评论创建时间（ISO 8601格式） |
+| createdAt | string | 评论创建时间（ISO 8601格式） |
 | content | string | 评论内容（Markdown格式） |
+
+### 状态语义与映射
+
+- **state**：工单生命周期状态，取值：`Open`、`Closed`。
+- **alertState**：告警实时状态，取值：`InProcessing`、`Restored`、`AutoRestored`。
+
+典型关系与约定：
+- 当 `state = Open` 时，通常表示仍存在未恢复的相关告警，`alertState` 多为 `InProcessing`。
+- 当 `state = Closed` 时，通常表示所有相关告警已恢复，`alertState` 多为 `Restored` 或 `AutoRestored`（自动恢复）。
+
+注意：`alertState` 反映的是告警流的当前快照，而 `state` 管理的是问题工单的生命周期。二者并非强绑定，边界时刻可能出现 `state = Open` 但部分告警已恢复的情况。
 
 ## 错误响应
 
@@ -178,7 +191,12 @@ GET /v1/issues/{issueID}
 
 ```bash
 # 获取告警列表
-curl -X GET "https://api.example.com/v1/issues?start=0&limit=10&state=Open" \
+curl -X GET "https://api.example.com/v1/issues?limit=10&state=Open" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json"
+
+# 获取第二页（使用上一页响应中的 next 作为 start）
+curl -X GET "https://api.example.com/v1/issues?start=c_abcdef12345&limit=10&state=Open" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json"
 
@@ -192,13 +210,22 @@ curl -X GET "https://api.example.com/v1/issues/issue_20250505_001" \
 
 ```javascript
 // 获取告警列表
-const response = await fetch('/v1/issues?start=0&limit=10', {
+const response = await fetch('/v1/issues?limit=10', {
   headers: {
     'Authorization': 'Bearer ' + token,
     'Content-Type': 'application/json'
   }
 });
 const data = await response.json();
+
+// 获取第二页（将上一页的 next 作为 start 传回）
+const nextResponse = await fetch(`/v1/issues?start=${data.next}&limit=10`, {
+  headers: {
+    'Authorization': 'Bearer ' + token,
+    'Content-Type': 'application/json'
+  }
+});
+const nextPage = await nextResponse.json();
 
 // 获取告警详情
 const detailResponse = await fetch(`/v1/issues/${issueId}`, {

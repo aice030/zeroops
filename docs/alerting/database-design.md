@@ -76,7 +76,7 @@
 | 字段名 | 类型 | 说明 |
 |--------|------|------|
 | id | varchar(255) PK | 规则 ID（可与 K8s 资源 ID 对应或做映射） |
-| name | varchar(255) | 规则名称 |
+| name | varchar(255) | 规则名称，表达式可读的名称 |
 | scopes | varchar(255) | 作用域，例："services:svc1,svc2" |
 | expr | text | 规则表达式（可含占位符） |
 
