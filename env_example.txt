@@ -84,3 +84,23 @@ NO_FORCE_TERMINAL=false
 # - 定期轮换 API 密钥
 # - 在生产环境中使用环境变量而非文件
 # - 使用最小权限原则配置 API 密钥
+
+# =============================================================================
+# Alerting 服务配置（数据库连接 + Webhook 鉴权）
+# =============================================================================
+
+# 数据库连接（用于 Alertmanager Webhook 入库）
+# 示例使用本机 Docker Postgres（见 internal/alerting/service/receiver/README.md 验证步骤）
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=zeroops
+DB_SSLMODE=disable
+
+# Webhook 鉴权（与 Alertmanager http_config 对齐，二选一）
+# 1) Basic Auth
+ALERT_WEBHOOK_BASIC_USER=alert
+ALERT_WEBHOOK_BASIC_PASS=REDACTED
+# 2) Bearer Token（如使用该方式，注释掉上面的 Basic）
+# ALERT_WEBHOOK_BEARER=your_token_here

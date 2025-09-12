@@ -4,11 +4,19 @@
 
 本文档描述了监控告警服务的 RESTful API 接口，包括告警列表查询、详情获取等核心功能。
 
+人工模拟prometheus调用我们的接受告警接口，收到告警事件
+
+
+实现状态说明：
+- 已实现：接收 Alertmanager Webhook（/v1/integrations/alertmanager/webhook）
+- 规划中：告警列表与详情查询接口（本文档描述为对外契约，后续实现）
+
+
 ## 基础信息
 
 - **Base URL**: `/v1`
 - **Content-Type**: `application/json`
-- **认证方式**: Bearer Token（具体实现待定）
+- **认证方式**: Webhook 端点可通过环境变量启用 Basic 或 Bearer 认证（见下文）。其他查询接口在实现时将采用 Bearer Token。
 
 ## 接口列表
 
@@ -34,23 +42,19 @@ GET /v1/issues?start={start}&limit={limit}[&state={state}]
 {
   "items": [
     {
-      "id": "issue_20250505_001",
+      "id": "xxx",
       "state": "Closed",
       "level": "P0",
       "alertState": "Restored",
       "title": "yzh S3APIV2s3apiv2.putobject 0_64K上传响应时间95值:50012ms > 450ms",
       "labels": [
         {"key": "api", "value": "s3apiv2.putobject"},
-        {"key": "idc", "value": "yzh"},
-        {"key": "service", "value": "s3api"}
+        {"key": "idc", "value": "yzh"}
       ],
       "alertSince": "2025-05-05T11:00:00.000Z"
     }
   ],
-  "pagination": {
-    "nextStart": "issue_20250505_002",
-    "hasMore": true
-  }
+  "next": "xxxx"
 }
 ```
 
@@ -89,7 +93,6 @@ GET /v1/issues/{issueID}
     {"key": "service", "value": "s3api"}
   ],
   "alertSince": "2025-05-05T11:00:00.000Z",
-  "resolvedAt": "2025-05-05T11:15:00.000Z",
   "comments": [
     {
       "createAt": "2025-05-05T11:00:30.000Z",
@@ -126,7 +129,6 @@ GET /v1/issues/{issueID}
 | title | string | 告警标题描述 |
 | labels | Label[] | 标签数组 |
 | alertSince | string | 告警发生时间（ISO 8601格式） |
-| resolvedAt | string | 问题解决时间（仅在已解决时存在） |
 | comments | Comment[] | 处理评论列表（仅详情接口返回） |
 
 ### Label 对象
@@ -206,6 +208,84 @@ const detailResponse = await fetch(`/v1/issues/${issueId}`, {
   }
 });
 const detail = await detailResponse.json();
+```
+
+### 3. 接收 Alertmanager Webhook（告警接入）
+
+用于接收 Alertmanager 推送的告警事件。
+
+**请求：**
+```http
+POST /v1/integrations/alertmanager/webhook
+Content-Type: application/json
+```
+
+**认证：**
+- 可选鉴权（通过环境变量开启）：
+  - Basic：设置 `ALERT_WEBHOOK_BASIC_USER` 与 `ALERT_WEBHOOK_BASIC_PASS`
+  - Bearer：设置 `ALERT_WEBHOOK_BEARER`
+  - 若上述变量均未设置，则该端点不强制鉴权（开发/测试便捷）
+
+**请求体（示例 - firing）：**
+```json
+{
+  "receiver": "our-webhook",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "HighRequestLatency",
+        "service": "serviceA",
+        "severity": "P1",
+        "idc": "yzh"
+      },
+      "annotations": {
+        "summary": "p95 latency over threshold",
+        "description": "apitime p95 > 450ms"
+      },
+      "startsAt": "2025-05-05T11:00:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://prometheus/graph?g0.expr=...",
+      "fingerprint": "3b1b7f4e8f0e"
+    }
+  ],
+  "groupLabels": {"alertname": "HighRequestLatency"},
+  "commonLabels": {"service": "serviceA", "severity": "P1"},
+  "version": "4"
+}
+```
+
+**字段要点：**
+- `status`: `firing` | `resolved`
+- `alerts[]`: 多条告警，关键字段 `labels`、`annotations`、`startsAt`、`fingerprint`
+- `fingerprint + startsAt`：用于应用层幂等
+
+**响应：**
+- `200 OK {"ok": true, "created": <n>}` 当 `status=firing` 时返回本次创建条数
+- `200 OK {"ok": true, "msg": "ignored (not firing)"}` 当非 `firing` 时快速返回
+
+**curl 示例：**
+```bash
+# firing
+curl -X POST http://localhost:8080/v1/integrations/alertmanager/webhook \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "receiver":"our-webhook",
+    "status":"firing",
+    "alerts":[{
+      "status":"firing",
+      "labels":{"alertname":"HighRequestLatency","service":"serviceA","severity":"P1","idc":"yzh"},
+      "annotations":{"summary":"p95 latency over threshold","description":"apitime p95 > 450ms"},
+      "startsAt":"2025-05-05T11:00:00Z",
+      "endsAt":"0001-01-01T00:00:00Z",
+      "generatorURL":"http://prometheus/graph?g0.expr=...",
+      "fingerprint":"3b1b7f4e8f0e"
+    }],
+    "groupLabels":{"alertname":"HighRequestLatency"},
+    "commonLabels":{"service":"serviceA","severity":"P1"},
+    "version":"4"
+  }'
 ```
 
 ## 版本历史

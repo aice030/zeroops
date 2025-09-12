@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/fox-gonic/fox"
+	alertapi "github.com/qiniu/zeroops/internal/alerting/api"
 	"github.com/qiniu/zeroops/internal/config"
 	"github.com/qiniu/zeroops/internal/middleware"
 	servicemanager "github.com/qiniu/zeroops/internal/service_manager"
@@ -27,6 +28,7 @@ func main() {
 
 	router := fox.New()
 	router.Use(middleware.Authentication)
+	alertapi.NewApiWithConfig(router, cfg)
 	if err := serviceManagerSrv.UseApi(router); err != nil {
 		log.Fatal().Err(err).Msg("bind serviceManagerApi failed.")
 	}
