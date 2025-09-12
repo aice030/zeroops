@@ -152,6 +152,7 @@ export class MockApiService {
     }
   }
 
+
   // 获取告警列表
   static async getAlerts(start?: string, limit: number = 10, state?: string): Promise<AlertsResponse> {
     await delay(400) // 模拟网络延迟

@@ -216,6 +216,26 @@ export interface DeploymentPlansResponse {
   items: DeploymentPlan[]
 }
 
+// 告警规则变更记录数据结构
+export interface AlertRuleChangeValue {
+  name: string
+  old: string
+  new: string
+}
+
+export interface AlertRuleChangeItem {
+  name: string
+  editTime: string
+  scope: string
+  values: AlertRuleChangeValue[]
+  reason: string
+}
+
+export interface AlertRuleChangelogResponse {
+  items: AlertRuleChangeItem[]
+  next?: string
+}
+
 // Mock数据 - 发布计划（按服务分组）
 export const mockDeploymentPlans: Record<string, DeploymentPlansResponse> = {
   "s3": {
@@ -1616,4 +1636,66 @@ export const mockAlertDetails: Record<string, AlertDetail> = {
       }
     ]
   }
+=======
+// Mock数据 - 告警规则变更记录
+export const mockAlertRuleChangelog: AlertRuleChangelogResponse = {
+  items: [
+    {
+      name: "p98_latency_too_high",
+      editTime: "2024-01-04T12:00:00Z",
+      scope: "service:stg",
+      values: [
+        {
+          name: "threshold",
+          old: "10",
+          new: "15"
+        },
+        {
+          name: "watchTimeDuration",
+          old: "3min",
+          new: "5min"
+        }
+      ],
+      reason: "由于业务增长，系统负载增加，原有10ms的延时阈值过于严格，导致频繁告警。经过AI分析历史数据，建议将阈值调整为15ms，既能及时发现性能问题，又避免误报。"
+    },
+    {
+      name: "saturation_too_high",
+      editTime: "2024-01-03T15:00:00Z",
+      scope: "service:stg",
+      values: [
+        {
+          name: "threshold",
+          old: "50",
+          new: "45"
+        }
+      ],
+      reason: "监控发现系统在50%饱和度时已出现性能下降，提前预警有助于避免系统过载。调整后可以更早发现资源瓶颈，确保服务稳定性。"
+    },
+    {
+      name: "p98_latency_too_high",
+      editTime: "2024-01-03T10:00:00Z",
+      scope: "service:mongo",
+      values: [
+        {
+          name: "threshold",
+          old: "10",
+          new: "5"
+        }
+      ],
+      reason: "MongoDB服务经过优化后性能显著提升，原有10ms阈值已不适用。调整为5ms可以更精确地监控数据库性能，及时发现潜在问题。"
+    },
+    {
+      name: "error_rate_too_high",
+      editTime: "2024-01-01T15:00:00Z",
+      scope: "service:meta",
+      values: [
+        {
+          name: "threshold",
+          old: "10",
+          new: "5"
+        }
+      ],
+      reason: "Meta服务作为核心服务，对错误率要求更加严格。将错误告警阈值从10降低到5，可以更敏感地发现服务异常，确保数据一致性。"
+    }
+  ],
 }

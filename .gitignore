@@ -313,3 +313,4 @@ __debug_bin
 .dockerignore
 
 CLAUDE.md
+.vercel
