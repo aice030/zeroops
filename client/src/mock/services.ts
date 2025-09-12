@@ -1246,6 +1246,398 @@ export const mockServiceMetrics: Record<string, ServiceMetricsResponse> = {
   }
 }
 
+// ==================== 告警记录相关类型定义 ====================
+
+// 告警标签
+export interface AlertLabel {
+  key: string
+  value: string
+}
+
+// 告警条目
+export interface AlertIssue {
+  id: string
+  state: 'Open' | 'Closed'
+  level: 'P0' | 'P1' | 'P2' | 'Warning'
+  alertState: 'Restored' | 'AutoRestored' | 'InProcessing'
+  title: string
+  labels: AlertLabel[]
+  alertSince: string
+  resolvedAt: string
+}
+
+// 告警列表响应
+export interface AlertsResponse {
+  items: AlertIssue[]
+  next: string
+}
+
+// 告警评论
+export interface AlertComment {
+  createAt: string
+  content: string
+}
+
+// 告警详情（包含AI分析记录）
+export interface AlertDetail {
+  id: string
+  state: 'Open' | 'Closed'
+  level: 'P0' | 'P1' | 'P2' | 'Warning'
+  alertState: 'Restored' | 'AutoRestored' | 'InProcessing'
+  title: string
+  labels: AlertLabel[]
+  alertSince: string
+  comments: AlertComment[]
+}
+
+// ==================== 告警记录Mock数据 ====================
+
+export const mockAlertsData: AlertsResponse = {
+  items: [
+    {
+      id: 'alert-1',
+      state: 'Closed',
+      level: 'P1',
+      alertState: 'Restored',
+      title: 'yzh S3APIV2 s3apiv2.putobject 0_64K上传响应时间95值: 500.12ms > 450ms',
+      labels: [
+        { key: 'api', value: 's3apiv2.putobject' },
+        { key: 'idc', value: 'yzh' },
+        { key: 'org', value: 'kodo' },
+        { key: 'prophet_service', value: 's3apiv2' },
+        { key: 'prophet_type', value: 'app' }
+      ],
+      alertSince: '2025-09-01T19:14:12.382331146Z',
+      resolvedAt: '2025-09-01T19:25:00.000Z'
+    },
+    {
+      id: 'alert-2',
+      state: 'Open',
+      level: 'P0',
+      alertState: 'InProcessing',
+      title: 'bj S3APIV2 s3apiv2.getobject 下载响应时间95值: 1200.5ms > 1000ms',
+      labels: [
+        { key: 'api', value: 's3apiv2.getobject' },
+        { key: 'idc', value: 'bj' },
+        { key: 'org', value: 'kodo' },
+        { key: 'prophet_service', value: 's3apiv2' },
+        { key: 'prophet_type', value: 'app' }
+      ],
+      alertSince: '2025-09-01T20:10:15.123456789Z',
+      resolvedAt: ''
+    },
+    {
+      id: 'alert-3',
+      state: 'Closed',
+      level: 'P2',
+      alertState: 'AutoRestored',
+      title: 'sh MQ 消息队列积压数量: 15000 > 10000',
+      labels: [
+        { key: 'service', value: 'mq' },
+        { key: 'idc', value: 'sh' },
+        { key: 'org', value: 'kodo' },
+        { key: 'prophet_service', value: 'mq' },
+        { key: 'prophet_type', value: 'infra' }
+      ],
+      alertSince: '2025-09-01T18:30:00.000000000Z',
+      resolvedAt: '2025-09-01T18:45:00.000Z'
+    },
+    {
+      id: 'alert-4',
+      state: 'Open',
+      level: 'Warning',
+      alertState: 'InProcessing',
+      title: 'gz Meta 数据库连接池使用率: 85% > 80%',
+      labels: [
+        { key: 'service', value: 'meta' },
+        { key: 'idc', value: 'gz' },
+        { key: 'org', value: 'kodo' },
+        { key: 'prophet_service', value: 'meta' },
+        { key: 'prophet_type', value: 'app' }
+      ],
+      alertSince: '2025-09-01T21:00:00.000000000Z',
+      resolvedAt: ''
+    },
+    {
+      id: 'alert-5',
+      state: 'Closed',
+      level: 'P1',
+      alertState: 'Restored',
+      title: 'sz STG 服务实例健康检查失败率: 15% > 10%',
+      labels: [
+        { key: 'service', value: 'stg' },
+        { key: 'idc', value: 'sz' },
+        { key: 'org', value: 'kodo' },
+        { key: 'prophet_service', value: 'stg' },
+        { key: 'prophet_type', value: 'app' }
+      ],
+      alertSince: '2025-09-01T17:20:00.000000000Z',
+      resolvedAt: '2025-09-01T17:35:00.000Z'
+    }
+  ],
+  next: '2025-09-01T16:00:00.000Z'
+}
+
+// ==================== 告警详情Mock数据 ====================
+
+export const mockAlertDetails: Record<string, AlertDetail> = {
+  'alert-1': {
+    id: 'alert-1',
+    state: 'Closed',
+    level: 'P1',
+    alertState: 'Restored',
+    title: 'yzh S3APIV2 s3apiv2.putobject 0_64K上传响应时间95值: 500.12ms > 450ms',
+    labels: [
+      { key: 'api', value: 's3apiv2.putobject' },
+      { key: 'idc', value: 'yzh' },
+      { key: 'org', value: 'kodo' },
+      { key: 'prophet_service', value: 's3apiv2' },
+      { key: 'prophet_type', value: 'app' }
+    ],
+    alertSince: '2025-09-01T19:14:12.382331146Z',
+    comments: [
+      {
+        createAt: '2025-09-01T19:15:00Z',
+        content: `## AI分析结果
+
+**问题类型**: 发版本导致的问题
+**根因分析**: 新版本中的数据库查询优化存在问题，导致某些复杂查询性能下降
+
+**处理建议**: 
+- 立即回滚到稳定版本
+- 优化数据库索引配置
+- 增加监控告警阈值
+
+**执行状态**: 已执行回滚操作，等待指标恢复正常
+
+## 详细分析过程
+
+### 1. 异常指标下钻分析
+- **IDC维度**: 北京IDC延迟异常，P95延迟从120ms激增至500ms
+- **API类型**: 主要影响s3apiv2.putobject接口，其他接口性能正常
+- **请求大小**: 0-64KB请求延迟异常，大文件请求正常
+
+### 2. 资源使用情况分析
+- **CPU使用率**: 上升至85%，存在CPU瓶颈
+- **内存使用率**: 正常(65%)
+- **网络带宽**: 正常(45%)
+
+### 3. 问题根因诊断
+- **根本原因**: 北京IDC服务器CPU资源不足
+- **影响范围**: 主要影响0-64KB文件上传功能
+- **严重程度**: P1级别，影响用户体验
+
+### 4. 解决方案执行
+1. 立即扩容北京IDC服务器资源
+2. 优化s3apiv2.putobject接口性能
+3. 考虑流量调度到其他IDC
+4. 加强资源监控和告警`
+      }
+    ]
+  },
+  'alert-2': {
+    id: 'alert-2',
+    state: 'Open',
+    level: 'P0',
+    alertState: 'InProcessing',
+    title: 'bj S3APIV2 s3apiv2.getobject 下载响应时间95值: 1200.5ms > 1000ms',
+    labels: [
+      { key: 'api', value: 's3apiv2.getobject' },
+      { key: 'idc', value: 'bj' },
+      { key: 'org', value: 'kodo' },
+      { key: 'prophet_service', value: 's3apiv2' },
+      { key: 'prophet_type', value: 'app' }
+    ],
+    alertSince: '2025-09-01T20:10:15.123456789Z',
+    comments: [
+      {
+        createAt: '2025-09-01T20:11:00Z',
+        content: `## AI分析结果
+
+**问题类型**: 严重性能问题
+**根因分析**: 数据库连接池配置不当，导致连接等待时间过长
+
+**处理建议**: 
+- 立即调整数据库连接池配置
+- 增加连接池大小
+- 优化连接超时设置
+
+**执行状态**: 正在处理中，等待配置生效
+
+## 紧急处理方案
+
+### 1. 性能指标分析
+- **P95延迟**: 从200ms激增至1200ms
+- **P99延迟**: 达到2000ms
+- **错误率**: 从0.1%增加到2.5%
+- **吞吐量**: 从1000 QPS下降到600 QPS
+
+### 2. 资源瓶颈诊断
+- **数据库连接池**: 使用率100%，连接池耗尽
+- **CPU使用率**: 正常(45%)
+- **内存使用率**: 正常(60%)
+
+### 3. 紧急处理措施
+1. 立即增加数据库连接池大小从20到50
+2. 调整连接超时时间从30s到10s
+3. 启用连接池监控
+4. 考虑读写分离缓解压力`
+      }
+    ]
+  },
+  'alert-3': {
+    id: 'alert-3',
+    state: 'Closed',
+    level: 'P2',
+    alertState: 'AutoRestored',
+    title: 'sh MQ 消息队列积压数量: 15000 > 10000',
+    labels: [
+      { key: 'service', value: 'mq' },
+      { key: 'idc', value: 'sh' },
+      { key: 'org', value: 'kodo' },
+      { key: 'prophet_service', value: 'mq' },
+      { key: 'prophet_type', value: 'infra' }
+    ],
+    alertSince: '2025-09-01T18:30:00.000000000Z',
+    comments: [
+      {
+        createAt: '2025-09-01T18:35:00Z',
+        content: `## AI分析结果
+
+**问题类型**: 消息队列积压
+**根因分析**: 消费者服务重启导致消息积压
+
+**处理建议**: 
+- 增加消费者实例数量
+- 优化消息处理逻辑
+- 监控队列积压情况
+
+**执行状态**: 已自动恢复，队列积压已清理
+
+## 问题分析过程
+
+### 1. 队列积压分析
+- **积压数量**: 15000条消息，超过阈值10000条
+- **积压率**: 50%
+- **增长趋势**: 18:25开始快速增长
+- **消息类型**: 主要是订单处理消息，占80%
+
+### 2. 消费者状态分析
+- **服务状态**: 订单处理服务在18:25重启
+- **消费速率**: 从1000 msg/s下降到0，重启后恢复正常
+- **错误日志**: 发现服务重启期间的连接错误
+
+### 3. 自动恢复过程
+1. 服务自动重启恢复
+2. 消费速率恢复正常
+3. 队列积压逐步清理
+4. 系统状态恢复正常`
+      }
+    ]
+  },
+  'alert-4': {
+    id: 'alert-4',
+    state: 'Open',
+    level: 'Warning',
+    alertState: 'InProcessing',
+    title: 'gz Meta 数据库连接池使用率: 85% > 80%',
+    labels: [
+      { key: 'service', value: 'meta' },
+      { key: 'idc', value: 'gz' },
+      { key: 'org', value: 'kodo' },
+      { key: 'prophet_service', value: 'meta' },
+      { key: 'prophet_type', value: 'app' }
+    ],
+    alertSince: '2025-09-01T21:00:00.000000000Z',
+    comments: [
+      {
+        createAt: '2025-09-01T21:01:00Z',
+        content: `## AI分析结果
+
+**问题类型**: 资源使用率告警
+**根因分析**: 数据库连接池使用率偏高，需要关注
+
+**处理建议**: 
+- 监控连接池使用情况
+- 考虑增加连接池大小
+- 优化数据库查询
+
+**执行状态**: 正在监控中
+
+## 连接池使用分析
+
+### 1. 连接池状态
+- **当前连接数**: 85个活跃连接
+- **最大连接数**: 100个
+- **使用率**: 85%
+- **平均连接时长**: 5分钟
+- **最长连接时长**: 30分钟
+
+### 2. 数据库性能分析
+- **查询性能**: 部分复杂查询执行时间较长，平均2秒
+- **锁等待**: 存在少量锁等待，平均等待时间100ms
+- **事务分析**: 存在部分长事务，平均事务时长10秒
+
+### 3. 优化建议
+1. 优化慢查询，添加索引
+2. 减少长事务，拆分复杂操作
+3. 考虑增加连接池大小到120
+4. 设置连接超时时间`
+      }
+    ]
+  },
+  'alert-5': {
+    id: 'alert-5',
+    state: 'Closed',
+    level: 'P1',
+    alertState: 'Restored',
+    title: 'sz STG 服务实例健康检查失败率: 15% > 10%',
+    labels: [
+      { key: 'service', value: 'stg' },
+      { key: 'idc', value: 'sz' },
+      { key: 'org', value: 'kodo' },
+      { key: 'prophet_service', value: 'stg' },
+      { key: 'prophet_type', value: 'app' }
+    ],
+    alertSince: '2025-09-01T17:20:00.000000000Z',
+    comments: [
+      {
+        createAt: '2025-09-01T17:25:00Z',
+        content: `## AI分析结果
+
+**问题类型**: 服务健康检查失败
+**根因分析**: 服务实例内存使用率过高导致健康检查失败
+
+**处理建议**: 
+- 重启异常实例
+- 优化内存使用
+- 调整健康检查阈值
+
+**执行状态**: 已处理完成，服务恢复正常
+
+## 健康检查失败分析
+
+### 1. 失败情况统计
+- **失败率**: 15%，超过阈值10%
+- **影响实例**: 3个实例（stg-03、stg-07、stg-12）
+- **失败类型**: 主要是超时失败，占80%
+
+### 2. 实例状态分析
+- **内存使用率**: 失败实例达到95%
+- **CPU使用率**: 正常
+- **服务状态**: 进程存在但响应缓慢
+- **错误日志**: 内存不足警告，GC频繁
+
+### 3. 处理措施
+1. 重启内存使用率过高的实例
+2. 调整JVM堆内存大小
+3. 优化内存使用
+4. 加强资源监控`
+      }
+    ]
+  }
+}
+
 // Mock数据 - 告警规则变更记录
 export const mockAlertRuleChangelog: AlertRuleChangelogResponse = {
   items: [
@@ -1307,5 +1699,4 @@ export const mockAlertRuleChangelog: AlertRuleChangelogResponse = {
       reason: "Meta服务作为核心服务，对错误率要求更加严格。将错误告警阈值从10降低到5，可以更敏感地发现服务异常，确保数据一致性。"
     }
   ],
-  next: "2024-01-01T15:00:00Z"
 }

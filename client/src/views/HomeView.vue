@@ -3,9 +3,15 @@
     <!-- 顶部导航 -->
     <div class="header">
       <div class="title">Zero Ops</div>
-      <el-button type="primary" @click="goToChangelog">
-        系统变更记录
-      </el-button>
+      <div class="nav-buttons">
+        <el-button type="warning" @click="goToAlerts" class="nav-btn">
+          <el-icon><Warning /></el-icon>
+          告警记录
+        </el-button>
+        <el-button type="primary" @click="goToChangelog" class="nav-btn">
+          系统变更记录
+        </el-button>
+      </div>
     </div>
 
     <div class="subtitle">整体服务状态</div>
@@ -809,6 +815,10 @@ const goToChangelog = () => {
   router.push('/changelog')
 }
 
+const goToAlerts = () => {
+  router.push('/alerts')
+}
+
 const getNodeStatus = (node: any) => {
   // 直接使用后端返回的health状态
   const healthMap: Record<string, string> = {
@@ -1425,6 +1435,18 @@ const disposeMetricsCharts = () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .title {

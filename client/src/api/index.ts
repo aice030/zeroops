@@ -102,10 +102,24 @@ export const apiService = {
 
   // 获取告警规则变更记录
   getAlertRuleChangelog: (start?: string, limit?: number) => {
-    const params: { start?: string; limit?: number } = {}
+    const params: any = {}
     if (start) params.start = start
     if (limit) params.limit = limit
     return api.get('/v1/changelog/alertrules', { params })
+  },
+
+  // 获取告警列表
+  getAlerts: (start?: string, limit?: number, state?: string) => {
+    const params: any = {}
+    if (start) params.start = start
+    if (limit) params.limit = limit
+    if (state) params.state = state
+    return api.get('/v1/issues', { params })
+  },
+
+  // 获取告警详情
+  getAlertDetail: (issueID: string) => {
+    return api.get(`/v1/issues/${issueID}`)
   }
 }
 

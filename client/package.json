@@ -19,6 +19,7 @@
     "axios": "^1.11.0",
     "echarts": "^5.6.0",
     "element-plus": "^2.11.2",
+    "marked": "^16.2.1",
     "pinia": "^3.0.3",
     "vue": "^3.5.18",
     "vue-echarts": "^7.0.3",
