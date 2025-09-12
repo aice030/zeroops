@@ -29,24 +29,43 @@
 
         <!-- 变更记录列表 -->
         <div class="change-list">
-          <ChangeCard
-            v-for="item in filteredChangeItems"
-            :key="item.id"
-            :item="item"
-          />
-          <div v-if="filteredChangeItems.length === 0" class="no-results">
-            无匹配记录
+          <!-- 加载状态 -->
+          <div v-if="deploymentLoading" class="loading-container">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            <span>加载服务变更记录中...</span>
           </div>
+          <!-- 数据列表 -->
+          <template v-else>
+            <ChangeCard
+              v-for="item in filteredChangeItems"
+              :key="item.id"
+              :item="item"
+            />
+            <div v-if="filteredChangeItems.length === 0" class="no-results">
+              无匹配记录
+            </div>
+          </template>
         </div>
       </el-tab-pane>
 
       <el-tab-pane label="告警变更记录" name="alarm">
         <div class="change-list">
-          <AlarmChangeCard
-            v-for="item in alarmChangeItems"
-            :key="item.id"
-            :item="item"
-          />
+          <!-- 加载状态 -->
+          <div v-if="alertRuleLoading" class="loading-container">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            <span>加载告警变更记录中...</span>
+          </div>
+          <!-- 数据列表 -->
+          <template v-else>
+            <AlarmChangeCard
+              v-for="item in alarmChangeItems"
+              :key="item.id"
+              :item="item"
+            />
+            <div v-if="alarmChangeItems.length === 0" class="no-results">
+              暂无告警变更记录
+            </div>
+          </template>
         </div>
       </el-tab-pane>
 
@@ -62,23 +81,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAppStore, type ChangeItem, type AlarmChangeItem } from '@/stores/app'
 import { mockApi } from '@/mock/api'
-import type { DeploymentChangelogResponse, DeploymentChangelogItem } from '@/mock/services'
+import type { DeploymentChangelogResponse, DeploymentChangelogItem, AlertRuleChangelogResponse, AlertRuleChangeItem } from '@/mock/services'
 import ChangeCard from '@/components/ChangeCard.vue'
 import AlarmChangeCard from '@/components/AlarmChangeCard.vue'
+import { ArrowLeft, Loading } from '@element-plus/icons-vue'
 
 const appStore = useAppStore()
 
 const activeTab = ref('service')
 const searchKeyword = ref('')
-const loading = ref(false)
+const deploymentLoading = ref(false)
+const alertRuleLoading = ref(false)
 const error = ref<string | null>(null)
 
 // 部署变更记录数据
 const deploymentChangelog = ref<DeploymentChangelogResponse | null>(null)
 const changeItems = ref<ChangeItem[]>([])
+
+// 告警规则变更记录数据
+const alertRuleChangelog = ref<AlertRuleChangelogResponse | null>(null)
+const alarmChangeItems = ref<AlarmChangeItem[]>([])
 
 // 数据转换函数：将API返回的数据转换为前端需要的格式
 const transformDeploymentChangelogToChangeItems = (changelogData: any[]): ChangeItem[] => {
@@ -117,7 +142,7 @@ const transformDeploymentChangelogToChangeItems = (changelogData: any[]): Change
     ]
     
     return {
-      id: `chg-${index + 1}`,
+      id: `chg-${item.service}-${item.version}-${item.startTime}`,
       service: item.service,
       version: item.version,
       state,
@@ -128,10 +153,36 @@ const transformDeploymentChangelogToChangeItems = (changelogData: any[]): Change
   })
 }
 
+// 数据转换函数：将告警规则变更记录API返回的数据转换为前端需要的格式
+const transformAlertRuleChangelogToAlarmChangeItems = (changelogData: AlertRuleChangeItem[]): AlarmChangeItem[] => {
+  return changelogData.map((item, index) => {
+    // 从scope中提取服务名
+    const serviceName = item.scope?.startsWith('service:') ? item.scope.slice('service:'.length) + '服务' : '全局服务'
+    
+    // 构建变更描述
+    const changeDescription = item.values.map(value => {
+      return `${value.name}: ${value.old} -> ${value.new}`
+    }).join(', ')
+    
+    // 格式化时间
+    const timestamp = new Date(item.editTime).toLocaleString('zh-CN')
+    
+    return {
+      id: `alarm-${item.name}-${item.editTime}`,
+      service: serviceName,
+      change: `${item.name}: ${changeDescription}`,
+      timestamp,
+      details: item.reason
+    }
+  })
+}
+
 // 加载部署变更记录
 const loadDeploymentChangelog = async (start?: string, limit?: number) => {
+  if (deploymentLoading.value) return // 防止重复加载
+  
   try {
-    loading.value = true
+    deploymentLoading.value = true
     error.value = null
     
     const response = await mockApi.getDeploymentChangelog(start, limit)
@@ -145,40 +196,33 @@ const loadDeploymentChangelog = async (start?: string, limit?: number) => {
     error.value = '加载部署变更记录失败'
     console.error('加载部署变更记录失败:', err)
   } finally {
-    loading.value = false
+    deploymentLoading.value = false
   }
 }
 
-const alarmChangeItems = ref<AlarmChangeItem[]>([
-  {
-    id: 'alarm-1',
-    service: 'Stg服务',
-    change: '延时告警阈值调整: 10ms -> 15ms',
-    timestamp: '2025/9/4 12:00:00',
-    details: '由于业务增长，系统负载增加，原有10ms的延时阈值过于严格，导致频繁告警。经过AI分析历史数据，建议将阈值调整为15ms，既能及时发现性能问题，又避免误报。'
-  },
-  {
-    id: 'alarm-2',
-    service: 'Stg服务',
-    change: '饱和度告警阈值调整: 50% -> 45%',
-    timestamp: '2025/9/3 15:00:00',
-    details: '监控发现系统在50%饱和度时已出现性能下降，提前预警有助于避免系统过载。调整后可以更早发现资源瓶颈，确保服务稳定性。'
-  },
-  {
-    id: 'alarm-3',
-    service: 'Mongo服务',
-    change: '延时告警阈值调整: 10ms -> 5ms',
-    timestamp: '2025/9/3 10:00:00',
-    details: 'MongoDB服务经过优化后性能显著提升，原有10ms阈值已不适用。调整为5ms可以更精确地监控数据库性能，及时发现潜在问题。'
-  },
-  {
-    id: 'alarm-4',
-    service: 'Meta服务',
-    change: '错误告警阈值调整: 10 -> 5',
-    timestamp: '2025/9/1 15:00:00',
-    details: 'Meta服务作为核心服务，对错误率要求更加严格。将错误告警阈值从10降低到5，可以更敏感地发现服务异常，确保数据一致性。'
+// 加载告警规则变更记录
+const loadAlertRuleChangelog = async (start?: string, limit?: number) => {
+  if (alertRuleLoading.value) return // 防止重复加载
+  
+  try {
+    alertRuleLoading.value = true
+    error.value = null
+    
+    const response = await mockApi.getAlertRuleChangelog(start, limit)
+    alertRuleChangelog.value = response
+    
+    // 转换数据格式
+    alarmChangeItems.value = transformAlertRuleChangelogToAlarmChangeItems(response.items)
+    
+    console.log('告警规则变更记录加载成功:', response)
+  } catch (err) {
+    error.value = '加载告警规则变更记录失败'
+    console.error('加载告警规则变更记录失败:', err)
+  } finally {
+    alertRuleLoading.value = false
   }
-])
+}
+
 
 // 计算属性
 const filteredChangeItems = computed(() => {
@@ -197,9 +241,18 @@ const handleSearch = () => {
   // 搜索逻辑已在计算属性中处理
 }
 
-// 生命周期
+// 监听标签页切换，实现按需加载
+watch(activeTab, (newTab) => {
+  if (newTab === 'service' && !changeItems.value.length) {
+    loadDeploymentChangelog()
+  } else if (newTab === 'alarm' && !alarmChangeItems.value.length) {
+    loadAlertRuleChangelog()
+  }
+})
+
+// 生命周期 - 只加载默认标签页数据
 onMounted(() => {
-  loadDeploymentChangelog()
+  loadDeploymentChangelog() // 只加载默认标签页
 })
 </script>
 
@@ -276,5 +329,15 @@ onMounted(() => {
   color: #6b7280;
   font-size: 14px;
   padding: 32px;
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px;
+  color: #6b7280;
+  font-size: 14px;
 }
 </style>

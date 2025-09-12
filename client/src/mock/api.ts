@@ -1,5 +1,5 @@
 // Mock API服务
-import { mockServicesData, mockServiceDetails, mockVersionOptions, mockScheduledReleases, mockServiceActiveVersions, mockServiceMetrics, mockAvailableVersions, mockDeploymentPlans, mockMetricsData, mockDeploymentChangelog, type ServicesResponse, type ServiceDetail, type ServiceActiveVersionsResponse, type ServiceMetricsResponse, type AvailableVersionsResponse, type DeploymentPlansResponse, type MetricsResponse, type DeploymentChangelogResponse } from './services'
+import { mockServicesData, mockServiceDetails, mockVersionOptions, mockScheduledReleases, mockServiceActiveVersions, mockServiceMetrics, mockAvailableVersions, mockDeploymentPlans, mockMetricsData, mockDeploymentChangelog, mockAlertRuleChangelog, type ServicesResponse, type ServiceDetail, type ServiceActiveVersionsResponse, type ServiceMetricsResponse, type AvailableVersionsResponse, type DeploymentPlansResponse, type MetricsResponse, type DeploymentChangelogResponse, type AlertRuleChangelogResponse } from './services'
 
 // 模拟网络延迟
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -149,6 +149,31 @@ export class MockApiService {
     return {
       items,
       next: items.length > 0 ? items[items.length - 1].startTime : undefined
+    }
+  }
+
+  // 获取告警规则变更记录 - 新的API接口
+  static async getAlertRuleChangelog(start?: string, limit?: number): Promise<AlertRuleChangelogResponse> {
+    await delay(300)
+    console.log(`Mock API: 获取告警规则变更记录 - start: ${start}, limit: ${limit}`)
+    
+    // 模拟分页逻辑
+    let items = [...mockAlertRuleChangelog.items]
+    
+    // 如果有start参数，模拟从该时间点开始的数据
+    if (start) {
+      const startTime = new Date(start)
+      items = items.filter(item => new Date(item.editTime) <= startTime)
+    }
+    
+    // 如果有limit参数，限制返回数量
+    if (limit && limit > 0) {
+      items = items.slice(0, limit)
+    }
+    
+    return {
+      items,
+      next: items.length > 0 ? items[items.length - 1].editTime : undefined
     }
   }
 }
