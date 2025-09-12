@@ -1459,6 +1459,7 @@ const disposeMetricsCharts = () => {
   text-align: center;
   font-size: 18px;
   font-weight: 500;
+  margin-top: -30px;
   margin-bottom: 12px;
   color: #2c3e50;
 }
@@ -1556,7 +1557,7 @@ const disposeMetricsCharts = () => {
 
 .legend {
   position: absolute;
-  bottom: 12px;
+  bottom: 60px;
   right: 12px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
