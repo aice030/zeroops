@@ -3,7 +3,9 @@ package database
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
+	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/qiniu/zeroops/internal/config"
 )
 
@@ -13,7 +15,27 @@ type Database struct {
 }
 
 func NewDatabase(cfg *config.DatabaseConfig) (*Database, error) {
-	database := &Database{config: cfg}
+	// 构建PostgreSQL连接字符串
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode)
+
+	// 连接数据库
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
+	}
+
+	// 测试连接
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	database := &Database{
+		db:     db,
+		config: cfg,
+	}
+
 	return database, nil
 }
 

@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/fox-gonic/fox"
+	"github.com/qiniu/zeroops/internal/middleware"
 	"github.com/qiniu/zeroops/internal/service_manager/database"
 	"github.com/qiniu/zeroops/internal/service_manager/service"
 )
@@ -18,6 +19,10 @@ func NewApi(db *database.Database, service *service.Service, router *fox.Engine)
 		service: service,
 		router:  router,
 	}
+
+	// 添加CORS中间件
+	router.Use(middleware.CORS())
+
 	api.setupRouters(router)
 	return api, nil
 }

@@ -10,13 +10,13 @@ const (
 	ExceptionStatusResolved   ExceptionStatus = "resolved"
 )
 
-// HealthStatus 健康状态枚举
-type HealthStatus string
+// Level 健康状态枚举
+type Level string
 
 const (
-	HealthStatusNormal  HealthStatus = "Normal"
-	HealthStatusWarning HealthStatus = "Warning"
-	HealthStatusError   HealthStatus = "Error"
+	LevelNormal  Level = "Normal"
+	LevelWarning Level = "Warning"
+	LevelError   Level = "Error"
 )
 
 // DeployStatus 部署状态枚举

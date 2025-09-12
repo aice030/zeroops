@@ -26,9 +26,9 @@ func (s *Service) GetServicesResponse(ctx context.Context) (*model.ServicesRespo
 			log.Error().Err(err).Str("service", service.Name).Msg("failed to get service state")
 		}
 
-		health := model.HealthStatusNormal
+		health := model.LevelNormal
 		if state != nil {
-			health = state.HealthStatus
+			health = state.Level
 		}
 
 		// 默认设置为已完成部署状态
@@ -74,10 +74,10 @@ func (s *Service) GetServiceActiveVersions(ctx context.Context, serviceName stri
 			log.Error().Err(err).Str("service", serviceName).Msg("failed to get service state")
 		}
 
-		health := model.HealthStatusNormal
+		health := model.LevelNormal
 		reportAt := &model.ServiceState{}
 		if state != nil {
-			health = state.HealthStatus
+			health = state.Level
 			reportAt = state
 		}
 
@@ -116,18 +116,6 @@ func (s *Service) GetServiceAvailableVersions(ctx context.Context, serviceName, 
 // CreateService 创建服务
 func (s *Service) CreateService(ctx context.Context, service *model.Service) error {
 	return s.db.CreateService(ctx, service)
-}
-
-// GetServiceByName 根据名称获取服务
-func (s *Service) GetServiceByName(ctx context.Context, name string) (*model.Service, error) {
-	service, err := s.db.GetServiceByName(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	if service == nil {
-		return nil, ErrServiceNotFound
-	}
-	return service, nil
 }
 
 // UpdateService 更新服务信息
