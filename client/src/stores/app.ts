@@ -62,6 +62,15 @@ export interface ModuleRecord {
   eventData?: any
 }
 
+// 告警变更记录类型定义
+export interface AlarmChangeItem {
+  id: string
+  service: string
+  change: string
+  timestamp: string
+  details: string
+}
+
 export const useAppStore = defineStore('app', () => {
   // 状态
   const currentView = ref<'home' | 'changelog'>('home')

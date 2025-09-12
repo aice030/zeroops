@@ -121,7 +121,7 @@ const transformDeploymentChangelogToChangeItems = (changelogData: any[]): Change
     ]
     
     return {
-      id: `chg-${index + 1}`,
+      id: `chg-${item.service}-${item.version}-${item.startTime}`,
       service: item.service,
       version: item.version,
       state,
@@ -147,7 +147,7 @@ const transformAlertRuleChangelogToAlarmChangeItems = (changelogData: AlertRuleC
     const timestamp = new Date(item.editTime).toLocaleString('zh-CN')
     
     return {
-      id: `alarm-${index + 1}`,
+      id: `alarm-${item.name}-${item.editTime}`,
       service: serviceName,
       change: `${item.name}: ${changeDescription}`,
       timestamp,
