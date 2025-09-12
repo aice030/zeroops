@@ -29,24 +29,43 @@
 
         <!-- 变更记录列表 -->
         <div class="change-list">
-          <ChangeCard
-            v-for="item in filteredChangeItems"
-            :key="item.id"
-            :item="item"
-          />
-          <div v-if="filteredChangeItems.length === 0" class="no-results">
-            无匹配记录
+          <!-- 加载状态 -->
+          <div v-if="deploymentLoading" class="loading-container">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            <span>加载服务变更记录中...</span>
           </div>
+          <!-- 数据列表 -->
+          <template v-else>
+            <ChangeCard
+              v-for="item in filteredChangeItems"
+              :key="item.id"
+              :item="item"
+            />
+            <div v-if="filteredChangeItems.length === 0" class="no-results">
+              无匹配记录
+            </div>
+          </template>
         </div>
       </el-tab-pane>
 
       <el-tab-pane label="告警变更记录" name="alarm">
         <div class="change-list">
-          <AlarmChangeCard
-            v-for="item in alarmChangeItems"
-            :key="item.id"
-            :item="item"
-          />
+          <!-- 加载状态 -->
+          <div v-if="alertRuleLoading" class="loading-container">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            <span>加载告警变更记录中...</span>
+          </div>
+          <!-- 数据列表 -->
+          <template v-else>
+            <AlarmChangeCard
+              v-for="item in alarmChangeItems"
+              :key="item.id"
+              :item="item"
+            />
+            <div v-if="alarmChangeItems.length === 0" class="no-results">
+              暂无告警变更记录
+            </div>
+          </template>
         </div>
       </el-tab-pane>
 
@@ -62,18 +81,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAppStore, type ChangeItem, type AlarmChangeItem } from '@/stores/app'
 import { mockApi } from '@/mock/api'
 import type { DeploymentChangelogResponse, DeploymentChangelogItem, AlertRuleChangelogResponse, AlertRuleChangeItem } from '@/mock/services'
 import ChangeCard from '@/components/ChangeCard.vue'
 import AlarmChangeCard from '@/components/AlarmChangeCard.vue'
+import { ArrowLeft, Loading } from '@element-plus/icons-vue'
 
 const appStore = useAppStore()
 
 const activeTab = ref('service')
 const searchKeyword = ref('')
-const loading = ref(false)
+const deploymentLoading = ref(false)
+const alertRuleLoading = ref(false)
 const error = ref<string | null>(null)
 
 // 部署变更记录数据
@@ -158,8 +179,10 @@ const transformAlertRuleChangelogToAlarmChangeItems = (changelogData: AlertRuleC
 
 // 加载部署变更记录
 const loadDeploymentChangelog = async (start?: string, limit?: number) => {
+  if (deploymentLoading.value) return // 防止重复加载
+  
   try {
-    loading.value = true
+    deploymentLoading.value = true
     error.value = null
     
     const response = await mockApi.getDeploymentChangelog(start, limit)
@@ -173,14 +196,16 @@ const loadDeploymentChangelog = async (start?: string, limit?: number) => {
     error.value = '加载部署变更记录失败'
     console.error('加载部署变更记录失败:', err)
   } finally {
-    loading.value = false
+    deploymentLoading.value = false
   }
 }
 
 // 加载告警规则变更记录
 const loadAlertRuleChangelog = async (start?: string, limit?: number) => {
+  if (alertRuleLoading.value) return // 防止重复加载
+  
   try {
-    loading.value = true
+    alertRuleLoading.value = true
     error.value = null
     
     const response = await mockApi.getAlertRuleChangelog(start, limit)
@@ -194,7 +219,7 @@ const loadAlertRuleChangelog = async (start?: string, limit?: number) => {
     error.value = '加载告警规则变更记录失败'
     console.error('加载告警规则变更记录失败:', err)
   } finally {
-    loading.value = false
+    alertRuleLoading.value = false
   }
 }
 
@@ -216,10 +241,18 @@ const handleSearch = () => {
   // 搜索逻辑已在计算属性中处理
 }
 
-// 生命周期
+// 监听标签页切换，实现按需加载
+watch(activeTab, (newTab) => {
+  if (newTab === 'service' && !changeItems.value.length) {
+    loadDeploymentChangelog()
+  } else if (newTab === 'alarm' && !alarmChangeItems.value.length) {
+    loadAlertRuleChangelog()
+  }
+})
+
+// 生命周期 - 只加载默认标签页数据
 onMounted(() => {
-  loadDeploymentChangelog()
-  loadAlertRuleChangelog()
+  loadDeploymentChangelog() // 只加载默认标签页
 })
 </script>
 
@@ -296,5 +329,15 @@ onMounted(() => {
   color: #6b7280;
   font-size: 14px;
   padding: 32px;
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px;
+  color: #6b7280;
+  font-size: 14px;
 }
 </style>
