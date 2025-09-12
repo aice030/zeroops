@@ -295,12 +295,14 @@ onMounted(() => {
 .title {
   font-size: 24px;
   font-weight: 600;
+  color: #2c3e50;
 }
 
 .page-title {
   font-size: 32px;
   font-weight: 600;
   margin-bottom: 16px;
+  color: #2c3e50;
 }
 
 .tabs {

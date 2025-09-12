@@ -1,5 +1,5 @@
 <template>
-  <div class="batch-detail">
+  <div class="batch-detail" :class="{ 'expandable': batch.moduleRecords }" @click="handleBatchClick">
     <div class="batch-header">
       <div class="batch-info">
         <div class="batch-name">{{ batch.name }}</div>
@@ -11,18 +11,12 @@
           {{ batch.status }}
         </el-tag>
       </div>
-      <el-button
-        v-if="batch.moduleRecords"
-        type="text"
-        size="small"
-        @click="toggleModuleExpanded"
-        class="expand-btn"
-      >
+      <div v-if="batch.moduleRecords" class="expand-indicator">
         <el-icon>
           <ArrowUp v-if="isModuleExpanded" />
           <ArrowDown v-else />
         </el-icon>
-      </el-button>
+      </div>
     </div>
 
     <div class="batch-details">
@@ -69,6 +63,13 @@ const toggleModuleExpanded = () => {
   isModuleExpanded.value = !isModuleExpanded.value
 }
 
+const handleBatchClick = (event: Event) => {
+  if (props.batch.moduleRecords) {
+    event.stopPropagation() // 阻止事件冒泡到父级
+    toggleModuleExpanded()
+  }
+}
+
 const getBatchStatusType = (status: string) => {
   switch (status) {
     case '异常':
@@ -113,13 +114,23 @@ const getBatchStatusType = (status: string) => {
   font-size: 12px;
 }
 
-.expand-btn {
+.expand-indicator {
   width: 24px;
   height: 24px;
-  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #6b7280;
+}
+
+.expandable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.expandable:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .batch-details {

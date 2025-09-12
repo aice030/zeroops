@@ -1,5 +1,5 @@
 <template>
-  <el-card class="change-card" shadow="hover">
+  <el-card class="change-card" shadow="hover" :class="{ 'expandable': item.batches }" @click="handleCardClick">
     <template #header>
       <div class="card-header">
         <div class="card-title">
@@ -11,18 +11,12 @@
             <span v-else-if="item.state === '已完成'">发布完成，{{ item.ok ? '正常' : '异常' }}</span>
           </span>
         </div>
-        <el-button
-          v-if="item.batches"
-          type="text"
-          size="small"
-          @click="toggleExpanded"
-          class="expand-btn"
-        >
+        <div v-if="item.batches" class="expand-indicator">
           <el-icon>
             <ArrowUp v-if="isExpanded" />
             <ArrowDown v-else />
           </el-icon>
-        </el-button>
+        </div>
       </div>
     </template>
 
@@ -59,6 +53,12 @@ const isExpanded = ref(false)
 
 const toggleExpanded = () => {
   isExpanded.value = !isExpanded.value
+}
+
+const handleCardClick = () => {
+  if (props.item.batches) {
+    toggleExpanded()
+  }
 }
 
 const getStatusDotClass = (state: string) => {
@@ -124,13 +124,23 @@ const getProgressColor = (state: string) => {
   margin-left: 8px;
 }
 
-.expand-btn {
+.expand-indicator {
   width: 32px;
   height: 32px;
-  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #6b7280;
+}
+
+.expandable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.expandable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .card-content {
