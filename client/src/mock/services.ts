@@ -1636,7 +1636,8 @@ export const mockAlertDetails: Record<string, AlertDetail> = {
       }
     ]
   }
-=======
+}
+
 // Mock数据 - 告警规则变更记录
 export const mockAlertRuleChangelog: AlertRuleChangelogResponse = {
   items: [

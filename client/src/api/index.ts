@@ -112,6 +112,7 @@ export const apiService = {
   // 获取告警详情
   getAlertDetail: (issueID: string) => {
     return api.get(`/v1/issues/${issueID}`)
+  }
 }
 
 export default api
