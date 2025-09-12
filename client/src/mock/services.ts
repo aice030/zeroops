@@ -1243,7 +1243,7 @@ export interface AlertIssue {
   title: string
   labels: AlertLabel[]
   alertSince: string
-  resolved_at: string
+  resolvedAt: string
 }
 
 // 告警列表响应
@@ -1288,7 +1288,7 @@ export const mockAlertsData: AlertsResponse = {
         { key: 'prophet_type', value: 'app' }
       ],
       alertSince: '2025-09-01T19:14:12.382331146Z',
-      resolved_at: '2025-09-01T19:25:00.000Z'
+      resolvedAt: '2025-09-01T19:25:00.000Z'
     },
     {
       id: 'alert-2',
@@ -1304,7 +1304,7 @@ export const mockAlertsData: AlertsResponse = {
         { key: 'prophet_type', value: 'app' }
       ],
       alertSince: '2025-09-01T20:10:15.123456789Z',
-      resolved_at: ''
+      resolvedAt: ''
     },
     {
       id: 'alert-3',
@@ -1320,7 +1320,7 @@ export const mockAlertsData: AlertsResponse = {
         { key: 'prophet_type', value: 'infra' }
       ],
       alertSince: '2025-09-01T18:30:00.000000000Z',
-      resolved_at: '2025-09-01T18:45:00.000Z'
+      resolvedAt: '2025-09-01T18:45:00.000Z'
     },
     {
       id: 'alert-4',
@@ -1336,7 +1336,7 @@ export const mockAlertsData: AlertsResponse = {
         { key: 'prophet_type', value: 'app' }
       ],
       alertSince: '2025-09-01T21:00:00.000000000Z',
-      resolved_at: ''
+      resolvedAt: ''
     },
     {
       id: 'alert-5',
@@ -1352,7 +1352,7 @@ export const mockAlertsData: AlertsResponse = {
         { key: 'prophet_type', value: 'app' }
       ],
       alertSince: '2025-09-01T17:20:00.000000000Z',
-      resolved_at: '2025-09-01T17:35:00.000Z'
+      resolvedAt: '2025-09-01T17:35:00.000Z'
     }
   ],
   next: '2025-09-01T16:00:00.000Z'
