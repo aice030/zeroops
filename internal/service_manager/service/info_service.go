@@ -26,9 +26,16 @@ func (s *Service) GetServicesResponse(ctx context.Context) (*model.ServicesRespo
 			log.Error().Err(err).Str("service", service.Name).Msg("failed to get service state")
 		}
 
-		health := model.LevelNormal
+		// 默认为正常状态，因为正常状态的服务不会存储在service_state表中
+		health := model.HealthLevelNormal
 		if state != nil {
-			health = state.Level
+			// 将数据库中的异常状态映射为API响应状态
+			switch state.Level {
+			case model.LevelWarning:
+				health = model.HealthLevelWarning
+			case model.LevelError:
+				health = model.HealthLevelError
+			}
 		}
 
 		// 默认设置为已完成部署状态
@@ -74,10 +81,17 @@ func (s *Service) GetServiceActiveVersions(ctx context.Context, serviceName stri
 			log.Error().Err(err).Str("service", serviceName).Msg("failed to get service state")
 		}
 
-		health := model.LevelNormal
+		// 默认为正常状态，因为正常状态的服务不会存储在service_state表中
+		health := model.HealthLevelNormal
 		reportAt := &model.ServiceState{}
 		if state != nil {
-			health = state.Level
+			// 将数据库中的异常状态映射为API响应状态
+			switch state.Level {
+			case model.LevelWarning:
+				health = model.HealthLevelWarning
+			case model.LevelError:
+				health = model.HealthLevelError
+			}
 			reportAt = state
 		}
 

@@ -1,22 +1,30 @@
 package model
 
-// ExceptionStatus 异常处理状态枚举
-type ExceptionStatus string
+// Status 异常处理状态枚举
+type Status string
 
 const (
-	ExceptionStatusNew        ExceptionStatus = "new"
-	ExceptionStatusAnalyzing  ExceptionStatus = "analyzing"
-	ExceptionStatusProcessing ExceptionStatus = "processing"
-	ExceptionStatusResolved   ExceptionStatus = "resolved"
+	StatusNew        Status = "new"
+	StatusAnalyzing  Status = "analyzing"
+	StatusProcessing Status = "processing"
+	StatusResolved   Status = "resolved"
 )
 
 // Level 健康状态枚举
 type Level string
 
 const (
-	LevelNormal  Level = "Normal"
 	LevelWarning Level = "Warning"
 	LevelError   Level = "Error"
+)
+
+// HealthLevel API响应用的健康状态枚举（包含正常状态）
+type HealthLevel string
+
+const (
+	HealthLevelNormal  HealthLevel = "Normal"
+	HealthLevelWarning HealthLevel = "Warning"
+	HealthLevelError   HealthLevel = "Error"
 )
 
 // DeployStatus 部署状态枚举
