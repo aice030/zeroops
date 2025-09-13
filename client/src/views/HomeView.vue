@@ -1071,9 +1071,49 @@ const getCurrentMetricValue = (metricName: keyof typeof metricsData.value) => {
 }
 
 const createRelease = async () => {
+  // 表单验证
+  if (!selectedNode.value?.name) {
+    ElMessage.error('请先选择服务')
+    return
+  }
+  
+  if (!selectedVersion.value) {
+    ElMessage.error('请选择目标版本')
+    return
+  }
+  
   try {
-    ElMessage.success('发布计划创建成功')
+    // 准备请求数据
+    const requestData: any = {
+      service: selectedNode.value.name,
+      version: selectedVersion.value
+    }
+    
+    // 如果有计划时间，转换为ISO格式
+    if (scheduledStart.value) {
+      requestData.scheduleTime = new Date(scheduledStart.value).toISOString()
+    }
+    
+    // 调用创建部署API
+    const result = await apiService.createDeployment(requestData)
+    
+    if (result.status === 201) {
+      ElMessage.success('发布计划创建成功')
+      
+      // 重置表单
+      selectedVersion.value = ''
+      scheduledStart.value = ''
+      
+      // 刷新相关数据
+      await Promise.all([
+        loadServiceDeploymentPlans(selectedNode.value.name),
+        loadServiceDetail(selectedNode.value.name)
+      ])
+    } else {
+      ElMessage.error('创建发布计划失败')
+    }
   } catch (error) {
+    console.error('创建发布计划失败:', error)
     ElMessage.error('创建发布计划失败')
   }
 }
