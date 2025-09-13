@@ -84,7 +84,6 @@ func (s *Service) UpdateDeployment(ctx context.Context, deployID string, req *mo
 
 	log.Info().
 		Str("deployID", deployID).
-		Str("service", deployment.Service).
 		Msg("deployment updated successfully")
 
 	return nil
@@ -113,7 +112,6 @@ func (s *Service) DeleteDeployment(ctx context.Context, deployID string) error {
 
 	log.Info().
 		Str("deployID", deployID).
-		Str("service", deployment.Service).
 		Msg("deployment deleted successfully")
 
 	return nil
@@ -140,7 +138,6 @@ func (s *Service) PauseDeployment(ctx context.Context, deployID string) error {
 
 	log.Info().
 		Str("deployID", deployID).
-		Str("service", deployment.Service).
 		Msg("deployment paused successfully")
 
 	return nil
@@ -167,7 +164,6 @@ func (s *Service) ContinueDeployment(ctx context.Context, deployID string) error
 
 	log.Info().
 		Str("deployID", deployID).
-		Str("service", deployment.Service).
 		Msg("deployment continued successfully")
 
 	return nil
@@ -196,29 +192,7 @@ func (s *Service) RollbackDeployment(ctx context.Context, deployID string) error
 
 	log.Info().
 		Str("deployID", deployID).
-		Str("service", deployment.Service).
 		Msg("deployment rolled back successfully")
 
 	return nil
-}
-
-// GetDeployBatches 获取部署批次列表
-func (s *Service) GetDeployBatches(ctx context.Context, deployID string) ([]model.DeployBatch, error) {
-	// 先验证部署任务存在
-	deployment, err := s.db.GetDeploymentByID(ctx, deployID)
-	if err != nil {
-		return nil, err
-	}
-	if deployment == nil {
-		return nil, ErrDeploymentNotFound
-	}
-
-	// TODO:将deployID转换为int (这里简化处理)
-	// 实际项目中应该在数据库层统一ID类型
-	return s.db.GetDeployBatches(ctx, 1) // 临时硬编码，需要根据实际deployID转换
-}
-
-// CreateDeployBatch 创建部署批次
-func (s *Service) CreateDeployBatch(ctx context.Context, batch *model.DeployBatch) error {
-	return s.db.CreateDeployBatch(ctx, batch)
 }
