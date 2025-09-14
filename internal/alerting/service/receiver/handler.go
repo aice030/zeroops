@@ -66,6 +66,7 @@ func (h *Handler) AlertmanagerWebhook(c *fox.Context) {
 			version := strings.TrimSpace(a.Labels["service_version"]) // optional
 			if service != "" {
 				_ = w.UpsertServiceState(c.Request.Context(), service, version, row.AlertSince, "Error")
+				_ = h.cache.WriteServiceState(c.Request.Context(), service, version, row.AlertSince, "Error")
 			}
 		}
 		// Write-through to cache. Errors are ignored to avoid impacting webhook ack.

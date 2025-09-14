@@ -170,9 +170,12 @@ func (h *Handler) AlertmanagerWebhook(c *gin.Context) {
             // 仅记录错误，不阻断主流程
         }
         // 6) 写通到 Redis（不阻塞主流程，失败仅记录日志）
+        //    alert_issues
         if err := h.cache.WriteIssue(c, row, a); err != nil {
             // 仅记录错误，避免影响 Alertmanager 重试逻辑
         }
+        //    service_states
+        _ = h.cache.WriteServiceState(c, a.Labels["service"], a.Labels["service_version"], row.AlertSince, "Error")
         MarkSeen(key) // 记忆幂等键
         created++
     }
@@ -383,6 +386,10 @@ key 设计与 TTL：
 - alert:idemp:{fingerprint}|{startsAtRFC3339Nano} → "1"，TTL 10m（用于分布式幂等 SETNX）
 - alert:index:open → Set(issues...)，无 TTL（恢复时再移除）
 - alert:index:svc:{service}:open → Set(issues...)，无 TTL
+// service_states 缓存
+- service_state:{service}:{version} → JSON（service/version/report_at/health_state），TTL 3d
+- service_state:index:service:{service} → Set(keys)
+- service_state:index:health:{health_state} → Set(keys)
 
 cache.go（示例）：
 
@@ -446,6 +453,9 @@ redis-cli --raw keys 'alert:*'
 redis-cli --raw get alert:issue:<id>
 redis-cli --raw smembers alert:index:open | head -n 10
 redis-cli ttl alert:issue:<id>
+redis-cli --raw keys 'service_state:*'
+redis-cli --raw get service_state:serviceA:v1.3.7
+redis-cli --raw smembers service_state:index:health:Error
 ```
 
 ⸻

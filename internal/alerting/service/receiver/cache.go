@@ -15,6 +15,7 @@ import (
 type AlertIssueCache interface {
 	WriteIssue(ctx context.Context, r *AlertIssueRow, a AMAlert) error
 	TryMarkIdempotent(ctx context.Context, a AMAlert) (bool, error)
+	WriteServiceState(ctx context.Context, service, version string, reportAt time.Time, healthState string) error
 }
 
 // NoopCache is a no-op implementation of AlertIssueCache.
@@ -22,6 +23,9 @@ type NoopCache struct{}
 
 func (NoopCache) WriteIssue(ctx context.Context, r *AlertIssueRow, a AMAlert) error { return nil }
 func (NoopCache) TryMarkIdempotent(ctx context.Context, a AMAlert) (bool, error)    { return true, nil }
+func (NoopCache) WriteServiceState(ctx context.Context, service, version string, reportAt time.Time, healthState string) error {
+	return nil
+}
 
 // Cache implements AlertIssueCache using Redis.
 type Cache struct{ R *redis.Client }
@@ -78,4 +82,31 @@ func (c *Cache) TryMarkIdempotent(ctx context.Context, a AMAlert) (bool, error) 
 	k := "alert:idemp:" + a.Fingerprint + "|" + a.StartsAt.UTC().Format(time.RFC3339Nano)
 	ok, err := c.R.SetNX(ctx, k, "1", 10*time.Minute).Result()
 	return ok, err
+}
+
+// WriteServiceState writes the service state snapshot into Redis and maintains simple indices.
+func (c *Cache) WriteServiceState(ctx context.Context, service, version string, reportAt time.Time, healthState string) error {
+	if c == nil || c.R == nil {
+		return nil
+	}
+	s := strings.TrimSpace(service)
+	v := strings.TrimSpace(version)
+	key := "service_state:" + s + ":" + v
+	payload := map[string]any{
+		"service":      s,
+		"version":      v,
+		"report_at":    reportAt,
+		"health_state": healthState,
+	}
+	b, _ := json.Marshal(payload)
+	pipe := c.R.Pipeline()
+	pipe.Set(ctx, key, b, 72*time.Hour)
+	if s != "" {
+		pipe.SAdd(ctx, "service_state:index:service:"+s, key)
+	}
+	if healthState != "" {
+		pipe.SAdd(ctx, "service_state:index:health:"+healthState, key)
+	}
+	_, err := pipe.Exec(ctx)
+	return err
 }
