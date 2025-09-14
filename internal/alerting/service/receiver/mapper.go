@@ -42,7 +42,7 @@ func MapToAlertIssueRow(w *AMWebhook, a *AMAlert) (*AlertIssueRow, error) {
 	return &AlertIssueRow{
 		ID:         uuid.NewString(),
 		State:      "Open",
-		AlertState: "InProcessing",
+		AlertState: "Pending",
 		Level:      level,
 		Title:      title,
 		LabelJSON:  b,

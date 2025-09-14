@@ -53,7 +53,7 @@ func TestPgDAO_InsertAlertIssue(t *testing.T) {
 		ID:         uuid.NewString(),
 		State:      "Open",
 		Level:      "P1",
-		AlertState: "InProcessing",
+		AlertState: "Pending",
 		Title:      "integration insert",
 		LabelJSON:  []byte(`[{"key":"k","value":"v"}]`),
 		AlertSince: time.Now().UTC(),

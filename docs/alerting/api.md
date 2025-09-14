@@ -127,7 +127,7 @@ GET /v1/issues/{issueID}
 | id | string | 告警问题唯一标识 |
 | state | string | 告警工单的生命周期状态状态：`Open`、`Closed` |
 | level | string | 告警等级：`P0`、`P1`、`P2`、`Warning` |
-| alertState | string | 告警本身的实时状态：`Restored`、`AutoRestored`、`InProcessing` |
+| alertState | string | 告警本身的实时状态：`Pending`、`Restored`、`AutoRestored`、`InProcessing` |
 | title | string | 告警标题描述 |
 | labels | Label[] | 标签数组 |
 | alertSince | string | 告警发生时间（ISO 8601格式） |
@@ -150,10 +150,10 @@ GET /v1/issues/{issueID}
 ### 状态语义与映射
 
 - **state**：工单生命周期状态，取值：`Open`、`Closed`。
-- **alertState**：告警实时状态，取值：`InProcessing`、`Restored`、`AutoRestored`。
+- **alertState**：告警实时状态，取值：`Pending`、`InProcessing`、`Restored`、`AutoRestored`。
 
 典型关系与约定：
-- 当 `state = Open` 时，通常表示仍存在未恢复的相关告警，`alertState` 多为 `InProcessing`。
+- 当 `state = Open` 时，通常表示仍存在未恢复的相关告警，`alertState` 多为 `Pending`或`InProcessing`。
 - 当 `state = Closed` 时，通常表示所有相关告警已恢复，`alertState` 多为 `Restored` 或 `AutoRestored`（自动恢复）。
 
 注意：`alertState` 反映的是告警流的当前快照，而 `state` 管理的是问题工单的生命周期。二者并非强绑定，边界时刻可能出现 `state = Open` 但部分告警已恢复的情况。

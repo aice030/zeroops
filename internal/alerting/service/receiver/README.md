@@ -1,8 +1,4 @@
-下面是一份可以直接放进 alerting/service/receiver/README.md 的「落地实施计划」。它把 Prometheus → Alertmanager →（POST JSON）→ /receiver 的数据接收、解析校验、以及结构化插入 PostgreSQL 的每一步拆清楚，并按你的目录给出需要新建的文件与代码骨架。
-
-⸻
-
-🧭 端到端验证（Docker Postgres + 本服务）
+🧭 端到端验证（Docker Postgres + Redis + 本服务）
 
 以下步骤演示从 Alertmanager Webhook 到数据库落库的完整链路验证：
 
@@ -12,6 +8,12 @@
 docker run --name zeroops-pg \
   -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=zeroops \
   -p 5432:5432 -d postgres:16
+```
+
+1b) 启动 Redis（Docker）
+
+```bash
+docker run --name zeroops-redis -p 6379:6379 -d redis:7-alpine
 ```
 
 2) 初始化告警相关表
@@ -25,6 +27,7 @@ go test ./internal/alerting/service/receiver -tags=integration -run TestPgDAO_In
 ```bash
 export DB_HOST=localhost DB_PORT=5432 DB_USER=postgres DB_PASSWORD=postgres DB_NAME=zeroops DB_SSLMODE=disable
 export ALERT_WEBHOOK_BASIC_USER=alert ALERT_WEBHOOK_BASIC_PASS=REDACTED
+export REDIS_ADDR=localhost:6379 REDIS_PASSWORD="" REDIS_DB=0
 nohup go run ./cmd/zeroops -- 1>/tmp/zeroops.out 2>&1 &
 ```
 
@@ -50,7 +53,7 @@ curl -u alert:REDACTED -H 'Content-Type: application/json' \
 }'
 ```
 
-5) 在数据库中验证（应看到一行 Open/P1/InProcessing 且标题匹配的记录）
+5) 在数据库中验证（应看到一行 Open/P1/Pending 且标题匹配的记录）
 
 ```bash
 docker exec -i zeroops-pg psql -U postgres -d zeroops -c \
@@ -75,7 +78,7 @@ receiver/ — 从 Alertmanager Webhook 到 alert_issues 入库的实施计划
 
 目标：当 Alertmanager 向本服务发起 POST JSON 时，第一次创建告警记录并落表 alert_issues，字段规则：
 	•	state 默认 Open
-	•	alertState 默认 InProcessing
+	•	alertState 默认 Pending
 	•	其余字段按 webhook 请求体解析、校验后写入
 
 本计划仅覆盖「首次创建」逻辑；resolved（恢复）更新逻辑可在后续补充（例如切换 state=Closed、alertState=Restored）。
@@ -96,6 +99,7 @@ alerting/
       ├─ validator.go              # 字段校验（必填/枚举/时间格式等）
       ├─ mapper.go                 # 映射：AM payload → alert_issues 行记录
       ├─ dao.go                    # DB 访问（Insert/Query/事务/重试）
+      ├─ cache.go                  # Redis 客户端与写通缓存（Write-through）
       ├─ idempotency.go            # 幂等键生成与“已处理”快速判断（应用层）
       └─ errors.go                 # 统一错误定义（参数错误/DB错误等）
 
@@ -116,9 +120,10 @@ handler.go
 
 type Handler struct {
     dao *DAO
+    cache *Cache // Redis 写通
 }
 
-func NewHandler(dao *DAO) *Handler { return &Handler{dao: dao} }
+func NewHandler(dao *DAO, cache *Cache) *Handler { return &Handler{dao: dao, cache: cache} }
 
 func (h *Handler) AlertmanagerWebhook(c *gin.Context) {
     var req AMWebhook // dto.go 中定义的 Alertmanager 请求体结构
@@ -154,10 +159,19 @@ func (h *Handler) AlertmanagerWebhook(c *gin.Context) {
             continue
         }
 
-        // 4) 插入 DB（第一次创建强制 state=Open, alertState=InProcessing）
+        // 4) 插入 DB（第一次创建强制 state=Open, alertState=Pending）
         if err := h.dao.InsertAlertIssue(c, row); err != nil {
             // 若唯一约束冲突/网络抖动等，记录后继续
             continue
+        }
+        // 5) 同步写入 service_states（health_state=Error；detail/resolved_at/correlation_id 留空）
+        //    service 从 labels.service 取；version 可从 labels.service_version 取（可空）
+        if err := h.dao.UpsertServiceState(c, a.Labels["service"], a.Labels["service_version"], row.AlertSince, "Error"); err != nil {
+            // 仅记录错误，不阻断主流程
+        }
+        // 6) 写通到 Redis（不阻塞主流程，失败仅记录日志）
+        if err := h.cache.WriteIssue(c, row, a); err != nil {
+            // 仅记录错误，避免影响 Alertmanager 重试逻辑
         }
         MarkSeen(key) // 记忆幂等键
         created++
@@ -204,7 +218,7 @@ type AlertIssueRow struct {
     ID         string          // uuid
     State      string          // enum: Open/Closed （首次固定 Open）
     Level      string          // varchar(32): P0/P1/P2/Warning
-    AlertState string          // enum: InProcessing/Restored/AutoRestored（首次固定 InProcessing）
+    AlertState string          // enum: Pending/InProcessing/Restored/AutoRestored（首次固定 Pending）
     Title      string          // varchar(255)
     LabelJSON  json.RawMessage // json: 标准化后的 [{key,value}]
     AlertSince time.Time       // timestamp: 用 StartsAt
@@ -291,7 +305,7 @@ func MapToAlertIssueRow(w *AMWebhook, a *AMAlert) (*AlertIssueRow, error) {
     return &AlertIssueRow{
         ID:         uuid.NewString(),
         State:      "Open",
-        AlertState: "InProcessing",
+        AlertState: "Pending",
         Level:      level,
         Title:      title,
         LabelJSON:  b,
@@ -329,7 +343,7 @@ type DAO struct{ DB *pgxpool.Pool }
 func (d *DAO) InsertAlertIssue(ctx context.Context, r *AlertIssueRow) error {
     const q = `
     INSERT INTO alert_issues
-        (id, state, level, alertState, title, label, alertSince)
+        (id, state, level, alert_state, title, labels, alert_since)
     VALUES
         ($1, $2, $3, $4, $5, $6, $7)
     `
@@ -345,13 +359,104 @@ func (d *DAO) InsertAlertIssue(ctx context.Context, r *AlertIssueRow) error {
 
 ⸻
 
-⑧ 成功/失败返回与日志
+⑧ Redis 缓存写通（Write-through）与分布式幂等
+
+目标：在成功写入 PostgreSQL 后，将关键数据写入 Redis，既为前端查询提供加速缓存，也为后续定时任务提供快速读取能力；同时用 Redis 提供跨实例幂等控制。
+
+依赖：
+
+```bash
+go get github.com/redis/go-redis/v9
+```
+
+配置（环境变量）：
+
+```
+REDIS_ADDR=localhost:6379
+REDIS_PASSWORD=""
+REDIS_DB=0
+```
+
+key 设计与 TTL：
+
+- alert:issue:{id} → JSON（AlertIssueRow + 补充字段），TTL 3d
+- alert:idemp:{fingerprint}|{startsAtRFC3339Nano} → "1"，TTL 10m（用于分布式幂等 SETNX）
+- alert:index:open → Set(issues...)，无 TTL（恢复时再移除）
+- alert:index:svc:{service}:open → Set(issues...)，无 TTL
+
+cache.go（示例）：
+
+```go
+type Cache struct{ R *redis.Client }
+
+func NewCacheFromEnv() *Cache {
+    db, _ := strconv.Atoi(os.Getenv("REDIS_DB"))
+    c := redis.NewClient(&redis.Options{Addr: os.Getenv("REDIS_ADDR"), Password: os.Getenv("REDIS_PASSWORD"), DB: db})
+    return &Cache{R: c}
+}
+
+// 写通：issue 主键对象 + 索引集合
+func (c *Cache) WriteIssue(ctx context.Context, r *AlertIssueRow, a AMAlert) error {
+    if c == nil || c.R == nil { return nil }
+    key := "alert:issue:" + r.ID
+    payload := map[string]any{
+        "id": r.ID, "state": r.State, "level": r.Level, "alertState": r.AlertState,
+        "title": r.Title, "labels": json.RawMessage(r.LabelJSON), "alertSince": r.AlertSince,
+        "fingerprint": a.Fingerprint, "service": a.Labels["service"], "alertname": a.Labels["alertname"],
+    }
+    b, _ := json.Marshal(payload)
+    svc := strings.TrimSpace(a.Labels["service"])
+    pipe := c.R.Pipeline()
+    pipe.Set(ctx, key, b, 72*time.Hour)
+    pipe.SAdd(ctx, "alert:index:open", r.ID)
+    if svc != "" {
+        pipe.SAdd(ctx, "alert:index:svc:"+svc+":open", r.ID)
+    }
+    _, err := pipe.Exec(ctx)
+    return err
+}
+
+// 分布式幂等：SETNX + TTL
+func (c *Cache) TryMarkIdempotent(ctx context.Context, a AMAlert) (bool, error) {
+    if c == nil || c.R == nil { return true, nil }
+    k := "alert:idemp:" + a.Fingerprint + "|" + a.StartsAt.UTC().Format(time.RFC3339Nano)
+    ok, err := c.R.SetNX(ctx, k, "1", 10*time.Minute).Result()
+    return ok, err
+}
+```
+
+在 handler 中接入（伪码）：
+
+```go
+// 幂等短路（跨实例）
+if ok, _ := h.cache.TryMarkIdempotent(c, a); !ok {
+    continue
+}
+// DB 成功后写通 Redis
+_ = h.cache.WriteIssue(c, row, a)
+```
+
+失败处理：Redis 失败不影响 HTTP 主流程（Alertmanager 侧重试依赖 2xx），但需要日志打点与告警；后续可在定时任务做补偿（扫描最近 N 分钟的 DB 记录回填 Redis）。
+
+快速验证：
+
+```bash
+# 触发一次 webhook 后在 Redis 查看
+redis-cli --raw keys 'alert:*'
+redis-cli --raw get alert:issue:<id>
+redis-cli --raw smembers alert:index:open | head -n 10
+redis-cli ttl alert:issue:<id>
+```
+
+⸻
+
+⑨ 成功/失败返回与日志
 	•	返回：统一 200 {"ok": true, "created": <n>}，即使个别记录失败也快速返回，避免 Alertmanager 阻塞重试。
 	•	日志：按 alertname/service/severity/fingerprint 打点；错误包含 SQLSTATE/堆栈；统计接收/解析/插入耗时分位。
 
 ⸻
 
-⑨ 最小联调（人工模拟）
+⑩ 最小联调（人工模拟）
 
 firing 模拟：
 
@@ -363,7 +468,13 @@ curl -X POST http://localhost:8080/v1/integrations/alertmanager/webhook \
     "alerts":[
       {
         "status":"firing",
-        "labels":{"alertname":"HighRequestLatency","service":"serviceA","severity":"P1","idc":"yzh"},
+        "labels":{
+            "alertname":"HighRequestLatency",
+            "service":"serviceA",
+            "severity":"P1",
+            "idc":"yzh",
+            "service_version": "v1.3.7"
+            },
         "annotations":{"summary":"p95 latency over threshold","description":"apitime p95 > 450ms"},
         "startsAt":"2025-05-05T11:00:00Z",
         "endsAt":"0001-01-01T00:00:00Z",
@@ -378,10 +489,22 @@ curl -X POST http://localhost:8080/v1/integrations/alertmanager/webhook \
 
 入库后，alert_issues 里应看到：
 	•	state=Open
-	•	alertState=InProcessing
+	•	alertState=Pending
 	•	level=P1
 	•	title="p95 latency over threshold"
 	•	label 中包含 am_fingerprint/generatorURL/groupKey/...
 	•	alertSince=2025-05-05 11:00:00+00
+
+同时，service_states 里应看到/更新（按 service+version）：
+	•	service=serviceA
+	•	version=（若 labels 中有 service_version 则为其值，否则为空字符串）
+	•	report_at=与 alert_since 一致（若已存在则保留更早的 report_at）
+	•	health_state=Error
+	•	detail/resolved_at/correlation_id 为空
+
+Redis 中应看到：
+	•	key: alert:issue:<id> 值为 JSON 且 TTL≈3 天
+	•	集合 alert:index:open 中包含 <id>
+	•	若有 service=serviceA，则 alert:index:svc:serviceA:open 包含 <id>
 
 ⸻

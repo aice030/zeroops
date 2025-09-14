@@ -19,7 +19,7 @@ func TestMapToAlertIssueRow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if row.State != "Open" || row.AlertState != "InProcessing" {
+	if row.State != "Open" || row.AlertState != "Pending" {
 		t.Fatal("unexpected state mapping")
 	}
 	var flat []map[string]string

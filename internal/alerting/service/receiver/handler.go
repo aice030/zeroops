@@ -8,10 +8,20 @@ import (
 )
 
 type Handler struct {
-	dao AlertIssueDAO
+	dao   AlertIssueDAO
+	cache AlertIssueCache
 }
 
-func NewHandler(dao AlertIssueDAO) *Handler { return &Handler{dao: dao} }
+// NewHandler keeps backward compatibility and uses a NoopCache by default.
+func NewHandler(dao AlertIssueDAO) *Handler { return &Handler{dao: dao, cache: NoopCache{}} }
+
+// NewHandlerWithCache allows injecting a real cache implementation.
+func NewHandlerWithCache(dao AlertIssueDAO, cache AlertIssueCache) *Handler {
+	if cache == nil {
+		cache = NoopCache{}
+	}
+	return &Handler{dao: dao, cache: cache}
+}
 
 func (h *Handler) AlertmanagerWebhook(c *fox.Context) {
 	if !AuthMiddleware(c) {
@@ -36,6 +46,10 @@ func (h *Handler) AlertmanagerWebhook(c *fox.Context) {
 	created := 0
 	for _, a := range req.Alerts {
 		key := BuildIdempotencyKey(a)
+		// Distributed idempotency (best-effort). If key exists, skip.
+		if ok, _ := h.cache.TryMarkIdempotent(c.Request.Context(), a); !ok {
+			continue
+		}
 		if AlreadySeen(key) {
 			continue
 		}
@@ -46,6 +60,16 @@ func (h *Handler) AlertmanagerWebhook(c *fox.Context) {
 		if err := h.dao.InsertAlertIssue(c.Request.Context(), row); err != nil {
 			continue
 		}
+		// Upsert service_states: health_state=Error; detail/resolved_at/correlation_id left empty
+		if w, ok := h.dao.(ServiceStateWriter); ok {
+			service := strings.TrimSpace(a.Labels["service"])
+			version := strings.TrimSpace(a.Labels["service_version"]) // optional
+			if service != "" {
+				_ = w.UpsertServiceState(c.Request.Context(), service, version, row.AlertSince, "Error")
+			}
+		}
+		// Write-through to cache. Errors are ignored to avoid impacting webhook ack.
+		_ = h.cache.WriteIssue(c.Request.Context(), row, a)
 		MarkSeen(key)
 		created++
 	}
