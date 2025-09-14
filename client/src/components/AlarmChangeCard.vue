@@ -1,5 +1,5 @@
 <template>
-  <el-card class="alarm-change-card" shadow="hover">
+  <el-card class="alarm-change-card" shadow="hover" :class="{ 'expandable': item.details }" @click="handleCardClick">
     <div class="card-content">
       <div class="card-header">
         <div class="alarm-info">
@@ -7,17 +7,12 @@
           <div class="change-description">{{ item.change }}</div>
           <div class="timestamp">{{ item.timestamp }}</div>
         </div>
-        <el-button
-          type="text"
-          size="small"
-          @click="toggleExpanded"
-          class="expand-btn"
-        >
+        <div v-if="item.details" class="expand-indicator">
           <el-icon>
             <ArrowUp v-if="isExpanded" />
             <ArrowDown v-else />
           </el-icon>
-        </el-button>
+        </div>
       </div>
 
       <!-- 详细信息 -->
@@ -44,6 +39,12 @@ const isExpanded = ref(false)
 
 const toggleExpanded = () => {
   isExpanded.value = !isExpanded.value
+}
+
+const handleCardClick = () => {
+  if (props.item.details) {
+    toggleExpanded()
+  }
 }
 </script>
 
@@ -83,14 +84,24 @@ const toggleExpanded = () => {
   color: #6b7280;
 }
 
-.expand-btn {
+.expand-indicator {
   width: 32px;
   height: 32px;
-  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-left: 16px;
+  color: #6b7280;
+}
+
+.expandable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.expandable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .details-section {

@@ -6,6 +6,7 @@ require (
 	github.com/fox-gonic/fox v0.0.6
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.5.5
+	github.com/lib/pq v1.10.9
 	github.com/rs/zerolog v1.34.0
 )
 

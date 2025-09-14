@@ -19,9 +19,6 @@ func NewService(db *database.Database) *Service {
 }
 
 func (s *Service) Close() error {
-	if s.db != nil {
-		return s.db.Close()
-	}
 	return nil
 }
 

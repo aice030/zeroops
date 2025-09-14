@@ -39,7 +39,7 @@ func (d *Database) GetServices(ctx context.Context) ([]model.Service, error) {
 
 // GetServiceByName 根据名称获取服务信息
 func (d *Database) GetServiceByName(ctx context.Context, name string) (*model.Service, error) {
-	query := `SELECT name, deps FROM services WHERE name = ?`
+	query := `SELECT name, deps FROM services WHERE name = $1`
 	row := d.QueryRowContext(ctx, query, name)
 
 	var service model.Service
@@ -67,7 +67,7 @@ func (d *Database) CreateService(ctx context.Context, service *model.Service) er
 		return err
 	}
 
-	query := `INSERT INTO services (name, deps) VALUES (?, ?)`
+	query := `INSERT INTO services (name, deps) VALUES ($1, $2)`
 	_, err = d.ExecContext(ctx, query, service.Name, string(depsJSON))
 	return err
 }
@@ -79,14 +79,14 @@ func (d *Database) UpdateService(ctx context.Context, service *model.Service) er
 		return err
 	}
 
-	query := `UPDATE services SET deps = ? WHERE name = ?`
+	query := `UPDATE services SET deps = $1 WHERE name = $2`
 	_, err = d.ExecContext(ctx, query, string(depsJSON), service.Name)
 	return err
 }
 
 // DeleteService 删除服务
 func (d *Database) DeleteService(ctx context.Context, name string) error {
-	query := `DELETE FROM services WHERE name = ?`
+	query := `DELETE FROM services WHERE name = $1`
 	_, err := d.ExecContext(ctx, query, name)
 	return err
 }
@@ -95,7 +95,7 @@ func (d *Database) DeleteService(ctx context.Context, name string) error {
 
 // GetServiceVersions 获取服务版本列表
 func (d *Database) GetServiceVersions(ctx context.Context, serviceName string) ([]model.ServiceVersion, error) {
-	query := `SELECT version, service, create_time FROM service_versions WHERE service = ? ORDER BY create_time DESC`
+	query := `SELECT version, service, create_time FROM service_versions WHERE service = $1 ORDER BY create_time DESC`
 	rows, err := d.QueryContext(ctx, query, serviceName)
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func (d *Database) GetServiceVersions(ctx context.Context, serviceName string) (
 
 // CreateServiceVersion 创建服务版本
 func (d *Database) CreateServiceVersion(ctx context.Context, version *model.ServiceVersion) error {
-	query := `INSERT INTO service_versions (version, service, create_time) VALUES (?, ?, ?)`
+	query := `INSERT INTO service_versions (version, service, create_time) VALUES ($1, $2, $3)`
 	_, err := d.ExecContext(ctx, query, version.Version, version.Service, version.CreateTime)
 	return err
 }
@@ -125,7 +125,7 @@ func (d *Database) CreateServiceVersion(ctx context.Context, version *model.Serv
 
 // GetServiceInstances 获取服务实例列表
 func (d *Database) GetServiceInstances(ctx context.Context, serviceName string) ([]model.ServiceInstance, error) {
-	query := `SELECT id, service, version FROM service_instances WHERE service = ?`
+	query := `SELECT id, service, version FROM service_instances WHERE service = $1`
 	rows, err := d.QueryContext(ctx, query, serviceName)
 	if err != nil {
 		return nil, err
@@ -146,7 +146,7 @@ func (d *Database) GetServiceInstances(ctx context.Context, serviceName string) 
 
 // CreateServiceInstance 创建服务实例
 func (d *Database) CreateServiceInstance(ctx context.Context, instance *model.ServiceInstance) error {
-	query := `INSERT INTO service_instances (id, service, version) VALUES (?, ?, ?)`
+	query := `INSERT INTO service_instances (id, service, version) VALUES ($1, $2, $3)`
 	_, err := d.ExecContext(ctx, query, instance.ID, instance.Service, instance.Version)
 	return err
 }
@@ -155,13 +155,13 @@ func (d *Database) CreateServiceInstance(ctx context.Context, instance *model.Se
 
 // GetServiceState 获取服务状态
 func (d *Database) GetServiceState(ctx context.Context, serviceName string) (*model.ServiceState, error) {
-	query := `SELECT service, version, level, report_at, resolved_at, health_status, exception_status, details 
-	          FROM service_states WHERE service = ? ORDER BY report_at DESC LIMIT 1`
+	query := `SELECT service, version, level, detail, report_at, resolved_at, health_status, correlation_id 
+	          FROM service_states WHERE service = $1 ORDER BY report_at DESC LIMIT 1`
 	row := d.QueryRowContext(ctx, query, serviceName)
 
 	var state model.ServiceState
-	if err := row.Scan(&state.Service, &state.Version, &state.Level, &state.ReportAt,
-		&state.ResolvedAt, &state.HealthStatus, &state.ExceptionStatus, &state.Details); err != nil {
+	if err := row.Scan(&state.Service, &state.Version, &state.Level, &state.Detail, &state.ReportAt,
+		&state.ResolvedAt, &state.HealthStatus, &state.CorrelationID); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -169,13 +169,4 @@ func (d *Database) GetServiceState(ctx context.Context, serviceName string) (*mo
 	}
 
 	return &state, nil
-}
-
-// CreateServiceState 创建服务状态记录
-func (d *Database) CreateServiceState(ctx context.Context, state *model.ServiceState) error {
-	query := `INSERT INTO service_states (service, version, level, report_at, resolved_at, health_status, exception_status, details) 
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-	_, err := d.ExecContext(ctx, query, state.Service, state.Version, state.Level, state.ReportAt,
-		state.ResolvedAt, state.HealthStatus, state.ExceptionStatus, state.Details)
-	return err
 }

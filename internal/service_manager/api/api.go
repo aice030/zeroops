@@ -18,6 +18,7 @@ func NewApi(db *database.Database, service *service.Service, router *fox.Engine)
 		service: service,
 		router:  router,
 	}
+
 	api.setupRouters(router)
 	return api, nil
 }
