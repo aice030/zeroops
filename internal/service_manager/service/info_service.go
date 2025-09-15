@@ -27,19 +27,13 @@ func (s *Service) GetServicesResponse(ctx context.Context) (*model.ServicesRespo
 		}
 
 		// 默认为正常状态，因为正常状态的服务不会存储在service_state表中
-		health := model.HealthLevelNormal
+		health := model.HealthStateNormal
 		if state != nil {
-			// 将数据库中的异常状态映射为API响应状态
-			switch state.Level {
-			case model.LevelWarning:
-				health = model.HealthLevelWarning
-			case model.LevelError:
-				health = model.HealthLevelError
-			}
+			health = state.HealthState
 		}
 
 		// 默认设置为已完成部署状态
-		deployState := model.DeployStatusAllDeployFinish
+		deployState := model.StatusCompleted
 
 		items[i] = model.ServiceItem{
 			Name:        service.Name,
@@ -82,16 +76,10 @@ func (s *Service) GetServiceActiveVersions(ctx context.Context, serviceName stri
 		}
 
 		// 默认为正常状态，因为正常状态的服务不会存储在service_state表中
-		health := model.HealthLevelNormal
+		health := model.HealthStateNormal
 		reportAt := &model.ServiceState{}
 		if state != nil {
-			// 将数据库中的异常状态映射为API响应状态
-			switch state.Level {
-			case model.LevelWarning:
-				health = model.HealthLevelWarning
-			case model.LevelError:
-				health = model.HealthLevelError
-			}
+			health = state.HealthState
 			reportAt = state
 		}
 

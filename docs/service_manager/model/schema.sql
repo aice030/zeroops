@@ -34,11 +34,9 @@ CREATE TABLE IF NOT EXISTS service_instances (
 CREATE TABLE IF NOT EXISTS service_states (
     service VARCHAR(255),
     version VARCHAR(255),
-    level VARCHAR(50),
-    detail TEXT,
     report_at TIMESTAMP,
     resolved_at TIMESTAMP,
-    health_status VARCHAR(50),
+    health_state VARCHAR(50),
     correlation_id VARCHAR(255),
     PRIMARY KEY (service, version),
     FOREIGN KEY (service) REFERENCES services(name) ON DELETE CASCADE
