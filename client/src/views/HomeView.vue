@@ -359,6 +359,45 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 编辑部署计划对话框 -->
+    <el-dialog
+      v-model="showEditDialog"
+      title="编辑部署计划"
+      width="500px"
+      :before-close="cancelEdit"
+    >
+      <div class="edit-deployment-form">
+        <div class="form-item">
+          <label class="form-label">服务名称</label>
+          <div class="form-value">{{ editingDeployment?.service || selectedNode?.name || '未知服务' }}</div>
+        </div>
+        
+        <div class="form-item">
+          <label class="form-label">版本号</label>
+          <div class="form-value">{{ editingDeployment?.version }}</div>
+        </div>
+        
+        <div class="form-item">
+          <label class="form-label">计划发布时间 <span class="required">*</span></label>
+          <el-date-picker
+            v-model="editForm.scheduleTime"
+            type="datetime"
+            placeholder="选择发布时间"
+            format="YYYY-MM-DD HH:mm"
+            value-format="YYYY-MM-DDTHH:mm"
+            style="width: 100%"
+          />
+        </div>
+      </div>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="cancelEdit">取消</el-button>
+          <el-button type="primary" @click="saveEditDeployment">保存</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -402,6 +441,13 @@ const selectedSlice = ref<{ nodeId: string; label: string } | null>(null)
 // 指标图表引用
 const latencyChartRef = ref<HTMLElement>()
 const trafficChartRef = ref<HTMLElement>()
+
+// 编辑部署对话框状态
+const showEditDialog = ref(false)
+const editingDeployment = ref<any>(null)
+const editForm = ref({
+  scheduleTime: ''
+})
 const errorsChartRef = ref<HTMLElement>()
 const saturationChartRef = ref<HTMLElement>()
 
@@ -800,6 +846,7 @@ const deploymentPlansForDisplay = computed(() => {
     
     return {
       id: plan.id,
+      service: plan.service, // 保留服务名称字段
       version: plan.version,
       status: statusMap[plan.status] || plan.status,
       time: generateTimeDisplay(),
@@ -1024,15 +1071,101 @@ const getCurrentMetricValue = (metricName: keyof typeof metricsData.value) => {
 }
 
 const createRelease = async () => {
+  // 表单验证
+  if (!selectedNode.value?.name) {
+    ElMessage.error('请先选择服务')
+    return
+  }
+  
+  if (!selectedVersion.value) {
+    ElMessage.error('请选择目标版本')
+    return
+  }
+  
   try {
-    ElMessage.success('发布计划创建成功')
+    // 准备请求数据
+    const requestData: any = {
+      service: selectedNode.value.name,
+      version: selectedVersion.value
+    }
+    
+    // 如果有计划时间，转换为ISO格式
+    if (scheduledStart.value) {
+      requestData.scheduleTime = new Date(scheduledStart.value).toISOString()
+    }
+    
+    // 调用创建部署API
+    const result = await apiService.createDeployment(requestData)
+    
+    if (result.status === 201) {
+      ElMessage.success('发布计划创建成功')
+      
+      // 重置表单
+      selectedVersion.value = ''
+      scheduledStart.value = ''
+      
+      // 刷新相关数据
+      await Promise.all([
+        loadServiceDeploymentPlans(selectedNode.value.name),
+        loadServiceDetail(selectedNode.value.name)
+      ])
+    } else {
+      ElMessage.error('创建发布计划失败')
+    }
   } catch (error) {
+    console.error('创建发布计划失败:', error)
     ElMessage.error('创建发布计划失败')
   }
 }
 
 const editRelease = (release: any) => {
-  ElMessage.info('编辑发布功能待实现')
+  editingDeployment.value = release
+  // 将计划时间转换为本地时间格式（YYYY-MM-DDTHH:mm）
+  if (release.scheduleTime) {
+    const date = new Date(release.scheduleTime)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    editForm.value.scheduleTime = `${year}-${month}-${day}T${hours}:${minutes}`
+  } else {
+    editForm.value.scheduleTime = ''
+  }
+  showEditDialog.value = true
+}
+
+// 保存编辑的部署计划
+const saveEditDeployment = async () => {
+  if (!editingDeployment.value) return
+  
+  try {
+    // 将本地时间转换为ISO格式
+    const scheduleTime = editForm.value.scheduleTime ? new Date(editForm.value.scheduleTime).toISOString() : undefined
+    
+    const result = await apiService.updateDeployment(editingDeployment.value.id, {
+      scheduleTime: scheduleTime
+    })
+    
+    if (result.status === 200) {
+      ElMessage.success('部署计划已更新')
+      showEditDialog.value = false
+      // 刷新发布计划列表
+      await loadServiceDeploymentPlans(selectedNode.value?.name || '')
+    } else {
+      ElMessage.error('更新部署计划失败')
+    }
+  } catch (error) {
+    console.error('更新部署计划失败:', error)
+    ElMessage.error('更新部署计划失败')
+  }
+}
+
+// 取消编辑
+const cancelEdit = () => {
+  showEditDialog.value = false
+  editingDeployment.value = null
+  editForm.value.scheduleTime = ''
 }
 
 const confirmCancel = async (plan: any) => {
@@ -1933,5 +2066,43 @@ const disposeMetricsCharts = () => {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* 编辑部署对话框样式 */
+.edit-deployment-form {
+  padding: 20px 0;
+}
+
+.form-item {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.form-label .required {
+  color: #ef4444;
+  margin-left: 4px;
+}
+
+.form-value {
+  font-size: 14px;
+  color: #6b7280;
+  padding: 8px 12px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  min-height: 20px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>
