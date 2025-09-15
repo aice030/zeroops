@@ -6,10 +6,10 @@ import "time"
 
 // ServiceItem API响应用的服务信息（对应/v1/services接口items格式）
 type ServiceItem struct {
-	Name        string       `json:"name"`        // 服务名称
-	DeployState DeployStatus `json:"deployState"` // 发布状态：InDeploying|AllDeployFinish
-	Health      HealthLevel  `json:"health"`      // 健康状态：Normal/Warning/Error
-	Deps        []string     `json:"deps"`        // 依赖关系（直接使用Service.Deps）
+	Name        string      `json:"name"`        // 服务名称
+	DeployState DeployState `json:"deployState"` // 发布状态
+	Health      HealthState `json:"health"`      // 健康状态：Normal/Warning/Error
+	Deps        []string    `json:"deps"`        // 依赖关系（直接使用Service.Deps）
 }
 
 // ServicesResponse 服务列表API响应（对应/v1/services接口）
@@ -25,7 +25,7 @@ type ActiveVersionItem struct {
 	StartTime               time.Time   `json:"startTime"`               // 开始时间
 	EstimatedCompletionTime time.Time   `json:"estimatedCompletionTime"` // 预估完成时间
 	Instances               int         `json:"instances"`               // 实例个数
-	Health                  HealthLevel `json:"health"`                  // 健康状态：Normal/Warning/Error
+	Health                  HealthState `json:"health"`                  // 健康状态：Normal/Warning/Error
 }
 
 // PrometheusQueryRangeResponse Prometheus query_range接口响应格式

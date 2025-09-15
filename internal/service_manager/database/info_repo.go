@@ -155,13 +155,13 @@ func (d *Database) CreateServiceInstance(ctx context.Context, instance *model.Se
 
 // GetServiceState 获取服务状态
 func (d *Database) GetServiceState(ctx context.Context, serviceName string) (*model.ServiceState, error) {
-	query := `SELECT service, version, level, detail, report_at, resolved_at, health_status, correlation_id 
+	query := `SELECT service, version, report_at, resolved_at, health_state, correlation_id
 	          FROM service_states WHERE service = $1 ORDER BY report_at DESC LIMIT 1`
 	row := d.QueryRowContext(ctx, query, serviceName)
 
 	var state model.ServiceState
-	if err := row.Scan(&state.Service, &state.Version, &state.Level, &state.Detail, &state.ReportAt,
-		&state.ResolvedAt, &state.HealthStatus, &state.CorrelationID); err != nil {
+	if err := row.Scan(&state.Service, &state.Version, &state.ReportAt,
+		&state.ResolvedAt, &state.HealthState, &state.CorrelationID); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
