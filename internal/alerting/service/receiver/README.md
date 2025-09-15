@@ -164,9 +164,12 @@ func (h *Handler) AlertmanagerWebhook(c *gin.Context) {
             // 若唯一约束冲突/网络抖动等，记录后继续
             continue
         }
-        // 5) 同步写入 service_states（health_state=Error；detail/resolved_at/correlation_id 留空）
+        // 5) 同步写入 service_states（health_state 由 level 推导；resolved_at 留空；alert_issue_ids 追加新 issue id）
+        //    规则：P0→Error；P1/P2→Warning；其他→Warning（可按需调整）
         //    service 从 labels.service 取；version 可从 labels.service_version 取（可空）
-        if err := h.dao.UpsertServiceState(c, a.Labels["service"], a.Labels["service_version"], row.AlertSince, "Error"); err != nil {
+        derived := func(l string) string { if l == "P0" { return "Error" }; if l == "P1" || l == "P2" { return "Warning" }; return "Warning" }(row.Level)
+        //    report_at 此处暂不写，由 healthcheck 定时任务在 alert_issues 进入 InProcessing 后回填为最早的 alert_since
+        if err := h.dao.UpsertServiceState(c, a.Labels["service"], a.Labels["service_version"], nil, derived, row.ID); err != nil {
             // 仅记录错误，不阻断主流程
         }
         // 6) 写通到 Redis（不阻塞主流程，失败仅记录日志）
@@ -174,8 +177,8 @@ func (h *Handler) AlertmanagerWebhook(c *gin.Context) {
         if err := h.cache.WriteIssue(c, row, a); err != nil {
             // 仅记录错误，避免影响 Alertmanager 重试逻辑
         }
-        //    service_states
-        _ = h.cache.WriteServiceState(c, a.Labels["service"], a.Labels["service_version"], row.AlertSince, "Error")
+        //    service_states（使用同样的推导态）
+        _ = h.cache.WriteServiceState(c, a.Labels["service"], a.Labels["service_version"], "", derived)
         MarkSeen(key) // 记忆幂等键
         created++
     }
@@ -264,7 +267,7 @@ func NormalizeLevel(sev string) string {
 目标：将 Alertmanager 的单条 AMAlert → AlertIssueRow。
 	•	id：uuid.NewString()
 	•	state：Open（首次创建强制）
-	•	alertState：InProcessing（首次创建强制）
+	•	alertState：Pending（首次创建强制）
 	•	level：NormalizeLevel(alert.Labels["severity"])
 	•	title：优先 annotations.summary，否则拼：{idc} {service} {alertname} ...
 	•	label：把 labels 展平成 [{key,value}]（额外加上一些关键来源信息：am_fingerprint、generatorURL、groupKey）
@@ -509,8 +512,8 @@ curl -X POST http://localhost:8080/v1/integrations/alertmanager/webhook \
 	•	service=serviceA
 	•	version=（若 labels 中有 service_version 则为其值，否则为空字符串）
 	•	report_at=与 alert_since 一致（若已存在则保留更早的 report_at）
-	•	health_state=Error
-	•	detail/resolved_at/correlation_id 为空
+	•	health_state=Warning（因本示例 level=P1）
+	•	alert_issue_ids 包含刚插入的 alert_issues.id
 
 Redis 中应看到：
 	•	key: alert:issue:<id> 值为 JSON 且 TTL≈3 天

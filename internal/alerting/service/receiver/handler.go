@@ -3,6 +3,7 @@ package receiver
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/fox-gonic/fox"
 )
@@ -60,13 +61,19 @@ func (h *Handler) AlertmanagerWebhook(c *fox.Context) {
 		if err := h.dao.InsertAlertIssue(c.Request.Context(), row); err != nil {
 			continue
 		}
-		// Upsert service_states: health_state=Error; detail/resolved_at/correlation_id left empty
+
 		if w, ok := h.dao.(ServiceStateWriter); ok {
 			service := strings.TrimSpace(a.Labels["service"])
 			version := strings.TrimSpace(a.Labels["service_version"]) // optional
 			if service != "" {
-				_ = w.UpsertServiceState(c.Request.Context(), service, version, row.AlertSince, "Error")
-				_ = h.cache.WriteServiceState(c.Request.Context(), service, version, row.AlertSince, "Error")
+				derived := "Warning"
+				if row.Level == "P0" {
+					derived = "Error"
+				} else if row.Level == "P1" || row.Level == "P2" {
+					derived = "Warning"
+				}
+				_ = w.UpsertServiceState(c.Request.Context(), service, version, nil, derived, row.ID)
+				_ = h.cache.WriteServiceState(c.Request.Context(), service, version, time.Time{}, derived)
 			}
 		}
 		// Write-through to cache. Errors are ignored to avoid impacting webhook ack.

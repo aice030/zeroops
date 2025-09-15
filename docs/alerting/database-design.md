@@ -22,7 +22,7 @@
 |--------|------|------|
 | id | varchar(64) PK | 告警 issue ID |
 | state | enum(Closed, Open) | 问题状态 |
-| level | varchar(32) | 告警等级：如 P0/P1/Px/Warning |
+| level | varchar(32) | 告警等级：如 P0/P1/Px |
 | alert_state | enum(Pending, Restored, AutoRestored, InProcessing) | 处理状态 |
 | title | varchar(255) | 告警标题 |
 | labels | json | 标签，格式：[{key, value}] |
@@ -117,7 +117,7 @@
 
 ---
 
-### 7) service_states（服务异常状态表）
+### 7) service_states（服务状态表）
 
 追踪服务在某一版本上的健康状态与处置进度。
 
@@ -125,17 +125,13 @@
 |--------|------|------|
 | service | varchar(255) PK | 服务名 |
 | version | varchar(255) PK | 版本号 |
-<!-- | level | varchar(32) | 影响等级：如 P0/P1/Px/Warning  | -->
-| detail | text | 异常详情（可为 JSON 文本）（可空） |
-| report_at | TIMESTAMP(6) | 首次报告时间 |
+| report_at | TIMESTAMP(6) | 同步alert_issue_ids中，alert_issue中alert_state=InProcessing状态的alert_since的最早时间 |
 | resolved_at | TIMESTAMP(6) | 解决时间（可空） |
-| health_state | enum(Normal,Processing,Error) | 处置阶段 |
-| correlation_id | varchar(255) | 关联 ID（用于跨系统联动/串联事件）（可空） |
+| health_state | enum(Normal,Warning,Error) | 处置阶段 |
+| alert_issue_ids | [] alert_issue_id | 关联alert_issues表的id |
 
 **索引建议：**
 - PRIMARY KEY: `(service, version)`
-- INDEX: `(health_state, report_at)`
-- INDEX: `(correlation_id)`
 
 ## 数据关系（ER）
 
