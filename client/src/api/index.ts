@@ -119,6 +119,16 @@ export const apiService = {
   // 获取告警详情
   getAlertDetail: (issueID: string) => {
     return api.get(`/v1/issues/${issueID}`)
+  },
+
+  // 更新部署计划
+  updateDeployment: (deployID: string, data: {version?: string, scheduleTime?: string}) => {
+    return api.post(`/v1/deployments/${deployID}`, data)
+  },
+
+  // 创建部署计划
+  createDeployment: (data: {service: string, version: string, scheduleTime?: string}) => {
+    return api.post('/v1/deployments', data)
   }
 }
 

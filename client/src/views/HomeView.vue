@@ -1240,7 +1240,7 @@ const saveEditDeployment = async () => {
     // 将本地时间转换为ISO格式
     const scheduleTime = editForm.value.scheduleTime ? new Date(editForm.value.scheduleTime).toISOString() : undefined
     
-    const result = await mockApi.updateDeployment(editingDeployment.value.id, {
+    const result = await apiService.updateDeployment(editingDeployment.value.id, {
       scheduleTime: scheduleTime
     })
     
