@@ -410,6 +410,7 @@ import * as echarts from 'echarts'
 import { apiService } from '@/api'
 import { mockApi } from '@/mock/api'
 import type { ServicesResponse, ServiceDetail, ServiceActiveVersionsResponse, ServiceMetricsResponse, AvailableVersionsResponse, DeploymentPlansResponse, MetricsResponse } from '@/mock/services'
+import { createReleaseTask, rollbackVersion as rollbackVersionInMock, updateServiceAlertStatus, getServiceAlertStatus, type ServiceAlertStatus, getServiceDeploymentStatus, type DeploymentStatus, getServiceVersionAlertStatus } from '@/mock/services'
 
 const router = useRouter()
 
@@ -475,13 +476,13 @@ const calculateAutoLayout = (services: any[]) => {
   const reverseGraph = new Map<string, string[]>()
   
   services.forEach(service => {
-    dependencyGraph.set(service.name, service.dependencies || [])
+    dependencyGraph.set(service.name, service.deps || [])
     reverseGraph.set(service.name, [])
   })
   
   // 构建反向图
   services.forEach(service => {
-    service.dependencies?.forEach((dep: string) => {
+    service.deps?.forEach((dep: string) => {
       if (reverseGraph.has(dep)) {
         reverseGraph.get(dep)!.push(service.name)
       }
@@ -495,7 +496,7 @@ const calculateAutoLayout = (services: any[]) => {
   
   // 计算入度
   services.forEach(service => {
-    inDegree.set(service.name, service.dependencies?.length || 0)
+    inDegree.set(service.name, service.deps?.length || 0)
   })
   
   // 找到所有入度为0的节点（根节点）
@@ -509,7 +510,6 @@ const calculateAutoLayout = (services: any[]) => {
   // 分层处理
   while (currentLevel.length > 0) {
     levels.push([...currentLevel])
-    console.log(`层级 ${levels.length - 1}:`, currentLevel)
     const nextLevel: string[] = []
     
     currentLevel.forEach(serviceName => {
@@ -530,7 +530,6 @@ const calculateAutoLayout = (services: any[]) => {
     currentLevel = nextLevel
   }
   
-  console.log('自动布局层级结构:', levels)
   
   // 3. 计算位置
   const positions = new Map<string, {x: number, y: number}>()
@@ -540,21 +539,12 @@ const calculateAutoLayout = (services: any[]) => {
     const levelWidth = (level.length - 1) * layoutConfig.nodeSpacing
     const startX = layoutConfig.startX - levelWidth / 2
     
-    console.log(`层级 ${levelIndex} 布局:`, {
-      level,
-      levelY,
-      levelWidth,
-      startX
-    })
-    
     level.forEach((serviceName, nodeIndex) => {
       const x = startX + nodeIndex * layoutConfig.nodeSpacing
       positions.set(serviceName, { x, y: levelY })
-      console.log(`  ${serviceName}: (${x}, ${levelY})`)
     })
   })
   
-  console.log('最终位置映射:', positions)
   return positions
 }
 
@@ -577,14 +567,14 @@ const transformServiceData = (data: ServicesResponse) => {
       y: position.y,
       health: service.health,
       deployState: service.deployState,
-      dependencies: service.dependencies,
+      dependencies: service.deps,
       // 根据发布状态生成版本信息
       versions: generateVersionsFromDeployState(service)
     }
     nodes.push(node)
     
     // 生成依赖关系边
-    service.dependencies.forEach(dep => {
+    service.deps.forEach(dep => {
       edges.push({
         source: service.name,
         target: dep
@@ -597,7 +587,7 @@ const transformServiceData = (data: ServicesResponse) => {
 
 // 根据发布状态生成版本信息
 const generateVersionsFromDeployState = (service: any) => {
-  if (service.deployState === 'InDeploying') {
+  if (service.deployState === 'deploying') {
     // 发布中：生成多个版本，其中一个在发布
     return [
       { label: "v1.0.0", value: 70, eta: "~ 2h 30m", anomalous: false, observing: false },
@@ -624,17 +614,23 @@ const loadServicesData = async () => {
   error.value = null
   
   try {
-    // 加载服务数据
+    // 加载服务数据 - 使用Mock API
     const servicesResponse = await mockApi.getServices()
+    
     
     servicesData.value = servicesResponse
     
     // 转换数据
-    const { nodes: transformedNodes, edges: transformedEdges } = transformServiceData(servicesResponse)
-    nodes.value = transformedNodes
-    edges.value = transformedEdges
+    try {
+      const { nodes: transformedNodes, edges: transformedEdges } = transformServiceData(servicesResponse)
+      nodes.value = transformedNodes
+      edges.value = transformedEdges
+    } catch (transformError) {
+      console.error('数据转换失败:', transformError)
+      throw transformError
+    }
     
-    console.log('服务数据加载成功:', servicesResponse)
+    console.log('服务数据加载成功，返回值数据:', servicesResponse)
   } catch (err) {
     error.value = '加载服务数据失败'
     console.error('加载服务数据失败:', err)
@@ -645,7 +641,13 @@ const loadServicesData = async () => {
 }
 
 // 数据转换函数：将后端返回的活跃版本数据转换为前端需要的格式
-const transformActiveVersionsToFrontend = (activeVersionsResponse: ServiceActiveVersionsResponse) => {
+const transformActiveVersionsToFrontend = (activeVersionsResponse: ServiceActiveVersionsResponse, serviceName: string) => {
+  // 添加空值检查
+  if (!activeVersionsResponse || !activeVersionsResponse.items) {
+    console.warn('活跃版本数据为空:', activeVersionsResponse)
+    return []
+  }
+  
   const totalInstances = activeVersionsResponse.items.reduce((sum, item) => sum + item.instances, 0)
   
   return activeVersionsResponse.items.map(item => {
@@ -671,12 +673,17 @@ const transformActiveVersionsToFrontend = (activeVersionsResponse: ServiceActive
     const isAnomalous = item.health === 'Error'
     const isObserving = item.health === 'Warning'
     
+    // 读取版本级别告警状态以驱动颜色
+    const versionStatus = getServiceVersionAlertStatus(serviceName, item.version)
+    const versionAnomalous = versionStatus === 'pending'
+    const versionObserving = versionStatus === 'processing'
+
     return {
       label: item.version,
       value: percentage,
       eta: eta,
-      anomalous: isAnomalous,
-      observing: isObserving,
+      anomalous: versionAnomalous || isAnomalous,
+      observing: versionObserving || (!versionAnomalous && isObserving),
       rolling: isRolling,
       elapsedMin: elapsedMinutes,
       remainingMin: remainingMinutes,
@@ -692,15 +699,32 @@ const transformActiveVersionsToFrontend = (activeVersionsResponse: ServiceActive
 // 获取服务详情 - 使用新的API接口
 const loadServiceDetail = async (serviceName: string) => {
   try {
-    // 调用新的活跃版本API
+    // 调用活跃版本API - 使用Mock API
     const activeVersionsResponse = await mockApi.getServiceActiveVersions(serviceName)
     
     // 转换数据格式
-    const transformedVersions = transformActiveVersionsToFrontend(activeVersionsResponse)
+    const transformedVersions = transformActiveVersionsToFrontend(activeVersionsResponse, serviceName)
+    
+    // 获取服务的基础信息（包括原始health状态）
+    const serviceInfo = nodes.value.find(node => node.name === serviceName)
+    
+    // 根据告警状态确定最终的health状态
+    const alertStatus = getServiceAlertStatus(serviceName)
+    let finalHealth = serviceInfo?.health || 'Normal'
+    
+    // 如果服务有告警状态，覆盖原始health状态
+    if (alertStatus === 'pending') {
+      finalHealth = 'Error' // 红色
+    } else if (alertStatus === 'processing') {
+      finalHealth = 'Warning' // 黄色
+    }
     
     return {
       name: serviceName,
-      versions: transformedVersions
+      versions: transformedVersions,
+      health: finalHealth,
+      deployState: serviceInfo?.deployState || 'completed',
+      deps: serviceInfo?.deps || []
     }
   } catch (err) {
     console.error('获取服务活跃版本失败:', err)
@@ -709,15 +733,15 @@ const loadServiceDetail = async (serviceName: string) => {
   }
 }
 
-// 获取服务指标数据 - 使用新的API接口
+// 获取服务指标数据 - 使用Mock API（后端暂未实现）
 const loadServiceMetrics = async (serviceName: string) => {
   try {
-    // 调用新的指标API
+    // 调用Mock API，等待后端实现真实接口
     const metricsResponse = await mockApi.getServiceMetrics(serviceName)
     return metricsResponse
   } catch (err) {
-    console.error('获取服务指标数据失败:', err)
-    ElMessage.error('获取服务指标数据失败')
+    console.warn(`获取服务 ${serviceName} 指标数据失败:`, err)
+    // 不显示错误消息，因为某些服务可能没有指标数据
     return null
   }
 }
@@ -725,7 +749,7 @@ const loadServiceMetrics = async (serviceName: string) => {
 // 获取服务可发布版本列表 - 使用新的API接口
 const loadServiceAvailableVersions = async (serviceName: string) => {
   try {
-    // 调用新的可发布版本API
+    // 调用可发布版本API - 使用Mock API
     const availableVersionsResponse = await mockApi.getServiceAvailableVersions(serviceName)
     return availableVersionsResponse
   } catch (err) {
@@ -738,7 +762,7 @@ const loadServiceAvailableVersions = async (serviceName: string) => {
 // 获取服务发布计划列表 - 使用新的API接口
 const loadServiceDeploymentPlans = async (serviceName: string) => {
   try {
-    // 调用新的发布计划API
+    // 调用发布计划API - 使用Mock API
     const deploymentPlansResponse = await mockApi.getServiceDeploymentPlans(serviceName)
     return deploymentPlansResponse
   } catch (err) {
@@ -751,7 +775,7 @@ const loadServiceDeploymentPlans = async (serviceName: string) => {
 // 获取服务指标数据 - 使用新的API接口
 const loadServiceMetricsData = async (serviceName: string, version: string) => {
   try {
-    // 并行获取四大黄金指标数据
+    // 并行获取四大黄金指标数据 - 使用Mock API
     const [latencyData, trafficData, errorsData, saturationData] = await Promise.all([
       mockApi.getServiceMetricsData(serviceName, 'latency', version),
       mockApi.getServiceMetricsData(serviceName, 'traffic', version),
@@ -867,7 +891,15 @@ const goToAlerts = () => {
 }
 
 const getNodeStatus = (node: any) => {
-  // 直接使用后端返回的health状态
+  // 首先检查告警状态
+  const alertStatus = getServiceAlertStatus(node.name)
+  
+  // 如果服务有告警状态，优先使用告警状态
+  if (alertStatus !== 'normal') {
+    return alertStatus
+  }
+  
+  // 否则使用后端返回的health状态
   const healthMap: Record<string, string> = {
     'Normal': 'healthy',
     'Warning': 'canary',
@@ -879,9 +911,11 @@ const getNodeStatus = (node: any) => {
 const getNodeStatusColor = (node: any) => {
   const status = getNodeStatus(node)
   const statusMap: Record<string, string> = {
-    healthy: "#10b981",    // 绿色
-    abnormal: "#f43f5e",   // 红色
-    canary: "#f59e0b"      // 黄色
+    healthy: "#10b981",    // 绿色 - 正常
+    abnormal: "#f43f5e",   // 红色 - 异常
+    canary: "#f59e0b",     // 黄色 - 观察中
+    pending: "#ef4444",    // 红色 - 待处理
+    processing: "#eab308"  // 黄色 - 处理中
   }
   return statusMap[status] || "#6b7280"
 }
@@ -891,7 +925,9 @@ const getNodeStatusStroke = (node: any) => {
   const statusMap: Record<string, string> = {
     healthy: "#10b981",
     abnormal: "#f43f5e",
-    canary: "#f59e0b"
+    canary: "#f59e0b",
+    pending: "#ef4444",
+    processing: "#eab308"
   }
   return statusMap[status] || "#6b7280"
 }
@@ -901,14 +937,17 @@ const getNodeStatusFill = (node: any) => {
   const statusMap: Record<string, string> = {
     healthy: "#10b981",
     abnormal: "#f43f5e", 
-    canary: "#f59e0b"
+    canary: "#f59e0b",
+    pending: "#ef4444",
+    processing: "#eab308"
   }
   return statusMap[status] || "#6b7280"
 }
 
 const hasRollingVersion = (node: any) => {
-  // 根据deployState判断是否显示灰度发布指示器
-  return node.deployState === 'InDeploying'
+  // 检查发布状态或deployState判断是否显示灰度发布指示器
+  const deploymentStatus = getServiceDeploymentStatus(node.name)
+  return deploymentStatus === 'deploying' || node.deployState === 'deploying'
 }
 
 const getNodePosition = (nodeId: string) => {
@@ -921,35 +960,41 @@ const handleNodeClick = async (node: any) => {
   dialogVisible.value = true
   
   // 并行加载服务详情、指标数据、可发布版本和发布计划
-  const [serviceDetail, metricsData, availableVersionsData, deploymentPlansData] = await Promise.all([
+  const [serviceDetail, metricsData, availableVersionsData, deploymentPlansData] = await Promise.allSettled([
     loadServiceDetail(node.name),
     loadServiceMetrics(node.name),
     loadServiceAvailableVersions(node.name),
     loadServiceDeploymentPlans(node.name)
   ])
   
-  if (serviceDetail) {
+  // 提取成功的结果
+  const serviceDetailResult = serviceDetail.status === 'fulfilled' ? serviceDetail.value : null
+  const metricsDataResult = metricsData.status === 'fulfilled' ? metricsData.value : null
+  const availableVersionsDataResult = availableVersionsData.status === 'fulfilled' ? availableVersionsData.value : null
+  const deploymentPlansDataResult = deploymentPlansData.status === 'fulfilled' ? deploymentPlansData.value : null
+  
+  if (serviceDetailResult) {
     // 更新节点的版本信息
-    selectedNode.value.versions = serviceDetail.versions
+    selectedNode.value.versions = serviceDetailResult.versions
   }
   
-  if (metricsData) {
+  if (metricsDataResult) {
     // 存储指标数据
-    currentServiceMetrics.value = metricsData
+    currentServiceMetrics.value = metricsDataResult
   }
   
-  if (availableVersionsData) {
+  if (availableVersionsDataResult) {
     // 存储可发布版本数据
-    currentServiceAvailableVersions.value = availableVersionsData
+    currentServiceAvailableVersions.value = availableVersionsDataResult
     // 重置选中的版本为第一个可用版本
-    if (availableVersionsData.items.length > 0) {
-      selectedVersion.value = availableVersionsData.items[0].version
+    if (availableVersionsDataResult.items && availableVersionsDataResult.items.length > 0) {
+      selectedVersion.value = availableVersionsDataResult.items[0].version
     }
   }
   
-  if (deploymentPlansData) {
+  if (deploymentPlansDataResult) {
     // 存储发布计划数据
-    currentServiceDeploymentPlans.value = deploymentPlansData
+    currentServiceDeploymentPlans.value = deploymentPlansDataResult
   }
   
   nextTick(() => {
@@ -971,6 +1016,8 @@ const getNodeStatusText = (status: string) => {
     case 'healthy': return '服务正常'
     case 'canary': return '有异常，AI正在观察和分析'
     case 'abnormal': return '服务有异常'
+    case 'pending': return '告警待处理'
+    case 'processing': return '告警处理中'
     default: return '未知状态'
   }
 }
@@ -1046,6 +1093,11 @@ const handleCloseDialog = () => {
   currentServiceMetrics.value = null
   currentServiceAvailableVersions.value = null
   currentServiceDeploymentPlans.value = null
+  // 释放饼图实例
+  if (pieChart) {
+    pieChart.dispose()
+    pieChart = null
+  }
 }
 
 // 处理指标弹窗关闭
@@ -1083,38 +1135,83 @@ const createRelease = async () => {
   }
   
   try {
-    // 准备请求数据
-    const requestData: any = {
-      service: selectedNode.value.name,
-      version: selectedVersion.value
+    // 1. 调用mock数据操作函数，修改底层数据
+    createReleaseTask(selectedNode.value.name, selectedVersion.value)
+    
+    // 2. 重新加载服务详情数据（这样饼状图会自动更新）
+    const serviceDetailResult = await loadServiceDetail(selectedNode.value.name)
+    console.log('重新加载的服务详情数据:', serviceDetailResult)
+    if (serviceDetailResult) {
+      selectedNode.value = { ...serviceDetailResult, status: getNodeStatus(serviceDetailResult) }
+      console.log('更新后的selectedNode.value:', selectedNode.value)
     }
     
-    // 如果有计划时间，转换为ISO格式
-    if (scheduledStart.value) {
-      requestData.scheduleTime = new Date(scheduledStart.value).toISOString()
+    // 3. 重新加载可发布版本数据（这样下拉框会自动更新）
+    const availableVersionsResult = await loadServiceAvailableVersions(selectedNode.value.name)
+    if (availableVersionsResult) {
+      currentServiceAvailableVersions.value = availableVersionsResult
     }
     
-    // 调用创建部署API
-    const result = await apiService.createDeployment(requestData)
+    // 4. 生成合理的黄金指标数值并更新表格
+    const generateMetrics = () => {
+      return {
+        latency: (Math.random() * 50 + 10).toFixed(1), // 10-60ms
+        traffic: (Math.random() * 1000 + 100).toFixed(0), // 100-1100 req/s
+        errorRatio: (Math.random() * 2).toFixed(1), // 0-2%
+        saturation: (Math.random() * 20 + 60).toFixed(0) // 60-80%
+      }
+    }
     
-    if (result.status === 201) {
-      ElMessage.success('发布计划创建成功')
+    const newMetrics = generateMetrics()
+    
+    // 直接更新当前服务的指标数据
+    if (currentServiceMetrics.value) {
+      // 添加新版本的指标数据
+      const newVersionMetrics = {
+        version: selectedVersion.value,
+        metrics: [
+          { name: 'latency', value: parseFloat(newMetrics.latency) },
+          { name: 'traffic', value: parseFloat(newMetrics.traffic) },
+          { name: 'errorRatio', value: parseFloat(newMetrics.errorRatio) },
+          { name: 'saturation', value: parseFloat(newMetrics.saturation) }
+        ]
+      }
       
-      // 重置表单
-      selectedVersion.value = ''
-      scheduledStart.value = ''
+      // 检查是否已存在该版本，如果存在则更新，否则添加
+      const existingIndex = currentServiceMetrics.value.items.findIndex(item => item.version === selectedVersion.value)
+      if (existingIndex >= 0) {
+        currentServiceMetrics.value.items[existingIndex] = newVersionMetrics
+      } else {
+        currentServiceMetrics.value.items.push(newVersionMetrics)
+      }
       
-      // 刷新相关数据
-      await Promise.all([
-        loadServiceDeploymentPlans(selectedNode.value.name),
-        loadServiceDetail(selectedNode.value.name)
-      ])
-    } else {
-      ElMessage.error('创建发布计划失败')
+      // 更新summary数据（使用所有版本的平均值）
+      const allVersions = currentServiceMetrics.value.items
+      const avgLatency = allVersions.reduce((sum, v) => sum + (v.metrics.find(m => m.name === 'latency')?.value || 0), 0) / allVersions.length
+      const avgTraffic = allVersions.reduce((sum, v) => sum + (v.metrics.find(m => m.name === 'traffic')?.value || 0), 0) / allVersions.length
+      const avgErrorRatio = allVersions.reduce((sum, v) => sum + (v.metrics.find(m => m.name === 'errorRatio')?.value || 0), 0) / allVersions.length
+      const avgSaturation = allVersions.reduce((sum, v) => sum + (v.metrics.find(m => m.name === 'saturation')?.value || 0), 0) / allVersions.length
+      
+      currentServiceMetrics.value.summary.metrics = [
+        { name: 'latency', value: avgLatency },
+        { name: 'traffic', value: avgTraffic },
+        { name: 'errorRatio', value: avgErrorRatio },
+        { name: 'saturation', value: avgSaturation }
+      ]
     }
+    
+    // 5. 重新加载服务数据以更新拓扑图
+    await loadServicesData()
+    
+    ElMessage.success('发布任务创建成功')
+    
+    // 重置表单
+    selectedVersion.value = ''
+    scheduledStart.value = ''
+    
   } catch (error) {
-    console.error('创建发布计划失败:', error)
-    ElMessage.error('创建发布计划失败')
+    console.error('创建发布任务失败:', error)
+    ElMessage.error('创建发布任务失败')
   }
 }
 
@@ -1170,7 +1267,7 @@ const cancelEdit = () => {
 
 const confirmCancel = async (plan: any) => {
   try {
-    // 调用取消部署计划API
+    // 调用取消部署计划API - 使用Mock API
     const result = await mockApi.cancelDeployment(plan.id)
     
     if (result.status === 200) {
@@ -1199,7 +1296,7 @@ const togglePauseResume = async (plan: any) => {
       }
     }
     
-    // 根据当前状态调用不同的API
+    // 根据当前状态调用不同的API - 使用Mock API
     const result = plan.isPaused 
       ? await mockApi.continueDeployment(plan.id)  // 继续
       : await mockApi.pauseDeployment(plan.id)     // 暂停
@@ -1233,7 +1330,7 @@ const togglePauseResume = async (plan: any) => {
 // 回滚发布
 const rollbackRelease = async (plan: any) => {
   try {
-    // 调用回滚部署计划API
+    // 调用回滚部署计划API - 使用Mock API
     const result = await mockApi.rollbackDeployment(plan.id)
     
     if (result.status === 200) {
@@ -1275,17 +1372,81 @@ const togglePauseResumeForVersion = async (version: any) => {
 
 const rollbackVersion = async (version: any) => {
   try {
-    await mockApi.rollbackDeployment(version.deployId)
-    ElMessage.success('回滚成功')
-    // 刷新服务详情数据
+    // 1. 调用mock数据操作函数，修改底层数据
+    rollbackVersionInMock(selectedNode.value?.name || '', version.version)
+    
+    // 2. 重新加载服务详情数据（这样饼状图会自动更新）
     if (selectedNode.value) {
-      await loadServiceDetail(selectedNode.value.name)
+      const serviceDetailResult = await loadServiceDetail(selectedNode.value.name)
+      if (serviceDetailResult) {
+        selectedNode.value = { ...serviceDetailResult, status: getNodeStatus(serviceDetailResult) }
+      }
     }
+    
+    // 3. 重新加载可发布版本数据（这样下拉框会自动更新）
+    if (selectedNode.value) {
+      const availableVersionsResult = await loadServiceAvailableVersions(selectedNode.value.name)
+      if (availableVersionsResult) {
+        currentServiceAvailableVersions.value = availableVersionsResult
+      }
+    }
+    
+    // 4. 从指标数据中移除该版本
+    if (currentServiceMetrics.value) {
+      const versionIndex = currentServiceMetrics.value.items.findIndex(item => item.version === version.version)
+      if (versionIndex >= 0) {
+        currentServiceMetrics.value.items.splice(versionIndex, 1)
+        
+        // 更新summary数据（使用剩余版本的平均值）
+        const remainingVersions = currentServiceMetrics.value.items
+        if (remainingVersions.length > 0) {
+          const avgLatency = remainingVersions.reduce((sum, v) => sum + (v.metrics.find(m => m.name === 'latency')?.value || 0), 0) / remainingVersions.length
+          const avgTraffic = remainingVersions.reduce((sum, v) => sum + (v.metrics.find(m => m.name === 'traffic')?.value || 0), 0) / remainingVersions.length
+          const avgErrorRatio = remainingVersions.reduce((sum, v) => sum + (v.metrics.find(m => m.name === 'errorRatio')?.value || 0), 0) / remainingVersions.length
+          const avgSaturation = remainingVersions.reduce((sum, v) => sum + (v.metrics.find(m => m.name === 'saturation')?.value || 0), 0) / remainingVersions.length
+          
+          currentServiceMetrics.value.summary.metrics = [
+            { name: 'latency', value: avgLatency },
+            { name: 'traffic', value: avgTraffic },
+            { name: 'errorRatio', value: avgErrorRatio },
+            { name: 'saturation', value: avgSaturation }
+          ]
+        } else {
+          // 如果没有剩余版本，清空summary数据
+          currentServiceMetrics.value.summary.metrics = [
+            { name: 'latency', value: 0 },
+            { name: 'traffic', value: 0 },
+            { name: 'errorRatio', value: 0 },
+            { name: 'saturation', value: 0 }
+          ]
+        }
+      }
+    }
+    
+    // 5. 重新加载服务数据以更新拓扑图
+    await loadServicesData()
+    
+    ElMessage.success('版本回滚成功')
+    
   } catch (error) {
     console.error('回滚失败:', error)
     ElMessage.error('回滚失败')
   }
 }
+
+// 全局函数：更新服务告警状态（供告警界面调用）
+const updateServiceAlertStatusFromAlerts = (serviceName: string, alertState: string) => {
+  const status = updateServiceAlertStatus(serviceName, alertState)
+  
+  // 重新加载服务数据以更新拓扑图
+  loadServicesData()
+  
+  console.log(`服务 ${serviceName} 告警状态已更新为: ${status}`)
+  return status
+}
+
+// 将函数暴露到全局，供告警界面调用
+;(window as any).updateServiceAlertStatusFromAlerts = updateServiceAlertStatusFromAlerts
 
 // 初始化饼图
 let pieChart: echarts.ECharts | null = null
@@ -1298,6 +1459,15 @@ let saturationChart: echarts.ECharts | null = null
 
 const initPieChart = () => {
   if (pieChartRef.value && selectedNode.value) {
+    // 如果该DOM上已有实例，先释放
+    const existing = echarts.getInstanceByDom(pieChartRef.value as unknown as HTMLDivElement)
+    if (existing) {
+      existing.dispose()
+    }
+    if (pieChart) {
+      pieChart.dispose()
+      pieChart = null
+    }
     pieChart = echarts.init(pieChartRef.value)
     
     const option = {
@@ -2105,4 +2275,5 @@ const disposeMetricsCharts = () => {
   justify-content: flex-end;
   gap: 12px;
 }
+
 </style>

@@ -2613,7 +2613,7 @@ vue-echarts@^7.0.3:
   dependencies:
     vue-demi "^0.13.11"
 
-vue-eslint-parser@^10.2.0:
+vue-eslint-parser@^10, vue-eslint-parser@^10.2.0:
   version "10.2.0"
   resolved "https://registry.yarnpkg.com/vue-eslint-parser/-/vue-eslint-parser-10.2.0.tgz#cb53f89b14c7f5bf6a95c9532e3b2961ab619d61"
   integrity sha512-CydUvFOQKD928UzZhTp4pr2vWz1L+H99t7Pkln2QSPdvmURT0MoC4wUccfCnuEaihNsu9aYYyk+bep8rlfkUXw==

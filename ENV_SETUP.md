@@ -59,6 +59,46 @@ export SEARCH_BACKEND=DuckDuckGo
 export NO_FORCE_TERMINAL=false
 ```
 
+## Alerting 服务环境变量（数据库 + Webhook 鉴权）
+
+用于接收 Alertmanager Webhook 并将事件入库。
+
+### macOS/Linux
+```bash
+# 数据库连接（示例：本机 Docker Postgres）
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_USER=postgres
+export DB_PASSWORD=postgres
+export DB_NAME=zeroops
+export DB_SSLMODE=disable
+
+# Webhook 鉴权（与 Alertmanager http_config 对齐，二选一）
+# 1) Basic Auth
+export ALERT_WEBHOOK_BASIC_USER=alert
+export ALERT_WEBHOOK_BASIC_PASS=REDACTED
+# 2) Bearer Token（如使用该方式，注释掉上面的 Basic）
+# export ALERT_WEBHOOK_BEARER=your_token_here
+```
+
+### Windows（PowerShell）
+```powershell
+$env:DB_HOST="localhost"
+$env:DB_PORT="5432"
+$env:DB_USER="postgres"
+$env:DB_PASSWORD="postgres"
+$env:DB_NAME="zeroops"
+$env:DB_SSLMODE="disable"
+
+# Basic Auth
+$env:ALERT_WEBHOOK_BASIC_USER="alert"
+$env:ALERT_WEBHOOK_BASIC_PASS="REDACTED"
+# 或 Bearer
+# $env:ALERT_WEBHOOK_BEARER="your_token_here"
+```
+
+> 启动服务后，可用 README 中的 curl 示例向 `/v1/integrations/alertmanager/webhook` 发送事件并在数据库中验证。
+
 ## 环境变量详细说明
 
 ### 必需配置
