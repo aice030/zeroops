@@ -127,6 +127,38 @@ export class MockApiService {
     return { status: 200 }
   }
 
+  // 创建部署计划 - 新的API接口
+  static async createDeployment(data: {service: string, version: string, scheduleTime?: string}): Promise<{ status: number, data: {id: string, message: string} }> {
+    await delay(500)
+    console.log(`Mock API: 创建部署计划 - service: ${data.service}, version: ${data.version}`)
+    
+    // 生成模拟的部署ID
+    const deployID = `deploy-${Date.now()}`
+    
+    // 模拟创建成功，返回状态码201
+    return { 
+      status: 201,
+      data: {
+        id: deployID,
+        message: 'deployment created successfully'
+      }
+    }
+  }
+
+  // 更新部署计划 - 新的API接口
+  static async updateDeployment(deployID: string, data: {version?: string, scheduleTime?: string}): Promise<{ status: number, data: {message: string} }> {
+    await delay(300)
+    console.log(`Mock API: 更新部署计划 - ${deployID}`, data)
+    
+    // 模拟更新成功，返回状态码200
+    return { 
+      status: 200,
+      data: {
+        message: 'deployment updated successfully'
+      }
+    }
+  }
+
   // 获取部署变更记录 - 新的API接口
   static async getDeploymentChangelog(start?: string, limit?: number): Promise<DeploymentChangelogResponse> {
     await delay(300)

@@ -2,7 +2,7 @@
 
 本包提供一个定时任务：
 - 周期性扫描 Pending 状态的告警
-- 将告警投递到消息队列（供下游处理器消费）
+- 将告警投递到 channel（供下游处理器消费），后续再接入消息队列
 - 成功投递后，原子地把缓存中的状态更新：
   - `alert:issue:{id}` 的 `alertState`：Pending → InProcessing
   - `service_state:{service}:{version}` 的 `health_state`：由告警等级推导（P0→Error；P1/P2→Warning）
@@ -59,14 +59,12 @@ WHERE ss.service = sub.service AND ss.version = sub.version;
 
 ——
 
-## 3. 消息队列
+## 3. 通道（channel）
 
-抽象接口：
+现阶段通过进程内 channel 向下游处理器传递告警消息，后续再平滑切换为消息队列（Kafka/NATS 等）。
+
+消息格式保留为 `AlertMessage`：
 ```go
-type AlertQueue interface {
-    PublishAlert(ctx context.Context, msg AlertMessage) error
-}
-
 type AlertMessage struct {
     ID         string            `json:"id"`
     Service    string            `json:"service"`
@@ -78,20 +76,23 @@ type AlertMessage struct {
 }
 ```
 
-实现可选：Kafka、NATS、SQS、Redis Stream（示例）：
+发布样例（避免阻塞可用非阻塞写）：
 ```go
-// Redis Stream 样例
-func (q *RedisStreamQueue) PublishAlert(ctx context.Context, m AlertMessage) error {
-    b, _ := json.Marshal(m)
-    return q.r.XAdd(ctx, &redis.XAddArgs{Stream: q.stream, Values: map[string]any{"data": b}}).Err()
+func publishToChannel(ctx context.Context, ch chan<- AlertMessage, m AlertMessage) error {
+    select {
+    case ch <- m:
+        return nil
+    default:
+        return fmt.Errorf("alert channel full")
+    }
 }
 ```
 
-环境变量建议：
+配置：当前无需队列相关配置。未来切换到消息队列时，可启用以下配置项：
 ```
-ALERT_QUEUE_KIND=redis_stream|kafka|nats
-ALERT_QUEUE_DSN=redis://localhost:6379/0
-ALERT_QUEUE_TOPIC=alerts.pending
+# ALERT_QUEUE_KIND=redis_stream|kafka|nats
+# ALERT_QUEUE_DSN=redis://localhost:6379/0
+# ALERT_QUEUE_TOPIC=alerts.pending
 ```
 
 ——
@@ -138,14 +139,17 @@ return 1
 ## 5. 任务流程（伪代码）
 
 ```go
-func runOnce(ctx context.Context, db *Database, rdb *redis.Client, q AlertQueue, batch int) error {
+func runOnce(ctx context.Context, db *Database, rdb *redis.Client, ch chan<- AlertMessage, batch int) error {
     rows := queryPendingFromDB(ctx, db, batch) // id, level, title, labels(JSON), alert_since
     for _, it := range rows {
         svc := it.Labels["service"]
         ver := it.Labels["service_version"]
-        // 1) 投递消息
-        if err := q.PublishAlert(ctx, AlertMessage{ID: it.ID, Service: svc, Version: ver, Level: it.Level, Title: it.Title, AlertSince: it.AlertSince, Labels: it.Labels}); err != nil {
-            // 投递失败：跳过状态切换，计数并继续
+        // 1) 投递消息到 channel（非阻塞）
+        select {
+        case ch <- AlertMessage{ID: it.ID, Service: svc, Version: ver, Level: it.Level, Title: it.Title, AlertSince: it.AlertSince, Labels: it.Labels}:
+            // ok
+        default:
+            // 投递失败：通道已满，跳过状态切换，计数并继续
             continue
         }
         // 2) 缓存状态原子切换（告警）
@@ -172,7 +176,7 @@ func StartScheduler(ctx context.Context, deps Deps) {
         select {
         case <-ctx.Done(): return
         case <-t.C:
-            _ = runOnce(ctx, deps.DB, deps.Redis, deps.Queue, deps.Batch)
+            _ = runOnce(ctx, deps.DB, deps.Redis, deps.AlertCh, deps.Batch)
         }
     }
 }
@@ -206,7 +210,7 @@ redis-cli --raw GET service_state:<service>:<version> | jq
 redis-cli --raw SMEMBERS service_state:index:health:Processing | head -n 20
 ```
 
-5) 验证消息队列：在订阅端查看 `alerts.pending` 是否收到消息。
+5) 验证 channel：在消费端确认是否收到消息。
 
 ——
 
@@ -218,10 +222,12 @@ HC_SCAN_INTERVAL=10s
 HC_SCAN_BATCH=200
 HC_WORKERS=1
 
-# 队列
-ALERT_QUEUE_KIND=redis_stream|kafka|nats
-ALERT_QUEUE_DSN=redis://localhost:6379/0
-ALERT_QUEUE_TOPIC=alerts.pending
+# 通道
+# 当前无需额外配置
+# 预留（未来切换到消息队列时启用）：
+# ALERT_QUEUE_KIND=redis_stream|kafka|nats
+# ALERT_QUEUE_DSN=redis://localhost:6379/0
+# ALERT_QUEUE_TOPIC=alerts.pending
 ```
 
 ——

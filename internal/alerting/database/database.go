@@ -33,3 +33,8 @@ func (d *Database) Close() error {
 func (d *Database) ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error) {
 	return d.db.ExecContext(ctx, q, args...)
 }
+
+// QueryContext exposes database/sql QueryContext for SELECT queries.
+func (d *Database) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
+	return d.db.QueryContext(ctx, q, args...)
+}

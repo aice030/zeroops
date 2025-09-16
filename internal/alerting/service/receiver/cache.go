@@ -34,8 +34,12 @@ type Cache struct{ R *redis.Client }
 // REDIS_ADDR, REDIS_PASSWORD, REDIS_DB
 func NewCacheFromEnv() *Cache {
 	db, _ := strconv.Atoi(os.Getenv("REDIS_DB"))
+	addr := os.Getenv("REDIS_ADDR")
+	if strings.TrimSpace(addr) == "" {
+		addr = "localhost:6379"
+	}
 	c := redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("REDIS_ADDR"),
+		Addr:     addr,
 		Password: os.Getenv("REDIS_PASSWORD"),
 		DB:       db,
 	})
@@ -81,7 +85,11 @@ func (c *Cache) TryMarkIdempotent(ctx context.Context, a AMAlert) (bool, error) 
 	}
 	k := "alert:idemp:" + a.Fingerprint + "|" + a.StartsAt.UTC().Format(time.RFC3339Nano)
 	ok, err := c.R.SetNX(ctx, k, "1", 10*time.Minute).Result()
-	return ok, err
+	if err != nil {
+		// Best-effort: treat Redis errors as non-blocking and allow processing
+		return true, nil
+	}
+	return ok, nil
 }
 
 // WriteServiceState writes the service state snapshot into Redis and maintains simple indices.
