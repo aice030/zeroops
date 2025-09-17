@@ -1,0 +1,162 @@
+version: '3.8'
+
+# 仅部署基础设施组件的Docker Compose配置
+# 业务服务将通过二进制方式部署
+
+networks:
+  infra-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+volumes:
+  consul-data:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  elasticsearch-data:
+
+services:
+  # Consul - 服务发现
+  consul:
+    image: hashicorp/consul:1.16
+    container_name: mock-s3-consul
+    hostname: consul
+    networks:
+      infra-network:
+        ipv4_address: 172.21.0.10
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    volumes:
+      - consul-data:/consul/data
+      - ./consul/consul-config.json:/consul/config/consul-config.json:ro
+    command: consul agent -server -bootstrap -ui -node=consul-server -bind=172.21.0.10 -client=0.0.0.0
+    restart: unless-stopped
+
+  # PostgreSQL - 数据存储
+  postgres:
+    image: postgres:15-alpine
+    container_name: mock-s3-postgres
+    hostname: postgres
+    networks:
+      infra-network:
+        ipv4_address: 172.21.0.11
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_DB: mock_s3
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+
+  # Redis - 缓存和队列
+  redis:
+    image: redis:7-alpine
+    container_name: mock-s3-redis
+    hostname: redis
+    networks:
+      infra-network:
+        ipv4_address: 172.21.0.12
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+
+  # Prometheus - 指标收集
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mock-s3-prometheus
+    hostname: prometheus
+    networks:
+      infra-network:
+        ipv4_address: 172.21.0.20
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus-data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  # Grafana - 可视化
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mock-s3-grafana
+    hostname: grafana
+    networks:
+      infra-network:
+        ipv4_address: 172.21.0.21
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+
+  # Elasticsearch - 日志存储
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    container_name: mock-s3-elasticsearch
+    hostname: elasticsearch
+    networks:
+      infra-network:
+        ipv4_address: 172.21.0.22
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+  # Kibana - 日志查询
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.2
+    container_name: mock-s3-kibana
+    hostname: kibana
+    networks:
+      infra-network:
+        ipv4_address: 172.21.0.23
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: mock-s3-otel
+    hostname: otel-collector
+    networks:
+      infra-network:
+        ipv4_address: 172.21.0.24
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Prometheus metrics
+    volumes:
+      - ./otel/otel-config.yaml:/etc/otel-collector-config.yaml:ro
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    restart: unless-stopped
