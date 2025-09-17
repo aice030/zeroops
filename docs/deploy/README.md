@@ -67,10 +67,13 @@ Content-Type: application/json
 **响应：**
 ```json
 {
-  "deploy_id": "deploy-12345",
-  "status": "started",
+  "code": 200,
   "message": "deployment started successfully",
-  "started_at": "2024-01-15T10:30:00Z"
+  "data": {
+    "deploy_id": "deploy-12345",
+    "status": "started",
+    "started_at": "2024-01-15T10:30:00Z"
+  }
 }
 ```
 
@@ -82,33 +85,36 @@ GET /v1/deploy/status/{deploy_id}
 **响应：**
 ```json
 {
-  "deploy_id": "deploy-12345",
-  "service": "user-service",
-  "version": "v1.2.3",
-  "status": "in_progress",
-  "progress": {
-    "total": 3,
-    "completed": 1,
-    "failed": 0,
-    "pending": 2
-  },
-  "instances": [
-    {
-      "instance_id": "instance-1",
-      "status": "completed",
-      "version": "v1.2.3",
-      "updated_at": "2024-01-15T10:31:00Z"
+  "code": 200,
+  "message": "success",
+  "data": {
+    "deploy_id": "deploy-12345",
+    "service": "user-service",
+    "version": "v1.2.3",
+    "status": "in_progress",
+    "progress": {
+      "total": 3,
+      "completed": 1,
+      "failed": 0,
+      "pending": 2
     },
-    {
-      "instance_id": "instance-2",
-      "status": "in_progress",
-      "current_version": "v1.2.2",
-      "target_version": "v1.2.3",
-      "updated_at": "2024-01-15T10:30:30Z"
-    }
-  ],
-  "started_at": "2024-01-15T10:30:00Z",
-  "updated_at": "2024-01-15T10:31:00Z"
+    "instances": [
+      {
+        "instance_id": "instance-1",
+        "status": "completed",
+        "version": "v1.2.3",
+        "updated_at": "2024-01-15T10:31:00Z"
+      },
+      {
+        "instance_id": "instance-2",
+        "status": "in_progress",
+        "version": "v1.2.2",
+        "updated_at": "2024-01-15T10:30:30Z"
+      }
+    ],
+    "started_at": "2024-01-15T10:30:00Z",
+    "updated_at": "2024-01-15T10:31:00Z"
+  }
 }
 ```
 
@@ -122,24 +128,28 @@ GET /v1/service/{service_name}/instances/versions
 **响应：**
 ```json
 {
-  "service": "user-service",
-  "instances": [
-    {
-      "instance_id": "instance-1",
-      "version": "v1.2.3",
-      "status": "running",
-      "last_updated": "2024-01-15T10:31:00Z"
-    },
-    {
-      "instance_id": "instance-2",
-      "version": "v1.2.2",
-      "status": "running",
-      "last_updated": "2024-01-15T09:15:00Z"
+  "code": 200,
+  "message": "success",
+  "data": {
+    "service": "user-service",
+    "instances": [
+      {
+        "instance_id": "instance-1",
+        "version": "v1.2.3",
+        "status": "running",
+        "last_updated": "2024-01-15T10:31:00Z"
+      },
+      {
+        "instance_id": "instance-2",
+        "version": "v1.2.2",
+        "status": "running",
+        "last_updated": "2024-01-15T09:15:00Z"
+      }
+    ],
+    "version_summary": {
+      "v1.2.3": 1,
+      "v1.2.2": 1
     }
-  ],
-  "version_summary": {
-    "v1.2.3": 1,
-    "v1.2.2": 1
   }
 }
 ```
@@ -152,24 +162,28 @@ GET /v1/service/{service_name}/instances
 **响应：**
 ```json
 {
-  "service": "user-service",
-  "instances": [
-    {
-      "instance_id": "instance-1",
-      "host": "192.168.1.10",
-      "port": 8080,
-      "status": "healthy",
-      "version": "v1.2.3"
-    },
-    {
-      "instance_id": "instance-2",
-      "host": "192.168.1.11",
-      "port": 8080,
-      "status": "healthy",
-      "version": "v1.2.2"
-    }
-  ],
-  "total": 2
+  "code": 200,
+  "message": "success",
+  "data": {
+    "service": "user-service",
+    "instances": [
+      {
+        "instance_id": "instance-1",
+        "host": "192.168.1.10",
+        "port": 8080,
+        "status": "healthy",
+        "version": "v1.2.3"
+      },
+      {
+        "instance_id": "instance-2",
+        "host": "192.168.1.11",
+        "port": 8080,
+        "status": "healthy",
+        "version": "v1.2.2"
+      }
+    ],
+    "total": 2
+  }
 }
 ```
 
@@ -190,11 +204,14 @@ Content-Type: application/json
 **响应：**
 ```json
 {
-  "rollback_id": "rollback-67890",
-  "instance_id": "instance-1",
-  "target_version": "v1.2.2",
-  "status": "started",
-  "message": "rollback started successfully"
+  "code": 200,
+  "message": "rollback started successfully",
+  "data": {
+    "rollback_id": "rollback-67890",
+    "instance_id": "instance-1",
+    "target_version": "v1.2.2",
+    "status": "started"
+  }
 }
 ```
 
@@ -214,12 +231,15 @@ Content-Type: application/json
 **响应：**
 ```json
 {
-  "rollback_id": "rollback-67891",
-  "service": "user-service",
-  "target_version": "v1.2.2",
-  "status": "started",
-  "instances": ["instance-1", "instance-2"],
-  "message": "batch rollback started successfully"
+  "code": 200,
+  "message": "batch rollback started successfully",
+  "data": {
+    "rollback_id": "rollback-67891",
+    "service": "user-service",
+    "target_version": "v1.2.2",
+    "status": "started",
+    "instances": ["instance-1", "instance-2"]
+  }
 }
 ```
 
@@ -231,20 +251,24 @@ GET /v1/rollback/status/{rollback_id}
 **响应：**
 ```json
 {
-  "rollback_id": "rollback-67890",
-  "service": "user-service",
-  "target_version": "v1.2.2",
-  "status": "completed",
-  "instances": [
-    {
-      "instance_id": "instance-1",
-      "status": "completed",
-      "version": "v1.2.2",
-      "updated_at": "2024-01-15T11:00:00Z"
-    }
-  ],
-  "started_at": "2024-01-15T10:55:00Z",
-  "completed_at": "2024-01-15T11:00:00Z"
+  "code": 200,
+  "message": "success",
+  "data": {
+    "rollback_id": "rollback-67890",
+    "service": "user-service",
+    "target_version": "v1.2.2",
+    "status": "completed",
+    "instances": [
+      {
+        "instance_id": "instance-1",
+        "status": "completed",
+        "version": "v1.2.2",
+        "updated_at": "2024-01-15T11:00:00Z"
+      }
+    ],
+    "started_at": "2024-01-15T10:55:00Z",
+    "completed_at": "2024-01-15T11:00:00Z"
+  }
 }
 ```
 
