@@ -84,3 +84,69 @@ NO_FORCE_TERMINAL=false
 # - 定期轮换 API 密钥
 # - 在生产环境中使用环境变量而非文件
 # - 使用最小权限原则配置 API 密钥
+
+# =============================================================================
+# Alerting 服务配置（数据库连接 + Webhook 鉴权）
+# =============================================================================
+
+# 数据库连接（用于 Alertmanager Webhook 入库）
+# 示例使用本机 Docker Postgres（见 internal/alerting/service/receiver/README.md 验证步骤）
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=zeroops
+DB_SSLMODE=disable
+
+# Webhook 鉴权（与 Alertmanager http_config 对齐，二选一）
+# 1) Basic Auth
+ALERT_WEBHOOK_BASIC_USER=alert
+ALERT_WEBHOOK_BASIC_PASS=REDACTED
+# 2) Bearer Token（如使用该方式，注释掉上面的 Basic）
+# ALERT_WEBHOOK_BEARER=your_token_here
+
+# =============================================================================
+# Alerting 查询 API 配置（Redis 连接）
+# =============================================================================
+
+# Redis 连接（用于 /v1/issues 与 /v1/issues/{issueID} 从缓存读取）
+# 示例使用本机 Docker Redis（见 internal/alerting/service/receiver/README.md 验证步骤）
+REDIS_ADDR=localhost:6379
+REDIS_PASSWORD=""
+REDIS_DB=0
+
+# =============================================================================
+# 服务监听配置
+# =============================================================================
+
+# API 服务监听地址（默认 0.0.0.0:8080）
+SERVER_BIND_ADDR=0.0.0.0:8080
+
+# =============================================================================
+# Healthcheck 扫描任务（Pending 告警扫描与分发）
+# =============================================================================
+
+# 扫描间隔，默认 10s（示例：1s/5s/10s/30s/1m）
+HC_SCAN_INTERVAL=10s
+# 每次扫描的最大 Pending 数量（建议 50-500）
+HC_SCAN_BATCH=200
+# 并发 worker 数（建议 1-4）
+HC_WORKERS=1
+
+# 预留：未来切换到消息队列时启用
+# ALERT_QUEUE_KIND=redis_stream|kafka|nats
+# ALERT_QUEUE_DSN=redis://localhost:6379/0
+# ALERT_QUEUE_TOPIC=alerts.pending
+
+# =============================================================================
+# Remediation 自动化回滚（消费者）
+# =============================================================================
+
+# 通道容量（healthcheck → remediation）
+REMEDIATION_ALERT_CHAN_SIZE=1024
+
+# 回滚接口（Mock 用；真实场景可指向部署系统）
+REMEDIATION_ROLLBACK_URL=http://localhost:8080/v1/deployments/%s/rollback
+
+# 回滚等待时间（用于演示观察 InProcessing → Restored 的间隔）
+REMEDIATION_ROLLBACK_SLEEP=30s

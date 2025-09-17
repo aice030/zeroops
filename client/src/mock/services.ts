@@ -3,9 +3,9 @@
 
 export interface ServiceItem {
   name: string
-  deployState: 'InDeploying' | 'AllDeployFinish'
+  deployState: 'unrelease' | 'deploying' | 'stop' | 'rollback' | 'completed'
   health: 'Normal' | 'Warning' | 'Error'
-  dependencies: string[]
+  deps: string[]
 }
 
 export interface ServicesResponse {
@@ -17,39 +17,39 @@ export const mockServicesData: ServicesResponse = {
   items: [
     {
       name: "s3",
-      deployState: "InDeploying",
-      health: "Warning",
-      dependencies: [] // s3是根节点，无依赖
+      deployState: "completed",
+      health: "Normal",
+      deps: [] // s3是根节点，无依赖
     },
     {
       name: "stg",
-      deployState: "InDeploying",
-      health: "Warning",
-      dependencies: ["s3"] // stg依赖s3
+      deployState: "completed",
+      health: "Normal",
+      deps: ["s3"] // stg依赖s3
     },
     {
       name: "meta",
-      deployState: "AllDeployFinish",
+      deployState: "completed",
       health: "Normal",
-      dependencies: ["s3"] // meta依赖s3
+      deps: ["s3"] // meta依赖s3
     },
     {
       name: "mq",
-      deployState: "AllDeployFinish",
+      deployState: "completed",
       health: "Normal",
-      dependencies: ["s3"] // mq依赖s3
+      deps: ["s3"] // mq依赖s3
     },
     {
       name: "worker",
-      deployState: "AllDeployFinish",
+      deployState: "completed",
       health: "Normal",
-      dependencies: ["mq"] // worker依赖mq
+      deps: ["mq"] // worker依赖mq
     },
     {
       name: "mongodb",
-      deployState: "AllDeployFinish",
-      health: "Error",
-      dependencies: ["meta"] // mongodb依赖meta
+      deployState: "completed",
+      health: "Normal",
+      deps: ["meta"] // mongodb依赖meta
     }
   ]
 }
@@ -68,68 +68,69 @@ export interface ServiceVersion {
 
 export interface ServiceDetail {
   name: string
-  deployState: 'InDeploying' | 'AllDeployFinish'
+  deployState: 'unrelease' | 'deploying' | 'stop' | 'rollback' | 'completed'
   health: 'Normal' | 'Warning' | 'Error'
-  dependencies: string[]
+  deps: string[]
   versions: ServiceVersion[]
 }
 
 export const mockServiceDetails: Record<string, ServiceDetail> = {
   "s3": {
     name: "s3",
-    deployState: "InDeploying",
+    deployState: "completed",
     health: "Normal",
-    dependencies: [],
+    deps: [],
     versions: [
-      { label: "v1.0.0", value: 55, eta: "~ 2h 30m", anomalous: false, observing: false },
-      { label: "v1.0.1", value: 30, eta: "~ 1h 10m", anomalous: false, observing: true, rolling: true, elapsedMin: 30, remainingMin: 60 },
-      { label: "v1.0.3", value: 15, eta: "~ 40m", anomalous: false, observing: false, rolling: true, elapsedMin: 10, remainingMin: 30 }
+      { label: "v1.0.0", value: 60, eta: "~ 2h 30m", anomalous: false, observing: false },
+      { label: "v1.0.1", value: 30, eta: "~ 1h 10m", anomalous: false, observing: false },
+      { label: "v1.0.3", value: 10, eta: "~ 40m", anomalous: false, observing: false }
     ]
   },
   "stg": {
     name: "stg",
-    deployState: "InDeploying",
+    deployState: "completed",
     health: "Normal",
-    dependencies: ["s3"],
+    deps: ["s3"],
     versions: [
       { label: "v1.0.0", value: 70, eta: "~ 3h 00m", anomalous: false, observing: false },
-      { label: "v1.0.2", value: 30, eta: "~ 30m", anomalous: false, observing: true, rolling: true, elapsedMin: 15, remainingMin: 20 }
+      { label: "v1.0.2", value: 30, eta: "~ 30m", anomalous: false, observing: false }
     ]
   },
   "meta": {
     name: "meta",
-    deployState: "AllDeployFinish",
+    deployState: "completed",
     health: "Normal",
-    dependencies: ["s3"],
+    deps: ["s3"],
     versions: [
       { label: "v1.0.3", value: 100, eta: "~ 25m", anomalous: false, observing: false }
     ]
   },
   "mq": {
     name: "mq",
-    deployState: "AllDeployFinish",
+    deployState: "completed",
     health: "Normal",
-    dependencies: ["s3"],
+    deps: ["s3"],
     versions: [
       { label: "v1.0.1", value: 100, eta: "~ 50m", anomalous: false, observing: false }
     ]
   },
   "worker": {
     name: "worker",
-    deployState: "AllDeployFinish",
+    deployState: "completed",
     health: "Normal",
-    dependencies: ["mq"],
+    deps: ["mq"],
     versions: [
       { label: "v1.0.1", value: 100, eta: "~ 20m", anomalous: false, observing: false }
     ]
   },
   "mongodb": {
     name: "mongodb",
-    deployState: "AllDeployFinish",
-    health: "Error",
-    dependencies: ["meta"],
+    deployState: "completed",
+    health: "Normal",
+    deps: ["meta"],
     versions: [
-      { label: "v1.0.1", value: 100, eta: "~ 1h 10m", anomalous: true, observing: false }
+      { label: "v1.0.1", value: 80, eta: "~ 1h 10m", anomalous: false, observing: false },
+      { label: "v1.0.2", value: 20, eta: "~ 45m", anomalous: false, observing: false }
     ]
   }
 }
@@ -283,13 +284,6 @@ export const mockDeploymentPlans: Record<string, DeploymentPlansResponse> = {
         status: "InDeployment",
         scheduleTime: "2024-01-03T05:00:00Z",
         isPaused: false
-      },
-      {
-        id: "2003",
-        service: "stg",
-        version: "v1.0.3",
-        status: "Finished",
-        finishTime: "2024-01-03T05:00:00Z"
       }
     ]
   },
@@ -978,7 +972,7 @@ export const mockServiceActiveVersions: Record<string, ServiceActiveVersionsResp
         deployID: "deploy-001",
         startTime: "2024-01-01T00:00:00Z",
         estimatedCompletionTime: "2024-01-01T02:30:00Z",
-        instances: 55,
+        instances: 60,
         health: "Normal"
       },
       {
@@ -987,14 +981,14 @@ export const mockServiceActiveVersions: Record<string, ServiceActiveVersionsResp
         startTime: "2024-01-01T01:00:00Z",
         estimatedCompletionTime: "2024-01-01T02:10:00Z",
         instances: 30,
-        health: "Warning"
+        health: "Normal"
       },
       {
         version: "v1.0.3",
         deployID: "deploy-003",
         startTime: "2024-01-01T01:30:00Z",
         estimatedCompletionTime: "2024-01-01T02:10:00Z",
-        instances: 15,
+        instances: 10,
         health: "Normal"
       }
     ]
@@ -1015,7 +1009,7 @@ export const mockServiceActiveVersions: Record<string, ServiceActiveVersionsResp
         startTime: "2024-01-01T01:15:00Z",
         estimatedCompletionTime: "2024-01-01T01:45:00Z",
         instances: 30,
-        health: "Warning"
+        health: "Normal"
       }
     ]
   },
@@ -1062,8 +1056,16 @@ export const mockServiceActiveVersions: Record<string, ServiceActiveVersionsResp
         deployID: "deploy-009",
         startTime: "2024-01-01T00:00:00Z",
         estimatedCompletionTime: "2024-01-01T01:10:00Z",
-        instances: 100,
-        health: "Error"
+        instances: 80,
+        health: "Normal"
+      },
+      {
+        version: "v1.0.2",
+        deployID: "deploy-010",
+        startTime: "2024-01-01T00:30:00Z",
+        estimatedCompletionTime: "2024-01-01T01:15:00Z",
+        instances: 20,
+        health: "Normal"
       }
     ]
   }
@@ -1259,7 +1261,7 @@ export interface AlertIssue {
   id: string
   state: 'Open' | 'Closed'
   level: 'P0' | 'P1' | 'P2' | 'Warning'
-  alertState: 'Restored' | 'AutoRestored' | 'InProcessing'
+  alertState: 'Pending' | 'InProcessing' | 'Restored' | 'AutoRestored'
   title: string
   labels: AlertLabel[]
   alertSince: string
@@ -1344,9 +1346,9 @@ export const mockAlertsData: AlertsResponse = {
     },
     {
       id: 'alert-4',
-      state: 'Open',
+      state: 'Closed',
       level: 'Warning',
-      alertState: 'InProcessing',
+      alertState: 'Restored',
       title: 'gz Meta 数据库连接池使用率: 85% > 80%',
       labels: [
         { key: 'service', value: 'meta' },
@@ -1537,9 +1539,9 @@ export const mockAlertDetails: Record<string, AlertDetail> = {
   },
   'alert-4': {
     id: 'alert-4',
-    state: 'Open',
+    state: 'Closed',
     level: 'Warning',
-    alertState: 'InProcessing',
+    alertState: 'Restored',
     title: 'gz Meta 数据库连接池使用率: 85% > 80%',
     labels: [
       { key: 'service', value: 'meta' },
@@ -1699,4 +1701,438 @@ export const mockAlertRuleChangelog: AlertRuleChangelogResponse = {
       reason: "Meta服务作为核心服务，对错误率要求更加严格。将错误告警阈值从10降低到5，可以更敏感地发现服务异常，确保数据一致性。"
     }
   ],
+}
+
+// ==================== 数据持久化函数 ====================
+// 使用 localStorage 实现前端数据持久化
+
+/**
+ * 保存数据到 localStorage
+ */
+const saveDataToStorage = () => {
+  try {
+    localStorage.setItem('mockServiceActiveVersions', JSON.stringify(mockServiceActiveVersions))
+    localStorage.setItem('mockAvailableVersions', JSON.stringify(mockAvailableVersions))
+    console.log('数据已保存到 localStorage')
+  } catch (error) {
+    console.error('保存数据到 localStorage 失败:', error)
+  }
+}
+
+/**
+ * 从 localStorage 加载数据
+ */
+const loadDataFromStorage = () => {
+  try {
+    const activeVersionsData = localStorage.getItem('mockServiceActiveVersions')
+    const availableVersionsData = localStorage.getItem('mockAvailableVersions')
+    
+    if (activeVersionsData) {
+      const parsedData = JSON.parse(activeVersionsData)
+      Object.assign(mockServiceActiveVersions, parsedData)
+      console.log('已从 localStorage 加载活跃版本数据')
+    }
+    
+    if (availableVersionsData) {
+      const parsedData = JSON.parse(availableVersionsData)
+      Object.assign(mockAvailableVersions, parsedData)
+      console.log('已从 localStorage 加载可发布版本数据')
+    }
+  } catch (error) {
+    console.error('从 localStorage 加载数据失败:', error)
+  }
+}
+
+// 页面加载时自动从 localStorage 恢复数据
+loadDataFromStorage()
+
+// ==================== 服务告警状态管理 ====================
+// 管理服务节点的告警状态，用于改变拓扑图中节点的颜色
+
+/**
+ * 服务告警状态类型
+ */
+export type ServiceAlertStatus = 'normal' | 'pending' | 'processing'
+
+/**
+ * 服务告警状态映射
+ */
+export const serviceAlertStatusMap: Record<string, ServiceAlertStatus> = {}
+
+/**
+ * 保存服务告警状态到 localStorage
+ */
+const saveServiceAlertStatus = () => {
+  try {
+    localStorage.setItem('serviceAlertStatusMap', JSON.stringify(serviceAlertStatusMap))
+    console.log('服务告警状态已保存到 localStorage')
+  } catch (error) {
+    console.error('保存服务告警状态失败:', error)
+  }
+}
+
+/**
+ * 从 localStorage 加载服务告警状态
+ */
+const loadServiceAlertStatus = () => {
+  try {
+    const data = localStorage.getItem('serviceAlertStatusMap')
+    if (data) {
+      const parsedData = JSON.parse(data)
+      Object.assign(serviceAlertStatusMap, parsedData)
+      console.log('已从 localStorage 加载服务告警状态')
+    }
+  } catch (error) {
+    console.error('从 localStorage 加载服务告警状态失败:', error)
+  }
+}
+
+/**
+ * 根据告警状态更新服务状态
+ * @param serviceName 服务名称
+ * @param alertState 告警状态
+ */
+export const updateServiceAlertStatus = (serviceName: string, alertState: string) => {
+  let status: ServiceAlertStatus = 'normal'
+  
+  switch (alertState) {
+    case 'Pending':
+      status = 'pending'
+      break
+    case 'InProcessing':
+      status = 'processing'
+      break
+    case 'Restored':
+    case 'AutoRestored':
+    default:
+      status = 'normal'
+      break
+  }
+  
+  serviceAlertStatusMap[serviceName] = status
+  saveServiceAlertStatus()
+  
+  console.log(`服务 ${serviceName} 告警状态更新为: ${status} (${alertState})`)
+  return status
+}
+
+/**
+ * 获取服务告警状态
+ * @param serviceName 服务名称
+ */
+export const getServiceAlertStatus = (serviceName: string): ServiceAlertStatus => {
+  return serviceAlertStatusMap[serviceName] || 'normal'
+}
+
+/**
+ * 清除服务告警状态
+ * @param serviceName 服务名称
+ */
+export const clearServiceAlertStatus = (serviceName: string) => {
+  delete serviceAlertStatusMap[serviceName]
+  saveServiceAlertStatus()
+  console.log(`已清除服务 ${serviceName} 的告警状态`)
+}
+
+// 页面加载时自动从 localStorage 恢复服务告警状态
+loadServiceAlertStatus()
+
+// ==================== 服务版本告警状态管理 ====================
+// 让首页服务详情中的各版本颜色与告警状态同步
+
+/**
+ * 服务版本告警状态映射：service -> version -> status
+ */
+export const serviceVersionAlertStatusMap: Record<string, Record<string, ServiceAlertStatus>> = {}
+
+const saveServiceVersionAlertStatus = () => {
+  try {
+    localStorage.setItem('serviceVersionAlertStatusMap', JSON.stringify(serviceVersionAlertStatusMap))
+    console.log('服务版本告警状态已保存到 localStorage')
+  } catch (error) {
+    console.error('保存服务版本告警状态失败:', error)
+  }
+}
+
+const loadServiceVersionAlertStatus = () => {
+  try {
+    const data = localStorage.getItem('serviceVersionAlertStatusMap')
+    if (data) {
+      const parsed = JSON.parse(data)
+      Object.assign(serviceVersionAlertStatusMap, parsed)
+      console.log('已从 localStorage 加载服务版本告警状态')
+    }
+  } catch (error) {
+    console.error('从 localStorage 加载服务版本告警状态失败:', error)
+  }
+}
+
+/**
+ * 根据告警状态更新服务版本状态
+ * Pending -> pending, InProcessing -> processing, Restored/AutoRestored -> normal
+ */
+export const updateServiceVersionAlertStatus = (serviceName: string, version: string, alertState: string) => {
+  if (!serviceVersionAlertStatusMap[serviceName]) {
+    serviceVersionAlertStatusMap[serviceName] = {}
+  }
+
+  let status: ServiceAlertStatus = 'normal'
+  switch (alertState) {
+    case 'Pending':
+      status = 'pending'
+      break
+    case 'InProcessing':
+      status = 'processing'
+      break
+    case 'Restored':
+    case 'AutoRestored':
+    default:
+      status = 'normal'
+      break
+  }
+
+  serviceVersionAlertStatusMap[serviceName][version] = status
+  saveServiceVersionAlertStatus()
+  console.log(`服务 ${serviceName} 版本 ${version} 告警状态更新为: ${status} (${alertState})`)
+  return status
+}
+
+/**
+ * 获取服务版本告警状态
+ */
+export const getServiceVersionAlertStatus = (serviceName: string, version: string): ServiceAlertStatus => {
+  return serviceVersionAlertStatusMap[serviceName]?.[version] || 'normal'
+}
+
+/**
+ * 清除服务版本告警状态
+ */
+export const clearServiceVersionAlertStatus = (serviceName: string, version?: string) => {
+  if (version) {
+    if (serviceVersionAlertStatusMap[serviceName]) {
+      delete serviceVersionAlertStatusMap[serviceName][version]
+    }
+  } else {
+    delete serviceVersionAlertStatusMap[serviceName]
+  }
+  saveServiceVersionAlertStatus()
+  console.log(`已清除服务 ${serviceName} ${version ? '版本 ' + version : '所有版本'} 的告警状态`)
+}
+
+// 页面加载时恢复服务版本告警状态
+loadServiceVersionAlertStatus()
+
+// ==================== 发布任务状态管理 ====================
+// 管理服务的发布任务状态，用于显示发布指示器
+
+/**
+ * 发布任务状态类型
+ */
+export type DeploymentStatus = 'idle' | 'deploying'
+
+/**
+ * 服务发布状态映射
+ */
+export const serviceDeploymentStatusMap: Record<string, DeploymentStatus> = {}
+
+/**
+ * 保存服务发布状态到 localStorage
+ */
+const saveServiceDeploymentStatus = () => {
+  try {
+    localStorage.setItem('serviceDeploymentStatusMap', JSON.stringify(serviceDeploymentStatusMap))
+    console.log('服务发布状态已保存到 localStorage')
+  } catch (error) {
+    console.error('保存服务发布状态失败:', error)
+  }
+}
+
+/**
+ * 从 localStorage 加载服务发布状态
+ */
+const loadServiceDeploymentStatus = () => {
+  try {
+    const data = localStorage.getItem('serviceDeploymentStatusMap')
+    if (data) {
+      const parsedData = JSON.parse(data)
+      Object.assign(serviceDeploymentStatusMap, parsedData)
+      console.log('已从 localStorage 加载服务发布状态')
+    }
+  } catch (error) {
+    console.error('从 localStorage 加载服务发布状态失败:', error)
+  }
+}
+
+/**
+ * 设置服务发布状态
+ * @param serviceName 服务名称
+ * @param status 发布状态
+ */
+export const setServiceDeploymentStatus = (serviceName: string, status: DeploymentStatus) => {
+  serviceDeploymentStatusMap[serviceName] = status
+  saveServiceDeploymentStatus()
+  console.log(`服务 ${serviceName} 发布状态更新为: ${status}`)
+}
+
+/**
+ * 获取服务发布状态
+ * @param serviceName 服务名称
+ */
+export const getServiceDeploymentStatus = (serviceName: string): DeploymentStatus => {
+  return serviceDeploymentStatusMap[serviceName] || 'idle'
+}
+
+/**
+ * 清除服务发布状态
+ * @param serviceName 服务名称
+ */
+export const clearServiceDeploymentStatus = (serviceName: string) => {
+  delete serviceDeploymentStatusMap[serviceName]
+  saveServiceDeploymentStatus()
+  console.log(`已清除服务 ${serviceName} 的发布状态`)
+}
+
+// 页面加载时自动从 localStorage 恢复服务发布状态
+loadServiceDeploymentStatus()
+
+// ==================== 数据操作函数 ====================
+// 这些函数模拟后端操作数据的过程，用于支持前端的发布和回滚功能
+
+/**
+ * 从可发布版本列表中移除指定版本
+ * @param serviceName 服务名称
+ * @param version 要移除的版本
+ */
+export const removeVersionFromAvailable = (serviceName: string, version: string) => {
+  if (mockAvailableVersions[serviceName]) {
+    const index = mockAvailableVersions[serviceName].items.findIndex(item => item.version === version)
+    if (index >= 0) {
+      mockAvailableVersions[serviceName].items.splice(index, 1)
+      console.log(`已从 ${serviceName} 的可发布版本列表中移除 ${version}`)
+      saveDataToStorage() // 保存到 localStorage
+    }
+  }
+}
+
+/**
+ * 将版本添加到可发布版本列表中
+ * @param serviceName 服务名称
+ * @param version 要添加的版本
+ */
+export const addVersionToAvailable = (serviceName: string, version: string) => {
+  if (mockAvailableVersions[serviceName]) {
+    // 检查是否已存在
+    const existing = mockAvailableVersions[serviceName].items.find(item => item.version === version)
+    if (!existing) {
+      mockAvailableVersions[serviceName].items.push({
+        version: version,
+        createTime: new Date().toISOString()
+      })
+      console.log(`已将 ${version} 添加到 ${serviceName} 的可发布版本列表中`)
+      saveDataToStorage() // 保存到 localStorage
+    }
+  }
+}
+
+/**
+ * 从服务活跃版本中移除指定版本
+ * @param serviceName 服务名称
+ * @param version 要移除的版本
+ */
+export const removeVersionFromServiceActiveVersions = (serviceName: string, version: string) => {
+  if (mockServiceActiveVersions[serviceName]) {
+    const index = mockServiceActiveVersions[serviceName].items.findIndex(v => v.version === version)
+    if (index >= 0) {
+      mockServiceActiveVersions[serviceName].items.splice(index, 1)
+      console.log(`已从 ${serviceName} 的服务活跃版本中移除 ${version}`)
+      saveDataToStorage() // 保存到 localStorage
+    }
+  }
+}
+
+/**
+ * 将版本添加到服务活跃版本中（用于饼状图显示）
+ * @param serviceName 服务名称
+ * @param version 要添加的版本
+ */
+export const addVersionToServiceActiveVersions = (serviceName: string, version: string) => {
+  if (mockServiceActiveVersions[serviceName]) {
+    // 检查是否已存在
+    const existing = mockServiceActiveVersions[serviceName].items.find(v => v.version === version)
+    if (!existing) {
+      const now = new Date()
+      const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000) // 两小时后
+      
+      // 计算总实例数，用于确定15%对应的实例数
+      const totalInstances = mockServiceActiveVersions[serviceName].items.reduce((sum, item) => sum + item.instances, 0)
+      const newVersionInstances = Math.max(1, Math.round(totalInstances * 0.15)) // 新版本占15%，最少1个实例
+      
+      // 如果有现有版本，从最早发布的版本（第一个）减少15%
+      if (mockServiceActiveVersions[serviceName].items.length > 0) {
+        const earliestVersion = mockServiceActiveVersions[serviceName].items[0]
+        const reduceInstances = Math.min(earliestVersion.instances, newVersionInstances)
+        earliestVersion.instances = Math.max(0, earliestVersion.instances - reduceInstances)
+        console.log(`从最早版本 ${earliestVersion.version} 减少 ${reduceInstances} 个实例`)
+      }
+      
+      mockServiceActiveVersions[serviceName].items.push({
+        version: version,
+        deployID: `deploy-${Date.now()}`,
+        startTime: now.toISOString(),
+        estimatedCompletionTime: endTime.toISOString(),
+        instances: newVersionInstances, // 新版本占15%
+        health: "Normal"
+      })
+      console.log(`已将 ${version} 添加到 ${serviceName} 的服务活跃版本中，实例数: ${newVersionInstances}`)
+      saveDataToStorage() // 保存到 localStorage
+    }
+  }
+}
+
+/**
+ * 创建发布任务 - 模拟后端操作
+ * @param serviceName 服务名称
+ * @param version 要发布的版本
+ */
+export const createReleaseTask = (serviceName: string, version: string) => {
+  console.log(`开始创建发布任务: ${serviceName} -> ${version}`)
+  console.log('修改前的可发布版本列表:', mockAvailableVersions[serviceName]?.items)
+  console.log('修改前的服务活跃版本列表:', mockServiceActiveVersions[serviceName]?.items)
+  
+  // 1. 从可发布版本列表中移除
+  removeVersionFromAvailable(serviceName, version)
+  
+  // 2. 添加到服务活跃版本中
+  addVersionToServiceActiveVersions(serviceName, version)
+  
+  // 3. 设置服务发布状态为发布中
+  setServiceDeploymentStatus(serviceName, 'deploying')
+  
+  console.log('修改后的可发布版本列表:', mockAvailableVersions[serviceName]?.items)
+  console.log('修改后的服务活跃版本列表:', mockServiceActiveVersions[serviceName]?.items)
+  console.log(`发布任务创建成功: ${serviceName} -> ${version}`)
+}
+
+/**
+ * 回滚版本 - 模拟后端操作
+ * @param serviceName 服务名称
+ * @param version 要回滚的版本
+ */
+export const rollbackVersion = (serviceName: string, version: string) => {
+  console.log(`开始回滚版本: ${serviceName} -> ${version}`)
+  console.log('回滚前的服务活跃版本列表:', mockServiceActiveVersions[serviceName]?.items)
+  console.log('回滚前的可发布版本列表:', mockAvailableVersions[serviceName]?.items)
+  
+  // 1. 从服务活跃版本中移除
+  removeVersionFromServiceActiveVersions(serviceName, version)
+  
+  // 2. 恢复到可发布版本列表中
+  addVersionToAvailable(serviceName, version)
+  
+  // 3. 清除服务发布状态
+  clearServiceDeploymentStatus(serviceName)
+  
+  console.log('回滚后的服务活跃版本列表:', mockServiceActiveVersions[serviceName]?.items)
+  console.log('回滚后的可发布版本列表:', mockAvailableVersions[serviceName]?.items)
+  console.log(`版本回滚成功: ${serviceName} -> ${version}`)
 }
