@@ -102,7 +102,8 @@ GET /v1/deploy/status/{deploy_id}
     {
       "instance_id": "instance-2",
       "status": "in_progress",
-      "version": "v1.2.2",
+      "current_version": "v1.2.2",
+      "target_version": "v1.2.3",
       "updated_at": "2024-01-15T10:30:30Z"
     }
   ],
