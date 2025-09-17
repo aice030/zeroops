@@ -48,13 +48,29 @@
 
 ## 3. 接口设计
 
-### 3.1 发布相关接口
+发布系统按职责划分为以下核心接口：
 
-#### 3.1.1 触发发布
+- **DeployExecutor**: 发布执行接口，负责发布任务的执行和状态管理
+- **VersionManager**: 版本管理接口，负责服务实例版本信息的查询和管理
+- **RollbackManager**: 回滚管理接口，负责回滚操作的执行和状态管理
 
-**函数签名：**
+### 3.1 DeployExecutor接口
+
+发布执行接口，负责发布任务的执行和状态管理。
+
 ```go
-func ExecuteDeployment(params *DeployParams) (*DeployResult, error)
+type DeployExecutor interface {
+    ExecuteDeployment(params *DeployParams) (*DeployResult, error)
+    GetDeploymentStatus(deployID string) (*DeployStatus, error)
+    CancelDeployment(deployID string) (*CancelResult, error)
+}
+```
+
+#### 3.1.1 ExecuteDeployment方法
+
+**方法签名：**
+```go
+ExecuteDeployment(params *DeployParams) (*DeployResult, error)
 ```
 
 **输入参数：**
@@ -79,11 +95,11 @@ type DeployResult struct {
 }
 ```
 
-#### 3.1.2 查询发布状态
+#### 3.1.2 GetDeploymentStatus方法
 
-**函数签名：**
+**方法签名：**
 ```go
-func GetDeploymentStatus(deployID string) (*DeployStatus, error)
+GetDeploymentStatus(deployID string) (*DeployStatus, error)
 ```
 
 **输入参数：**
@@ -115,13 +131,22 @@ type DeployStatus struct {
 }
 ```
 
-### 3.2 版本查询接口
+### 3.2 VersionManager接口
 
-#### 3.2.1 获取服务所有实例的运行版本
+版本管理接口，负责服务实例版本信息的查询和管理。
 
-**函数签名：**
 ```go
-func GetServiceInstanceVersions(serviceName string) (*ServiceVersions, error)
+type VersionManager interface {
+    GetServiceInstanceVersions(serviceName string, includeStopped bool) (*ServiceVersions, error)
+    GetServiceInstances(params *InstanceQueryParams) (*ServiceInstances, error)
+}
+```
+
+#### 3.2.1 GetServiceInstanceVersions方法
+
+**方法签名：**
+```go
+GetServiceInstanceVersions(serviceName string, includeStopped bool) (*ServiceVersions, error)
 ```
 
 **输入参数：**
@@ -143,11 +168,11 @@ type ServiceVersions struct {
 }
 ```
 
-#### 3.2.2 获取服务的实例列表
+#### 3.2.2 GetServiceInstances方法
 
-**函数签名：**
+**方法签名：**
 ```go
-func GetServiceInstances(serviceName string) (*ServiceInstances, error)
+GetServiceInstances(params *InstanceQueryParams) (*ServiceInstances, error)
 ```
 
 **输入参数：**
@@ -170,13 +195,24 @@ type ServiceInstances struct {
 }
 ```
 
-### 3.3 回滚相关接口
+### 3.3 RollbackManager接口
 
-#### 3.3.1 单实例回滚
+回滚管理接口，负责回滚操作的执行和状态管理。
 
-**函数签名：**
 ```go
-func RollbackInstance(params *InstanceRollbackParams) (*RollbackResult, error)
+type RollbackManager interface {
+    RollbackInstance(params *InstanceRollbackParams) (*RollbackResult, error)
+    RollbackBatch(params *BatchRollbackParams) (*BatchRollbackResult, error)
+    GetRollbackStatus(rollbackID string) (*RollbackStatus, error)
+    CancelRollback(rollbackID string) (*CancelResult, error)
+}
+```
+
+#### 3.3.1 RollbackInstance方法
+
+**方法签名：**
+```go
+RollbackInstance(params *InstanceRollbackParams) (*RollbackResult, error)
 ```
 
 **输入参数：**
@@ -198,11 +234,11 @@ type RollbackResult struct {
 }
 ```
 
-#### 3.3.2 批量实例回滚
+#### 3.3.2 RollbackBatch方法
 
-**函数签名：**
+**方法签名：**
 ```go
-func RollbackBatch(params *BatchRollbackParams) (*BatchRollbackResult, error)
+RollbackBatch(params *BatchRollbackParams) (*BatchRollbackResult, error)
 ```
 
 **输入参数：**
@@ -226,11 +262,11 @@ type BatchRollbackResult struct {
 }
 ```
 
-#### 3.3.3 查询回滚状态
+#### 3.3.3 GetRollbackStatus方法
 
-**函数签名：**
+**方法签名：**
 ```go
-func GetRollbackStatus(rollbackID string) (*RollbackStatus, error)
+GetRollbackStatus(rollbackID string) (*RollbackStatus, error)
 ```
 
 **输入参数：**
