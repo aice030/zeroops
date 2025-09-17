@@ -345,7 +345,7 @@
   "service": "string",           // 必填，服务名称
   "target_version": "string",    // 必填，目标版本号
   "package_url": "string",       // 可选，包下载URL
-  "instances": ["string"],       // 可选，指定实例列表（如果不提供，则回滚该服务所有实例）
+  "instances": ["string"],       // 必填，需要回滚的实例ID列表
   "force": false,                // 可选，是否强制回滚
   "timeout": 300                 // 可选，超时时间
 }
