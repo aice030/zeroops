@@ -46,229 +46,213 @@
 - 实例版本状态同步
 - 状态变更日志记录
 
-## 3. API接口设计
+## 3. 接口设计
 
 ### 3.1 发布相关接口
 
 #### 3.1.1 触发发布
-```http
-POST /v1/deploy/execute
-Content-Type: application/json
 
-{
-  "service": "user-service",
-  "version": "v1.2.3",
-  "instances": ["instance-1", "instance-2", "instance-3"],
-  "package_url": "https://packages.example.com/user-service/v1.2.3.tar.gz",
-  "deploy_id": "deploy-12345"
+**函数签名：**
+```go
+func ExecuteDeployment(params *DeployParams) (*DeployResult, error)
+```
+
+**输入参数：**
+```go
+type DeployParams struct {
+    Service    string   `json:"service"`     // 服务名称
+    Version    string   `json:"version"`     // 目标版本号
+    Instances  []string `json:"instances"`   // 实例ID列表
+    PackageURL string   `json:"package_url"` // 包下载URL
+    DeployID   string   `json:"deploy_id"`   // 发布任务ID
+    Timeout    int      `json:"timeout"`     // 超时时间（秒）
+    RetryCount int      `json:"retry_count"` // 重试次数
 }
 ```
 
-**响应：**
-```json
-{
-  "code": 200,
-  "message": "deployment started successfully",
-  "data": {
-    "deploy_id": "deploy-12345",
-    "status": "started",
-    "started_at": "2024-01-15T10:30:00Z"
-  }
+**返回结果：**
+```go
+type DeployResult struct {
+    DeployID  string    `json:"deploy_id"`
+    Status    string    `json:"status"`
+    StartedAt time.Time `json:"started_at"`
 }
 ```
 
 #### 3.1.2 查询发布状态
-```http
-GET /v1/deploy/status/{deploy_id}
+
+**函数签名：**
+```go
+func GetDeploymentStatus(deployID string) (*DeployStatus, error)
 ```
 
-**响应：**
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "deploy_id": "deploy-12345",
-    "service": "user-service",
-    "version": "v1.2.3",
-    "status": "in_progress",
-    "progress": {
-      "total": 3,
-      "completed": 1,
-      "failed": 0,
-      "pending": 2
-    },
-    "instances": [
-      {
-        "instance_id": "instance-1",
-        "status": "completed",
-        "version": "v1.2.3",
-        "updated_at": "2024-01-15T10:31:00Z"
-      },
-      {
-        "instance_id": "instance-2",
-        "status": "in_progress",
-        "version": "v1.2.2",
-        "updated_at": "2024-01-15T10:30:30Z"
-      }
-    ],
-    "started_at": "2024-01-15T10:30:00Z",
-    "updated_at": "2024-01-15T10:31:00Z"
-  }
+**输入参数：**
+```go
+deployID string // 发布任务ID
+```
+
+**返回结果：**
+```go
+type DeployStatus struct {
+    DeployID  string `json:"deploy_id"`
+    Service   string `json:"service"`
+    Version   string `json:"version"`
+    Status    string `json:"status"`
+    Progress  struct {
+        Total     int `json:"total"`
+        Completed int `json:"completed"`
+        Failed    int `json:"failed"`
+        Pending   int `json:"pending"`
+    } `json:"progress"`
+    Instances []struct {
+        InstanceID string    `json:"instance_id"`
+        Status     string    `json:"status"`
+        Version    string    `json:"version"`
+        UpdatedAt  time.Time `json:"updated_at"`
+    } `json:"instances"`
+    StartedAt time.Time `json:"started_at"`
+    UpdatedAt time.Time `json:"updated_at"`
 }
 ```
 
 ### 3.2 版本查询接口
 
 #### 3.2.1 获取服务所有实例的运行版本
-```http
-GET /v1/service/{service_name}/instances/versions
+
+**函数签名：**
+```go
+func GetServiceInstanceVersions(serviceName string) (*ServiceVersions, error)
 ```
 
-**响应：**
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "service": "user-service",
-    "instances": [
-      {
-        "instance_id": "instance-1",
-        "version": "v1.2.3",
-        "status": "running",
-        "last_updated": "2024-01-15T10:31:00Z"
-      },
-      {
-        "instance_id": "instance-2",
-        "version": "v1.2.2",
-        "status": "running",
-        "last_updated": "2024-01-15T09:15:00Z"
-      }
-    ],
-    "version_summary": {
-      "v1.2.3": 1,
-      "v1.2.2": 1
-    }
-  }
+**输入参数：**
+```go
+serviceName string // 服务名称
+```
+
+**返回结果：**
+```go
+type ServiceVersions struct {
+    Service string `json:"service"`
+    Instances []struct {
+        InstanceID  string    `json:"instance_id"`
+        Version     string    `json:"version"`
+        Status      string    `json:"status"`
+        LastUpdated time.Time `json:"last_updated"`
+    } `json:"instances"`
+    VersionSummary map[string]int `json:"version_summary"`
 }
 ```
 
 #### 3.2.2 获取服务的实例列表
-```http
-GET /v1/service/{service_name}/instances
+
+**函数签名：**
+```go
+func GetServiceInstances(serviceName string) (*ServiceInstances, error)
 ```
 
-**响应：**
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "service": "user-service",
-    "instances": [
-      {
-        "instance_id": "instance-1",
-        "host": "192.168.1.10",
-        "port": 8080,
-        "status": "healthy",
-        "version": "v1.2.3"
-      },
-      {
-        "instance_id": "instance-2",
-        "host": "192.168.1.11",
-        "port": 8080,
-        "status": "healthy",
-        "version": "v1.2.2"
-      }
-    ],
-    "total": 2
-  }
+**输入参数：**
+```go
+serviceName string // 服务名称
+```
+
+**返回结果：**
+```go
+type ServiceInstances struct {
+    Service string `json:"service"`
+    Instances []struct {
+        InstanceID string `json:"instance_id"`
+        Host       string `json:"host"`
+        Port       int    `json:"port"`
+        Status     string `json:"status"`
+        Version    string `json:"version"`
+    } `json:"instances"`
+    Total int `json:"total"`
 }
 ```
 
 ### 3.3 回滚相关接口
 
 #### 3.3.1 单实例回滚
-```http
-POST /v1/rollback/instance
-Content-Type: application/json
 
-{
-  "instance_id": "instance-1",
-  "target_version": "v1.2.2",
-  "package_url": "https://packages.example.com/user-service/v1.2.2.tar.gz"
+**函数签名：**
+```go
+func RollbackInstance(params *InstanceRollbackParams) (*RollbackResult, error)
+```
+
+**输入参数：**
+```go
+type InstanceRollbackParams struct {
+    InstanceID    string `json:"instance_id"`    // 实例ID
+    TargetVersion string `json:"target_version"` // 目标版本
+    PackageURL    string `json:"package_url"`    // 包下载URL
 }
 ```
 
-**响应：**
-```json
-{
-  "code": 200,
-  "message": "rollback started successfully",
-  "data": {
-    "rollback_id": "rollback-67890",
-    "instance_id": "instance-1",
-    "target_version": "v1.2.2",
-    "status": "started"
-  }
+**返回结果：**
+```go
+type RollbackResult struct {
+    RollbackID    string `json:"rollback_id"`
+    InstanceID    string `json:"instance_id"`
+    TargetVersion string `json:"target_version"`
+    Status        string `json:"status"`
 }
 ```
 
 #### 3.3.2 批量实例回滚
-```http
-POST /v1/rollback/batch
-Content-Type: application/json
 
-{
-  "service": "user-service",
-  "target_version": "v1.2.2",
-  "package_url": "https://packages.example.com/user-service/v1.2.2.tar.gz",
-  "instances": ["instance-1", "instance-2"]
+**函数签名：**
+```go
+func RollbackBatch(params *BatchRollbackParams) (*BatchRollbackResult, error)
+```
+
+**输入参数：**
+```go
+type BatchRollbackParams struct {
+    Service       string   `json:"service"`        // 服务名称
+    TargetVersion string   `json:"target_version"` // 目标版本
+    PackageURL    string   `json:"package_url"`    // 包下载URL
+    Instances     []string `json:"instances"`      // 实例ID列表
 }
 ```
 
-**响应：**
-```json
-{
-  "code": 200,
-  "message": "batch rollback started successfully",
-  "data": {
-    "rollback_id": "rollback-67891",
-    "service": "user-service",
-    "target_version": "v1.2.2",
-    "status": "started",
-    "instances": ["instance-1", "instance-2"]
-  }
+**返回结果：**
+```go
+type BatchRollbackResult struct {
+    RollbackID    string   `json:"rollback_id"`
+    Service       string   `json:"service"`
+    TargetVersion string   `json:"target_version"`
+    Status        string   `json:"status"`
+    Instances     []string `json:"instances"`
 }
 ```
 
 #### 3.3.3 查询回滚状态
-```http
-GET /v1/rollback/status/{rollback_id}
+
+**函数签名：**
+```go
+func GetRollbackStatus(rollbackID string) (*RollbackStatus, error)
 ```
 
-**响应：**
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "rollback_id": "rollback-67890",
-    "service": "user-service",
-    "target_version": "v1.2.2",
-    "status": "completed",
-    "instances": [
-      {
-        "instance_id": "instance-1",
-        "status": "completed",
-        "version": "v1.2.2",
-        "updated_at": "2024-01-15T11:00:00Z"
-      }
-    ],
-    "started_at": "2024-01-15T10:55:00Z",
-    "completed_at": "2024-01-15T11:00:00Z"
-  }
+**输入参数：**
+```go
+rollbackID string // 回滚任务ID
+```
+
+**返回结果：**
+```go
+type RollbackStatus struct {
+    RollbackID    string `json:"rollback_id"`
+    Service       string `json:"service"`
+    TargetVersion string `json:"target_version"`
+    Status        string `json:"status"`
+    Instances     []struct {
+        InstanceID string    `json:"instance_id"`
+        Status     string    `json:"status"`
+        Version    string    `json:"version"`
+        UpdatedAt  time.Time `json:"updated_at"`
+    } `json:"instances"`
+    StartedAt   time.Time `json:"started_at"`
+    CompletedAt time.Time `json:"completed_at"`
 }
 ```
 
