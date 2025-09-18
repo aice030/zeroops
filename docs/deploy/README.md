@@ -48,9 +48,10 @@
 
 ## 3. 接口设计
 
-发布系统提供统一的外部接口：
+发布系统提供以下外部接口：
 
 - **DeployService**: 发布服务接口，负责发布和回滚操作的执行
+- **InstanceManager**: 实例管理接口，负责实例信息查询和状态管理
 
 ### 3.1 DeployService接口
 
@@ -146,7 +147,7 @@ type RollbackParams struct {
 - `Service`: 服务名称，如 "user-service"
 - `TargetVersion`: 目标版本号，如 "v1.2.2"
 - `Instances`: 实例ID数组，单实例回滚传入一个元素，批量回滚传入多个元素
-- `PackageURL`: 包的下载地址，必须是HTTPS
+- `PackageURL`: 包的下载地址，HTTP或者本地路径
 
 **返回结果：**
 ```go
@@ -161,6 +162,77 @@ type RollbackResult struct {
 }
 ```
 
+### 3.2 InstanceManager接口
+
+实例管理接口，负责实例信息查询和状态管理，发布模块和服务管理模块都需要使用。
+
+```go
+type InstanceManager interface {
+    GetServiceInstances(serviceName string) ([]string, error)
+    GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
+    GetInstancesVersion(instanceIDs []string) (map[string]string, error)
+    GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
+    CheckInstanceHealth(instanceIDs []string) (map[string]*HealthStatus, error)
+}
+```
+
+#### 3.2.1 数据结构定义
+
+**InstanceInfo结构体**:
+```go
+type InstanceInfo struct {
+    InstanceID    string            `json:"instance_id"`
+    ServiceName   string            `json:"service_name"`
+    Host          string            `json:"host"`
+    Port          int               `json:"port"`
+    Version       string            `json:"version"`
+    Status        string            `json:"status"`
+    LastHeartbeat time.Time         `json:"last_heartbeat"`
+    Metadata      map[string]string `json:"metadata"`
+}
+```
+
+**HealthStatus结构体**:
+```go
+type HealthStatus struct {
+    InstanceID string    `json:"instance_id"`
+    IsHealthy  bool      `json:"is_healthy"`
+    CheckedAt  time.Time `json:"checked_at"`
+    Message    string    `json:"message,omitempty"`
+}
+```
+
+**VersionInfo结构体**:
+```go
+type VersionInfo struct {
+    Version    string    `json:"version"`
+    DeployedAt time.Time `json:"deployed_at"`
+    DeployID   string    `json:"deploy_id"`
+    Status     string    `json:"status"` // deploy, rollback
+}
+```
+
+#### 3.2.2 方法说明
+
+**GetServiceInstances方法**: 获取指定服务的所有实例ID列表
+- 输入: 服务名称
+- 返回: 实例ID数组
+
+**GetInstancesInfo方法**: 批量获取多个实例的详细信息
+- 输入: 实例ID数组
+- 返回: 实例ID到实例信息的映射
+
+**GetInstancesVersion方法**: 批量获取多个实例的当前版本
+- 输入: 实例ID数组
+- 返回: 实例ID到版本号的映射
+
+**GetInstanceVersionHistory方法**: 获取指定实例的版本历史记录
+- 输入: 实例ID
+- 返回: 版本历史数组
+
+**CheckInstanceHealth方法**: 检查实例的健康状态，支持单个或多个实例
+- 输入: 实例ID数组
+- 返回: 实例ID到健康状态的映射
 
 ## 4. 系统架构
 

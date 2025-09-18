@@ -113,7 +113,7 @@ type RollbackParams struct {
 - `Service`: 服务名称，如 "user-service"
 - `TargetVersion`: 目标版本号，如 "v1.2.2"
 - `Instances`: 实例ID数组，单实例回滚传入一个元素，批量回滚传入多个元素
-- `PackageURL`: 包的下载地址，必须是HTTPS
+- `PackageURL`: 包的下载地址，HTTP或者本地路径
 
 **返回结果**:
 ```go
@@ -132,15 +132,15 @@ type RollbackResult struct {
 
 ### 3.1 接口定义
 
-实例管理接口，负责实例信息查询和状态管理。
+实例管理接口，负责实例信息查询和状态管理，发布模块和服务管理模块都需要使用。
 
 ```go
 type InstanceManager interface {
-    GetServiceInstances(serviceName string) ([]*InstanceInfo, error)
-    GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
+    GetServiceInstances(serviceName string) ([]string, error)
     GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
-    BatchHealthCheck(instanceIDs []string) (map[string]*HealthStatus, error)
-    GetInstancesVersions(instanceIDs []string) (map[string]string, error)
+    GetInstancesVersion(instanceIDs []string) (map[string]string, error)
+    GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
+    CheckInstanceHealth(instanceIDs []string) (map[string]*HealthStatus, error)
 }
 ```
 
@@ -163,10 +163,10 @@ type InstanceInfo struct {
 **HealthStatus结构体**:
 ```go
 type HealthStatus struct {
-    InstanceID   string    `json:"instance_id"`
-    IsHealthy    bool      `json:"is_healthy"`
-    CheckedAt    time.Time `json:"checked_at"`
-    ErrorMessage string    `json:"error_message,omitempty"`
+    InstanceID string    `json:"instance_id"`
+    IsHealthy  bool      `json:"is_healthy"`
+    CheckedAt  time.Time `json:"checked_at"`
+    Message    string    `json:"message,omitempty"`
 }
 ```
 
@@ -176,7 +176,7 @@ type VersionInfo struct {
     Version    string    `json:"version"`
     DeployedAt time.Time `json:"deployed_at"`
     DeployID   string    `json:"deploy_id"`
-    Action     string    `json:"action"` // deploy, rollback
+    Status     string    `json:"status"` // deploy, rollback
 }
 ```
 
@@ -186,7 +186,7 @@ type VersionInfo struct {
 
 **方法签名**:
 ```go
-GetServiceInstances(serviceName string) ([]*InstanceInfo, error)
+GetServiceInstances(serviceName string) ([]string, error)
 ```
 
 **输入参数**:
@@ -194,25 +194,9 @@ GetServiceInstances(serviceName string) ([]*InstanceInfo, error)
 serviceName string // 服务名称
 ```
 
-**返回结果**: `[]*InstanceInfo` - 实例信息数组
+**返回结果**: `[]string` - 实例ID数组
 
-### 3.4 GetInstanceVersionHistory方法
-
-**方法描述**: 获取指定实例的版本历史记录
-
-**方法签名**:
-```go
-GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
-```
-
-**输入参数**:
-```go
-instanceID string // 实例ID
-```
-
-**返回结果**: `[]*VersionInfo` - 版本历史数组
-
-### 3.5 GetInstancesInfo方法
+### 3.4 GetInstancesInfo方法
 
 **方法描述**: 批量获取多个实例的详细信息
 
@@ -228,13 +212,13 @@ instanceIDs []string // 实例ID数组
 
 **返回结果**: `map[string]*InstanceInfo` - 实例ID到实例信息的映射
 
-### 3.6 BatchHealthCheck方法
+### 3.7 CheckInstanceHealth方法
 
-**方法描述**: 批量检查多个实例的健康状态
+**方法描述**: 检查实例的健康状态，支持单个或多个实例
 
 **方法签名**:
 ```go
-BatchHealthCheck(instanceIDs []string) (map[string]*HealthStatus, error)
+CheckInstanceHealth(instanceIDs []string) (map[string]*HealthStatus, error)
 ```
 
 **输入参数**:
@@ -244,13 +228,13 @@ instanceIDs []string // 实例ID数组
 
 **返回结果**: `map[string]*HealthStatus` - 实例ID到健康状态的映射
 
-### 3.7 GetInstancesVersions方法
+### 3.5 GetInstancesVersion方法
 
 **方法描述**: 批量获取多个实例的当前版本
 
 **方法签名**:
 ```go
-GetInstancesVersions(instanceIDs []string) (map[string]string, error)
+GetInstancesVersion(instanceIDs []string) (map[string]string, error)
 ```
 
 **输入参数**:
@@ -259,6 +243,22 @@ instanceIDs []string // 实例ID数组
 ```
 
 **返回结果**: `map[string]string` - 实例ID到版本号的映射
+
+### 3.6 GetInstanceVersionHistory方法
+
+**方法描述**: 获取指定实例的版本历史记录
+
+**方法签名**:
+```go
+GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
+```
+
+**输入参数**:
+```go
+instanceID string // 实例ID
+```
+
+**返回结果**: `[]*VersionInfo` - 版本历史数组
 
 ## 4. 使用示例
 
@@ -338,5 +338,41 @@ func main() {
         log.Fatalf("回滚失败: %v", err)
     }
     fmt.Printf("回滚启动成功: %s\n", rollbackResult.RollbackID)
+}
+```
+
+## 5. 内部工具函数
+
+### 5.1 ValidatePackageURL函数
+
+**函数描述**: 验证包URL的有效性和安全性
+
+**函数签名**:
+```go
+func ValidatePackageURL(packageURL string) error
+```
+
+**输入参数**:
+```go
+packageURL string // 包下载URL
+```
+
+**返回结果**: `error` - 验证失败时返回错误信息
+
+**验证规则**:
+- URL必须使用HTTPS协议
+- URL格式必须正确
+- 域名必须在白名单中（可选）
+- 文件扩展名必须符合要求（如.tar.gz, .zip等）
+
+**使用示例**:
+```go
+func (fd *floyDeployService) ExecuteDeployment(params *DeployParams) (*DeployResult, error) {
+    // 验证包URL
+    if err := ValidatePackageURL(params.PackageURL); err != nil {
+        return nil, fmt.Errorf("无效的包URL: %v", err)
+    }
+    
+    // 继续执行发布逻辑...
 }
 ```
