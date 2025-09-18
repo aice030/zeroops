@@ -172,26 +172,18 @@ type InstanceManager interface {
 **InstanceInfo结构体**:
 ```go
 type InstanceInfo struct {
-    InstanceID    string            `json:"instance_id"`    // 实例唯一标识符
-    ServiceName   string            `json:"service_name"`   // 所属服务名称
-    Host          string            `json:"host"`           // 实例运行的主机地址
-    Port          int               `json:"port"`           // 实例监听端口
-    Version       string            `json:"version"`        // 当前运行的版本号
-    Status        string            `json:"status"`         // 实例运行状态
-    LastHeartbeat time.Time         `json:"last_heartbeat"` // 最后心跳时间
-    Metadata      map[string]string `json:"metadata"`       // 实例元数据信息
+    InstanceID  string `json:"instance_id"`  // 实例唯一标识符
+    ServiceName string `json:"service_name"` // 所属服务名称
+    Version     string `json:"version"`      // 当前运行的版本号
+    Status      string `json:"status"`       // 实例运行状态
 }
 ```
 
 **字段说明**:
 - `InstanceID`: 实例的全局唯一标识符，如"user-service-001"
 - `ServiceName`: 实例所属的服务名称，如"user-service"
-- `Host`: 实例运行的服务器IP地址或主机名
-- `Port`: 实例对外提供服务的端口号
 - `Version`: 实例当前运行的软件版本号，如"v1.2.3"
 - `Status`: 实例的运行状态，如"running"、"stopped"、"starting"等
-- `LastHeartbeat`: 实例最后一次发送心跳的时间，用于判断实例是否存活
-- `Metadata`: 实例的附加元数据信息，如环境标签、资源配置等
 
 **HealthStatus结构体**:
 ```go
