@@ -338,3 +338,36 @@ func (fd *floyDeployService) ExecuteDeployment(params *DeployParams) (*DeployRes
     // 继续执行发布逻辑...
 }
 ```
+
+### 5.2 GetInstanceHost函数
+
+**函数描述**: 根据实例ID获取实例的IP地址
+
+**函数签名**:
+```go
+func GetInstanceHost(instanceID string) (string, error)
+```
+
+**输入参数**:
+```go
+instanceID string // 实例ID
+```
+
+**返回结果**: `string` - 实例的IP地址，获取失败时返回错误信息
+
+### 5.3 GetInstancePort函数
+
+**函数描述**: 根据服务名和实例IP获取实例的端口号
+
+**函数签名**:
+```go
+func GetInstancePort(serviceName, instanceHost string) (int, error)
+```
+
+**输入参数**:
+```go
+serviceName  string // 服务名称
+instanceHost string // 实例IP地址
+```
+
+**返回结果**: `int` - 实例的端口号，获取失败时返回错误信息
