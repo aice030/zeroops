@@ -317,46 +317,46 @@ type DeployService interface {
 
 ```go
 // 实现结构体
-type deployService struct {
+type floyDeployService struct {
     logger   Logger
     executor Executor
     database Database
 }
 
 // 实现DeployExecutor接口
-func (d *deployService) ExecuteDeployment(params *DeployParams) (*DeployResult, error) {
+func (fd *floyDeployService) ExecuteDeployment(params *DeployParams) (*DeployResult, error) {
     // 实现逻辑
 }
 
-func (d *deployService) GetDeploymentStatus(deployID string) (*DeployStatus, error) {
+func (fd *floyDeployService) GetDeploymentStatus(deployID string) (*DeployStatus, error) {
     // 实现逻辑
 }
 
-func (d *deployService) CancelDeployment(deployID string) (*CancelResult, error) {
+func (fd *floyDeployService) CancelDeployment(deployID string) (*CancelResult, error) {
     // 实现逻辑
 }
 
 // 实现VersionManager接口
-func (d *deployService) GetServiceInstanceVersions(serviceName string) (*ServiceVersions, error) {
+func (fd *floyDeployService) GetServiceInstanceVersions(serviceName string) (*ServiceVersions, error) {
     // 实现逻辑
 }
 
-func (d *deployService) GetServiceInstances(params *InstanceQueryParams) (*ServiceInstances, error) {
+func (fd *floyDeployService) GetServiceInstances(params *InstanceQueryParams) (*ServiceInstances, error) {
     // 实现逻辑
 }
 
 // 实现RollbackManager接口
-func (d *deployService) RollbackInstance(params *InstanceRollbackParams) (*RollbackResult, error) {
+func (fd *floyDeployService) RollbackInstance(params *InstanceRollbackParams) (*RollbackResult, error) {
     // 实现逻辑
 }
 
-func (d *deployService) RollbackBatch(params *BatchRollbackParams) (*BatchRollbackResult, error) {
+func (fd *floyDeployService) RollbackBatch(params *BatchRollbackParams) (*BatchRollbackResult, error) {
     // 实现逻辑
 }
 
 // 构造函数
 func NewDeployService(logger Logger, executor Executor, database Database) DeployService {
-    return &deployService{
+    return &floyDeployService{
         logger:   logger,
         executor: executor,
         database: database,
@@ -376,7 +376,7 @@ import (
 
 func main() {
     // 初始化服务
-    deployService := NewDeployService(logger, executor, database)
+    floyDeployService := NewDeployService(logger, executor, database)
     
     // 1. 触发发布
     deployParams := &DeployParams{
@@ -389,14 +389,14 @@ func main() {
         RetryCount: 3,
     }
     
-    result, err := deployService.ExecuteDeployment(deployParams)
+    result, err := floyDeployService.ExecuteDeployment(deployParams)
     if err != nil {
         log.Fatalf("发布失败: %v", err)
     }
     fmt.Printf("发布启动成功: %s\n", result.DeployID)
     
     // 2. 查询服务实例版本
-    versions, err := deployService.GetServiceInstanceVersions("user-service")
+    versions, err := floyDeployService.GetServiceInstanceVersions("user-service")
     if err != nil {
         log.Fatalf("查询版本失败: %v", err)
     }
@@ -410,7 +410,7 @@ func main() {
         Instances:     []string{"instance-1", "instance-2"},
     }
     
-    rollbackResult, err := deployService.RollbackBatch(rollbackParams)
+    rollbackResult, err := floyDeployService.RollbackBatch(rollbackParams)
     if err != nil {
         log.Fatalf("回滚失败: %v", err)
     }
