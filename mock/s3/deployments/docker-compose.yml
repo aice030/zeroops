@@ -21,7 +21,7 @@ volumes:
 services:
   # Consul - 服务发现
   consul:
-    image: hashicorp/consul:1.16
+    image: docker.m.daocloud.io/hashicorp/consul:1.16
     container_name: mock-s3-consul
     hostname: consul
     networks:
@@ -33,19 +33,19 @@ services:
     volumes:
       - consul-data:/consul/data
       - ./consul/consul-config.json:/consul/config/consul-config.json:ro
-    command: consul agent -server -bootstrap -ui -node=consul-server -bind=172.21.0.10 -client=0.0.0.0
+    command: consul agent -server -bootstrap -ui -node=consul-server -bind=172.21.0.10 -client=0.0.0.0 -data-dir=/consul/data
     restart: unless-stopped
 
   # PostgreSQL - 数据存储
   postgres:
-    image: postgres:15-alpine
+    image: docker.m.daocloud.io/postgres:15-alpine
     container_name: mock-s3-postgres
     hostname: postgres
     networks:
       infra-network:
         ipv4_address: 172.21.0.11
     ports:
-      - "5432:5432"
+      - "5532:5432"  # 改为5532避免与系统PostgreSQL冲突
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
@@ -57,14 +57,14 @@ services:
 
   # Redis - 缓存和队列
   redis:
-    image: redis:7-alpine
+    image: docker.m.daocloud.io/redis:7-alpine
     container_name: mock-s3-redis
     hostname: redis
     networks:
       infra-network:
         ipv4_address: 172.21.0.12
     ports:
-      - "6379:6379"
+      - "16379:6379"  # 改为16379避免与系统Redis冲突
     volumes:
       - redis-data:/data
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
@@ -73,7 +73,7 @@ services:
 
   # Prometheus - 指标收集
   prometheus:
-    image: prom/prometheus:latest
+    image: docker.m.daocloud.io/prom/prometheus:latest
     container_name: mock-s3-prometheus
     hostname: prometheus
     networks:
@@ -92,7 +92,7 @@ services:
 
   # Grafana - 可视化
   grafana:
-    image: grafana/grafana:latest
+    image: docker.m.daocloud.io/grafana/grafana:latest
     container_name: mock-s3-grafana
     hostname: grafana
     networks:
@@ -111,7 +111,7 @@ services:
 
   # Elasticsearch - 日志存储
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    image: docker.m.daocloud.io/elastic/elasticsearch:8.10.2
     container_name: mock-s3-elasticsearch
     hostname: elasticsearch
     networks:
@@ -130,7 +130,7 @@ services:
 
   # Kibana - 日志查询
   kibana:
-    image: docker.elastic.co/kibana/kibana:8.10.2
+    image: docker.m.daocloud.io/elastic/kibana:8.10.2
     container_name: mock-s3-kibana
     hostname: kibana
     networks:
@@ -146,7 +146,7 @@ services:
 
   # OpenTelemetry Collector
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: docker.m.daocloud.io/otel/opentelemetry-collector-contrib:latest
     container_name: mock-s3-otel
     hostname: otel-collector
     networks:
@@ -155,7 +155,7 @@ services:
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
-      - "8888:8888"   # Prometheus metrics
+      - "18888:8889"  # Prometheus metrics - 使用8889内部端口避免冲突
     volumes:
       - ./otel/otel-config.yaml:/etc/otel-collector-config.yaml:ro
     command: ["--config=/etc/otel-collector-config.yaml"]

@@ -11,9 +11,9 @@ database:
   driver: "postgres"
   host: "postgres"
   port: 5432
-  name: "mocks3"
-  username: "admin"
-  password: "password"
+  name: "mock_s3"
+  username: "postgres"
+  password: "postgres123"
   
 redis:
   address: "redis:6379"

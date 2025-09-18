@@ -9,9 +9,8 @@ DEPLOY_BASE="/home/qboxserver"
 
 # 服务列表和端口（使用 zeroops_ 前缀）
 declare -A SERVICES=(
-    ["zeroops_metadata_1"]="8181"
-    ["zeroops_metadata_2"]="8182"
-    ["zeroops_metadata_3"]="8183"
+    ["zeroops_metadata_1"]="8182"
+    ["zeroops_metadata_2"]="8183"
     ["zeroops_storage_1"]="8191"
     ["zeroops_storage_2"]="8192"
     ["zeroops_queue_1"]="8201"
@@ -94,10 +93,52 @@ deploy_binaries() {
 
             if [ -f "$src_config" ]; then
                 cp "$src_config" "$dst_config"
-                # 修改端口号
+                # 修改服务端口号（只修改service部分的port，不修改database/redis等其他部分的port）
                 port="${SERVICES[$service_dir]}"
-                sed -i "s/port: [0-9]*/port: $port/g" "$dst_config" 2>/dev/null || true
-                log_info "  部署配置: ${base_name}-config.yaml (端口: $port)"
+                # 使用awk来只修改service部分的port
+                awk -v port="$port" '
+                    /^service:/ {in_service=1}
+                    /^[^ ]/ && !/^  / && !/^service:/ {in_service=0}
+                    in_service && /^  port:/ {sub(/port: [0-9]+/, "port: " port)}
+                    {print}
+                ' "$dst_config" > "$dst_config.tmp" && mv "$dst_config.tmp" "$dst_config"
+                # 修复配置文件中的主机名和端口
+
+                # 1. 替换 host 字段（database和redis的host）
+                sed -i 's/host: "postgres"/host: "127.0.0.1"/g' "$dst_config" 2>/dev/null || true
+                sed -i 's/host: "redis"/host: "127.0.0.1"/g' "$dst_config" 2>/dev/null || true
+
+                # 2. 替换 Consul address
+                sed -i 's/address: "consul:8500"/address: "127.0.0.1:8500"/g' "$dst_config" 2>/dev/null || true
+
+                # 3. 替换 Redis 配置（必须在修改端口之前）
+                # metadata服务的redis address格式
+                sed -i 's/address: "redis:6379"/address: "127.0.0.1:16379"/g' "$dst_config" 2>/dev/null || true
+                # queue服务的redis url格式
+                sed -i 's|url: "redis://redis:6379"|url: "redis://127.0.0.1:16379"|g' "$dst_config" 2>/dev/null || true
+
+                # 4. 修改PostgreSQL端口（metadata服务专用）
+                if [[ "$config_name" == "metadata" ]]; then
+                    # 只修改database部分的port
+                    sed -i '/^database:/,/^[^ ]/ { s/port: 5432/port: 5532/; }' "$dst_config" 2>/dev/null || true
+                fi
+
+                # 5. 替换 PostgreSQL URL（如果存在）
+                sed -i 's|postgres://\([^:]*\):\([^@]*\)@postgres:5432|postgres://\1:\2@127.0.0.1:5532|g' "$dst_config" 2>/dev/null || true
+
+                # 6. 替换 OpenTelemetry endpoint
+                sed -i 's/otlp_endpoint: "otel-collector:4318"/otlp_endpoint: "127.0.0.1:4318"/g' "$dst_config" 2>/dev/null || true
+                log_info "  部署配置: ${config_name}-config.yaml (端口: $port)"
+
+                # 显示关键配置（用于调试）
+                if [[ "$config_name" == "metadata" ]]; then
+                    pg_port=$(grep -A 5 "^database:" "$dst_config" | grep "port:" | awk '{print $2}')
+                    log_info "    PostgreSQL端口: $pg_port"
+                fi
+                if [[ "$config_name" == "queue" ]]; then
+                    redis_url=$(grep "url:" "$dst_config" | head -1 | awk '{print $2}')
+                    log_info "    Redis URL: $redis_url"
+                fi
             else
                 log_warn "  配置文件不存在: $src_config"
             fi
