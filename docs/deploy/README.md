@@ -88,15 +88,24 @@ type DeployParams struct {
 **返回结果：**
 ```go
 type DeployResult struct {
-    DeployID       string    `json:"deploy_id"`
-    Service        string    `json:"service"`
-    Version        string    `json:"version"`
-    Message        string    `json:"message"`
-    Instances      []string  `json:"instances"`
-    TotalInstances int       `json:"total_instances"`
-    CompletedAt    time.Time `json:"completed_at"`
+    DeployID       string    `json:"deploy_id"`       // 发布任务ID
+    Service        string    `json:"service"`         // 服务名称
+    Version        string    `json:"version"`         // 发布的目标版本
+    Message        string    `json:"message"`         // 发布完成状态描述
+    Instances      []string  `json:"instances"`       // 实际发布的实例ID列表
+    TotalInstances int       `json:"total_instances"` // 发布的实例总数
+    CompletedAt    time.Time `json:"completed_at"`    // 发布完成时间
 }
 ```
+
+**字段说明：**
+- `DeployID`: 发布任务的唯一标识符，与请求参数中的DeployID一致
+- `Service`: 发布的服务名称
+- `Version`: 成功发布的版本号
+- `Message`: 发布操作的完成状态描述，如"发布成功"、"部分实例发布失败"等
+- `Instances`: 实际参与发布的实例ID列表，可能与请求中的实例列表有差异
+- `TotalInstances`: 实际发布的实例数量
+- `CompletedAt`: 发布操作完成的时间戳
 
 #### 3.1.2 CancelDeployment方法
 
@@ -115,11 +124,16 @@ deployID string // 发布任务ID
 **返回结果：**
 ```go
 type CancelResult struct {
-    DeployID    string    `json:"deploy_id"`
-    Message     string    `json:"message"`
-    CancelledAt time.Time `json:"cancelled_at"`
+    DeployID    string    `json:"deploy_id"`    // 被取消的发布任务ID
+    Message     string    `json:"message"`      // 取消操作状态描述
+    CancelledAt time.Time `json:"cancelled_at"` // 取消操作完成时间
 }
 ```
+
+**字段说明：**
+- `DeployID`: 被取消的发布任务唯一标识符
+- `Message`: 取消操作的状态描述，如"发布已成功取消"、"发布已完成无法取消"等
+- `CancelledAt`: 取消操作完成的时间戳
 
 
 #### 3.1.3 ExecuteRollback方法
@@ -152,15 +166,24 @@ type RollbackParams struct {
 **返回结果：**
 ```go
 type RollbackResult struct {
-    RollbackID     string    `json:"rollback_id"`
-    Service        string    `json:"service"`
-    TargetVersion  string    `json:"target_version"`
-    Message        string    `json:"message"`
-    Instances      []string  `json:"instances"`
-    TotalInstances int       `json:"total_instances"`
-    CompletedAt    time.Time `json:"completed_at"`
+    RollbackID     string    `json:"rollback_id"`     // 回滚任务ID
+    Service        string    `json:"service"`         // 服务名称
+    TargetVersion  string    `json:"target_version"`  // 回滚的目标版本
+    Message        string    `json:"message"`         // 回滚完成状态描述
+    Instances      []string  `json:"instances"`       // 实际回滚的实例ID列表
+    TotalInstances int       `json:"total_instances"` // 回滚的实例总数
+    CompletedAt    time.Time `json:"completed_at"`    // 回滚完成时间
 }
 ```
+
+**字段说明：**
+- `RollbackID`: 回滚任务的唯一标识符，与请求参数中的RollbackID一致
+- `Service`: 回滚的服务名称
+- `TargetVersion`: 成功回滚到的目标版本号
+- `Message`: 回滚操作的完成状态描述，如"回滚成功"、"部分实例回滚失败"等
+- `Instances`: 实际参与回滚的实例ID列表，可能与请求中的实例列表有差异
+- `TotalInstances`: 实际回滚的实例数量
+- `CompletedAt`: 回滚操作完成的时间戳
 
 ### 3.2 InstanceManager接口
 
@@ -181,36 +204,58 @@ type InstanceManager interface {
 **InstanceInfo结构体**:
 ```go
 type InstanceInfo struct {
-    InstanceID    string            `json:"instance_id"`
-    ServiceName   string            `json:"service_name"`
-    Host          string            `json:"host"`
-    Port          int               `json:"port"`
-    Version       string            `json:"version"`
-    Status        string            `json:"status"`
-    LastHeartbeat time.Time         `json:"last_heartbeat"`
-    Metadata      map[string]string `json:"metadata"`
+    InstanceID    string            `json:"instance_id"`    // 实例唯一标识符
+    ServiceName   string            `json:"service_name"`   // 所属服务名称
+    Host          string            `json:"host"`           // 实例运行的主机地址
+    Port          int               `json:"port"`           // 实例监听端口
+    Version       string            `json:"version"`        // 当前运行的版本号
+    Status        string            `json:"status"`         // 实例运行状态
+    LastHeartbeat time.Time         `json:"last_heartbeat"` // 最后心跳时间
+    Metadata      map[string]string `json:"metadata"`       // 实例元数据信息
 }
 ```
+
+**字段说明**:
+- `InstanceID`: 实例的全局唯一标识符，如"user-service-001"
+- `ServiceName`: 实例所属的服务名称，如"user-service"
+- `Host`: 实例运行的服务器IP地址或主机名
+- `Port`: 实例对外提供服务的端口号
+- `Version`: 实例当前运行的软件版本号，如"v1.2.3"
+- `Status`: 实例的运行状态，如"running"、"stopped"、"starting"等
+- `LastHeartbeat`: 实例最后一次发送心跳的时间，用于判断实例是否存活
+- `Metadata`: 实例的附加元数据信息，如环境标签、资源配置等
 
 **HealthStatus结构体**:
 ```go
 type HealthStatus struct {
-    InstanceID string    `json:"instance_id"`
-    IsHealthy  bool      `json:"is_healthy"`
-    CheckedAt  time.Time `json:"checked_at"`
-    Message    string    `json:"message,omitempty"`
+    InstanceID string    `json:"instance_id"`           // 实例唯一标识符
+    IsHealthy  bool      `json:"is_healthy"`            // 健康检查结果
+    CheckedAt  time.Time `json:"checked_at"`            // 健康检查时间
+    Message    string    `json:"message,omitempty"`     // 健康状态描述信息
 }
 ```
+
+**字段说明**:
+- `InstanceID`: 被检查实例的唯一标识符
+- `IsHealthy`: 健康检查结果，true表示健康，false表示不健康
+- `CheckedAt`: 执行健康检查的时间戳
+- `Message`: 健康状态的详细描述信息，如"HTTP 200 响应正常"、"连接超时"等
 
 **VersionInfo结构体**:
 ```go
 type VersionInfo struct {
-    Version    string    `json:"version"`
-    DeployedAt time.Time `json:"deployed_at"`
-    DeployID   string    `json:"deploy_id"`
-    Status     string    `json:"status"` // deploy, rollback
+    Version    string    `json:"version"`     // 版本号
+    DeployedAt time.Time `json:"deployed_at"` // 发布时间
+    DeployID   string    `json:"deploy_id"`   // 发布任务ID
+    Status     string    `json:"status"`      // 发布方式状态
 }
 ```
+
+**字段说明**:
+- `Version`: 版本号，如"v1.2.3"
+- `DeployedAt`: 该版本发布到实例的时间戳
+- `DeployID`: 执行发布的任务ID，用于追溯发布来源
+- `Status`: 发布方式状态，"deploy"表示通过正常发布，"rollback"表示通过回滚发布
 
 #### 3.2.2 方法说明
 
@@ -265,3 +310,39 @@ type VersionInfo struct {
 - **版本管理器**: 管理服务版本信息，查询实例版本状态
 - **回滚执行器**: 执行回滚操作，处理包下载
 - **状态管理器**: 维护任务状态，同步实例状态
+
+## 5. 内部工具函数
+
+### 5.1 ValidatePackageURL函数
+
+**函数描述**: 验证包URL的有效性和安全性
+
+**函数签名**:
+```go
+func ValidatePackageURL(packageURL string) error
+```
+
+**输入参数**:
+```go
+packageURL string // 包下载URL
+```
+
+**返回结果**: `error` - 验证失败时返回错误信息
+
+**验证规则**:
+- URL必须使用HTTPS协议
+- URL格式必须正确
+- 域名必须在白名单中（可选）
+- 文件扩展名必须符合要求（如.tar.gz, .zip等）
+
+**使用示例**:
+```go
+func (fd *floyDeployService) ExecuteDeployment(params *DeployParams) (*DeployResult, error) {
+    // 验证包URL
+    if err := ValidatePackageURL(params.PackageURL); err != nil {
+        return nil, fmt.Errorf("无效的包URL: %v", err)
+    }
+    
+    // 继续执行发布逻辑...
+}
+```
