@@ -6,9 +6,10 @@
 
 ## 1. 接口概览
 
-发布系统提供统一的外部接口：
+发布系统提供以下外部接口：
 
 - **DeployService**: 发布服务接口，负责发布和回滚操作的执行
+- **InstanceManager**: 实例管理接口，负责实例信息查询和状态管理
 
 ## 2. DeployService接口
 
@@ -127,10 +128,141 @@ type RollbackResult struct {
 }
 ```
 
+## 3. InstanceManager接口
 
-## 3. 使用示例
+### 3.1 接口定义
 
-### 3.1 接口实现示例
+实例管理接口，负责实例信息查询和状态管理。
+
+```go
+type InstanceManager interface {
+    GetServiceInstances(serviceName string) ([]*InstanceInfo, error)
+    GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
+    GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
+    BatchHealthCheck(instanceIDs []string) (map[string]*HealthStatus, error)
+    GetInstancesVersions(instanceIDs []string) (map[string]string, error)
+}
+```
+
+### 3.2 数据结构定义
+
+**InstanceInfo结构体**:
+```go
+type InstanceInfo struct {
+    InstanceID    string            `json:"instance_id"`
+    ServiceName   string            `json:"service_name"`
+    Host          string            `json:"host"`
+    Port          int               `json:"port"`
+    Version       string            `json:"version"`
+    Status        string            `json:"status"`
+    LastHeartbeat time.Time         `json:"last_heartbeat"`
+    Metadata      map[string]string `json:"metadata"`
+}
+```
+
+**HealthStatus结构体**:
+```go
+type HealthStatus struct {
+    InstanceID   string    `json:"instance_id"`
+    IsHealthy    bool      `json:"is_healthy"`
+    CheckedAt    time.Time `json:"checked_at"`
+    ErrorMessage string    `json:"error_message,omitempty"`
+}
+```
+
+**VersionInfo结构体**:
+```go
+type VersionInfo struct {
+    Version    string    `json:"version"`
+    DeployedAt time.Time `json:"deployed_at"`
+    DeployID   string    `json:"deploy_id"`
+    Action     string    `json:"action"` // deploy, rollback
+}
+```
+
+### 3.3 GetServiceInstances方法
+
+**方法描述**: 获取指定服务的所有实例列表
+
+**方法签名**:
+```go
+GetServiceInstances(serviceName string) ([]*InstanceInfo, error)
+```
+
+**输入参数**:
+```go
+serviceName string // 服务名称
+```
+
+**返回结果**: `[]*InstanceInfo` - 实例信息数组
+
+### 3.4 GetInstanceVersionHistory方法
+
+**方法描述**: 获取指定实例的版本历史记录
+
+**方法签名**:
+```go
+GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
+```
+
+**输入参数**:
+```go
+instanceID string // 实例ID
+```
+
+**返回结果**: `[]*VersionInfo` - 版本历史数组
+
+### 3.5 GetInstancesInfo方法
+
+**方法描述**: 批量获取多个实例的详细信息
+
+**方法签名**:
+```go
+GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
+```
+
+**输入参数**:
+```go
+instanceIDs []string // 实例ID数组
+```
+
+**返回结果**: `map[string]*InstanceInfo` - 实例ID到实例信息的映射
+
+### 3.6 BatchHealthCheck方法
+
+**方法描述**: 批量检查多个实例的健康状态
+
+**方法签名**:
+```go
+BatchHealthCheck(instanceIDs []string) (map[string]*HealthStatus, error)
+```
+
+**输入参数**:
+```go
+instanceIDs []string // 实例ID数组
+```
+
+**返回结果**: `map[string]*HealthStatus` - 实例ID到健康状态的映射
+
+### 3.7 GetInstancesVersions方法
+
+**方法描述**: 批量获取多个实例的当前版本
+
+**方法签名**:
+```go
+GetInstancesVersions(instanceIDs []string) (map[string]string, error)
+```
+
+**输入参数**:
+```go
+instanceIDs []string // 实例ID数组
+```
+
+**返回结果**: `map[string]string` - 实例ID到版本号的映射
+
+## 4. 使用示例
+
+### 4.1 接口实现示例
 
 ```go
 // 实现结构体
@@ -163,7 +295,7 @@ func NewDeployService(logger Logger, executor Executor, database Database) Deplo
 }
 ```
 
-### 3.2 完整发布流程示例
+### 4.2 完整发布流程示例
 
 ```go
 package main
