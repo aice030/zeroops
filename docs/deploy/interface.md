@@ -8,16 +8,15 @@
 
 发布系统按职责划分为以下核心接口：
 
-- **DeployExecutor**: 发布执行接口，负责发布任务的执行和状态管理
-- **VersionManager**: 版本管理接口，负责服务实例版本信息的查询和管理
-- **RollbackManager**: 回滚管理接口，负责回滚操作的执行和状态管理
-- **SystemManager**: 系统管理接口，负责系统健康状态和统计信息
+- **DeployExecutor**: 发布执行接口，负责发布任务的执行
+- **VersionManager**: 版本管理接口，负责服务实例版本信息的查询
+- **RollbackManager**: 回滚管理接口，负责回滚操作的执行
 
 ## 2. DeployExecutor接口
 
 ### 2.1 接口定义
 
-发布执行接口，负责发布任务的执行和状态管理。
+发布执行接口，负责发布任务的执行。
 
 ```go
 type DeployExecutor interface {
@@ -98,13 +97,12 @@ type DeployStatus struct {
         Pending   int `json:"pending"`
     } `json:"progress"`
     Instances []struct {
-        InstanceID     string    `json:"instance_id"`
-        Status         string    `json:"status"`
-        CurrentVersion string    `json:"current_version"`
-        TargetVersion  string    `json:"target_version"`
-        StartedAt      time.Time `json:"started_at"`
+        InstanceID     string     `json:"instance_id"`
+        CurrentVersion string     `json:"current_version"`
+        TargetVersion  string     `json:"target_version"`
+        StartedAt      time.Time  `json:"started_at"`
         CompletedAt    *time.Time `json:"completed_at"`
-        ErrorMessage   string    `json:"error_message"`
+        ErrorMessage   string     `json:"error_message"`
     } `json:"instances"`
     StartedAt time.Time `json:"started_at"`
     UpdatedAt time.Time `json:"updated_at"`
@@ -145,11 +143,11 @@ type CancelResult struct {
 
 ### 3.1 接口定义
 
-版本管理接口，负责服务实例版本信息的查询和管理。
+版本管理接口，负责服务实例版本信息的查询。
 
 ```go
 type VersionManager interface {
-    GetServiceInstanceVersions(serviceName string, includeStopped bool) (*ServiceVersions, error)
+    GetServiceInstanceVersions(serviceName string) (*ServiceVersions, error)
     GetServiceInstances(params *InstanceQueryParams) (*ServiceInstances, error)
 }
 ```
@@ -160,13 +158,12 @@ type VersionManager interface {
 
 **方法签名**:
 ```go
-GetServiceInstanceVersions(serviceName string, includeStopped bool) (*ServiceVersions, error)
+GetServiceInstanceVersions(serviceName string) (*ServiceVersions, error)
 ```
 
 **输入参数**:
 ```go
-serviceName    string // 服务名称
-includeStopped bool   // 是否包含停止的实例，默认false
+serviceName string // 服务名称
 ```
 
 **返回结果**:
@@ -176,7 +173,6 @@ type ServiceVersions struct {
     Instances []struct {
         InstanceID  string    `json:"instance_id"`
         Version     string    `json:"version"`
-        Status      string    `json:"status"`
         LastUpdated time.Time `json:"last_updated"`
     } `json:"instances"`
     VersionSummary  map[string]int `json:"version_summary"`
@@ -198,7 +194,6 @@ GetServiceInstances(params *InstanceQueryParams) (*ServiceInstances, error)
 ```go
 type InstanceQueryParams struct {
     ServiceName string `json:"service_name"` // 服务名称
-    Status      string `json:"status"`       // 实例状态过滤，可选值：running, stopped, error
     Version     string `json:"version"`      // 版本过滤
     Limit       int    `json:"limit"`        // 返回数量限制，默认100
     Offset      int    `json:"offset"`       // 偏移量，默认0
@@ -213,7 +208,6 @@ type ServiceInstances struct {
         InstanceID    string            `json:"instance_id"`
         Host          string            `json:"host"`
         Port          int               `json:"port"`
-        Status        string            `json:"status"`
         Version       string            `json:"version"`
         LastHeartbeat time.Time         `json:"last_heartbeat"`
         Metadata      map[string]string `json:"metadata"`
@@ -224,62 +218,17 @@ type ServiceInstances struct {
 }
 ```
 
-### 2.3 获取实例版本历史
-
-**接口描述**: 获取指定实例的版本变更历史
-
-**请求信息**:
-- **URL**: `GET /v1/instance/{instance_id}/version-history`
-- **Method**: `GET`
-
-**路径参数**:
-- `instance_id`: 实例ID
-
-**查询参数**:
-- `limit`: 返回数量限制，默认50
-- `offset`: 偏移量，默认0
-
-**响应示例**:
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "instance_id": "instance-1",
-    "service": "user-service",
-    "history": [
-      {
-        "version": "v1.2.3",
-        "action": "deploy",
-        "deploy_id": "deploy-12345",
-        "timestamp": "2024-01-15T10:31:00Z",
-        "status": "success"
-      },
-      {
-        "version": "v1.2.2",
-        "action": "deploy",
-        "deploy_id": "deploy-12344",
-        "timestamp": "2024-01-15T09:15:00Z",
-        "status": "success"
-      }
-    ],
-    "total": 2
-  }
-}
-```
 
 ## 4. RollbackManager接口
 
 ### 4.1 接口定义
 
-回滚管理接口，负责回滚操作的执行和状态管理。
+回滚管理接口，负责回滚操作的执行。
 
 ```go
 type RollbackManager interface {
     RollbackInstance(params *InstanceRollbackParams) (*RollbackResult, error)
     RollbackBatch(params *BatchRollbackParams) (*BatchRollbackResult, error)
-    GetRollbackStatus(rollbackID string) (*RollbackStatus, error)
-    CancelRollback(rollbackID string) (*CancelResult, error)
 }
 ```
 
@@ -348,145 +297,9 @@ type BatchRollbackResult struct {
 }
 ```
 
-### 4.4 GetRollbackStatus方法
 
-**方法描述**: 查询指定回滚任务的执行状态
 
-**方法签名**:
-```go
-GetRollbackStatus(rollbackID string) (*RollbackStatus, error)
-```
-
-**输入参数**:
-```go
-rollbackID string // 回滚任务ID
-```
-
-**返回结果**:
-```go
-type RollbackStatus struct {
-    RollbackID   string `json:"rollback_id"`
-    Service      string `json:"service"`
-    TargetVersion string `json:"target_version"`
-    RollbackType string `json:"rollback_type"`
-    Status       string `json:"status"`
-    Progress     struct {
-        Total     int `json:"total"`
-        Completed int `json:"completed"`
-        Failed    int `json:"failed"`
-        Pending   int `json:"pending"`
-    } `json:"progress"`
-    Instances []struct {
-        InstanceID     string     `json:"instance_id"`
-        Status         string     `json:"status"`
-        CurrentVersion string     `json:"current_version"`
-        TargetVersion  string     `json:"target_version"`
-        StartedAt      time.Time  `json:"started_at"`
-        CompletedAt    *time.Time `json:"completed_at"`
-        ErrorMessage   string     `json:"error_message"`
-    } `json:"instances"`
-    StartedAt   time.Time  `json:"started_at"`
-    CompletedAt *time.Time `json:"completed_at"`
-}
-```
-
-### 4.5 CancelRollback方法
-
-**方法描述**: 取消正在执行的回滚任务
-
-**方法签名**:
-```go
-CancelRollback(rollbackID string) (*CancelResult, error)
-```
-
-**输入参数**:
-```go
-rollbackID string // 回滚任务ID
-```
-
-**返回结果**:
-```go
-type CancelResult struct {
-    RollbackID  string    `json:"rollback_id"`
-    Status      string    `json:"status"`
-    CancelledAt time.Time `json:"cancelled_at"`
-}
-```
-
-## 5. SystemManager接口
-
-### 5.1 接口定义
-
-系统管理接口，负责系统健康状态和统计信息的管理。
-
-```go
-type SystemManager interface {
-    GetSystemHealth() (*SystemHealth, error)
-    GetSystemStats(period string) (*SystemStats, error)
-}
-```
-
-### 5.2 GetSystemHealth方法
-
-**方法描述**: 检查发布系统健康状态
-
-**方法签名**:
-```go
-GetSystemHealth() (*SystemHealth, error)
-```
-
-**返回结果**:
-```go
-type SystemHealth struct {
-    Status    string    `json:"status"`
-    Version   string    `json:"version"`
-    Uptime    string    `json:"uptime"`
-    Database  string    `json:"database"`
-    Cache     string    `json:"cache"`
-    Timestamp time.Time `json:"timestamp"`
-}
-```
-
-### 5.3 GetSystemStats方法
-
-**方法描述**: 获取发布系统的统计信息
-
-**方法签名**:
-```go
-GetSystemStats(period string) (*SystemStats, error)
-```
-
-**输入参数**:
-```go
-period string // 统计周期，可选值：1h, 24h, 7d, 30d，默认24h
-```
-
-**返回结果**:
-```go
-type SystemStats struct {
-    Period string `json:"period"`
-    Deployments struct {
-        Total       int     `json:"total"`
-        Success     int     `json:"success"`
-        Failed      int     `json:"failed"`
-        SuccessRate float64 `json:"success_rate"`
-    } `json:"deployments"`
-    Rollbacks struct {
-        Total       int     `json:"total"`
-        Success     int     `json:"success"`
-        Failed      int     `json:"failed"`
-        SuccessRate float64 `json:"success_rate"`
-    } `json:"rollbacks"`
-    Instances struct {
-        Total     int `json:"total"`
-        Healthy   int `json:"healthy"`
-        Unhealthy int `json:"unhealthy"`
-    } `json:"instances"`
-    Timestamp time.Time `json:"timestamp"`
-}
-```
-
-## 6. 统一服务接口
+## 5. 统一服务接口
 
 如果需要一个统一的服务接口，可以组合所有功能接口：
 
@@ -495,13 +308,12 @@ type DeployService interface {
     DeployExecutor
     VersionManager
     RollbackManager
-    SystemManager
 }
 ```
 
-## 7. 使用示例
+## 6. 使用示例
 
-### 7.1 接口实现示例
+### 6.1 接口实现示例
 
 ```go
 // 实现结构体
@@ -525,7 +337,7 @@ func (d *deployService) CancelDeployment(deployID string) (*CancelResult, error)
 }
 
 // 实现VersionManager接口
-func (d *deployService) GetServiceInstanceVersions(serviceName string, includeStopped bool) (*ServiceVersions, error) {
+func (d *deployService) GetServiceInstanceVersions(serviceName string) (*ServiceVersions, error) {
     // 实现逻辑
 }
 
@@ -542,23 +354,6 @@ func (d *deployService) RollbackBatch(params *BatchRollbackParams) (*BatchRollba
     // 实现逻辑
 }
 
-func (d *deployService) GetRollbackStatus(rollbackID string) (*RollbackStatus, error) {
-    // 实现逻辑
-}
-
-func (d *deployService) CancelRollback(rollbackID string) (*CancelResult, error) {
-    // 实现逻辑
-}
-
-// 实现SystemManager接口
-func (d *deployService) GetSystemHealth() (*SystemHealth, error) {
-    // 实现逻辑
-}
-
-func (d *deployService) GetSystemStats(period string) (*SystemStats, error) {
-    // 实现逻辑
-}
-
 // 构造函数
 func NewDeployService(logger Logger, executor Executor, database Database) DeployService {
     return &deployService{
@@ -569,7 +364,7 @@ func NewDeployService(logger Logger, executor Executor, database Database) Deplo
 }
 ```
 
-### 7.2 完整发布流程示例
+### 6.2 完整发布流程示例
 
 ```go
 package main
@@ -600,35 +395,25 @@ func main() {
     }
     fmt.Printf("发布启动成功: %s\n", result.DeployID)
     
-    // 2. 查询发布状态
-    status, err := deployService.GetDeploymentStatus("deploy-12345")
-    if err != nil {
-        log.Fatalf("查询状态失败: %v", err)
-    }
-    fmt.Printf("发布状态: %s, 进度: %d/%d\n", 
-        status.Status, status.Progress.Completed, status.Progress.Total)
-    
-    // 3. 查询服务实例版本
-    versions, err := deployService.GetServiceInstanceVersions("user-service", false)
+    // 2. 查询服务实例版本
+    versions, err := deployService.GetServiceInstanceVersions("user-service")
     if err != nil {
         log.Fatalf("查询版本失败: %v", err)
     }
     fmt.Printf("服务实例版本: %+v\n", versions.VersionSummary)
     
-    // 4. 如果发布失败，执行回滚
-    if status.Status == "failed" {
-        rollbackParams := &BatchRollbackParams{
-            Service:       "user-service",
-            TargetVersion: "v1.2.2",
-            PackageURL:    "https://packages.example.com/user-service/v1.2.2.tar.gz",
-            Instances:     []string{"instance-1", "instance-2"},
-        }
-        
-        rollbackResult, err := deployService.RollbackBatch(rollbackParams)
-        if err != nil {
-            log.Fatalf("回滚失败: %v", err)
-        }
-        fmt.Printf("回滚启动成功: %s\n", rollbackResult.RollbackID)
+    // 3. 如果需要，执行回滚操作
+    rollbackParams := &BatchRollbackParams{
+        Service:       "user-service",
+        TargetVersion: "v1.2.2",
+        PackageURL:    "https://packages.example.com/user-service/v1.2.2.tar.gz",
+        Instances:     []string{"instance-1", "instance-2"},
     }
+    
+    rollbackResult, err := deployService.RollbackBatch(rollbackParams)
+    if err != nil {
+        log.Fatalf("回滚失败: %v", err)
+    }
+    fmt.Printf("回滚启动成功: %s\n", rollbackResult.RollbackID)
 }
 ```

@@ -50,19 +50,17 @@
 
 发布系统按职责划分为以下核心接口：
 
-- **DeployExecutor**: 发布执行接口，负责发布任务的执行和状态管理
-- **VersionManager**: 版本管理接口，负责服务实例版本信息的查询和管理
-- **RollbackManager**: 回滚管理接口，负责回滚操作的执行和状态管理
+- **DeployExecutor**: 发布执行接口，负责发布任务的执行
+- **VersionManager**: 版本管理接口，负责服务实例版本信息的查询
+- **RollbackManager**: 回滚管理接口，负责回滚操作的执行
 
 ### 3.1 DeployExecutor接口
 
-发布执行接口，负责发布任务的执行和状态管理。
+发布执行接口，负责发布任务的执行。
 
 ```go
 type DeployExecutor interface {
     ExecuteDeployment(params *DeployParams) (*DeployResult, error)
-    GetDeploymentStatus(deployID string) (*DeployStatus, error)
-    CancelDeployment(deployID string) (*CancelResult, error)
 }
 ```
 
@@ -95,49 +93,14 @@ type DeployResult struct {
 }
 ```
 
-#### 3.1.2 GetDeploymentStatus方法
-
-**方法签名：**
-```go
-GetDeploymentStatus(deployID string) (*DeployStatus, error)
-```
-
-**输入参数：**
-```go
-deployID string // 发布任务ID
-```
-
-**返回结果：**
-```go
-type DeployStatus struct {
-    DeployID  string `json:"deploy_id"`
-    Service   string `json:"service"`
-    Version   string `json:"version"`
-    Status    string `json:"status"`
-    Progress  struct {
-        Total     int `json:"total"`
-        Completed int `json:"completed"`
-        Failed    int `json:"failed"`
-        Pending   int `json:"pending"`
-    } `json:"progress"`
-    Instances []struct {
-        InstanceID string    `json:"instance_id"`
-        Status     string    `json:"status"`
-        Version    string    `json:"version"`
-        UpdatedAt  time.Time `json:"updated_at"`
-    } `json:"instances"`
-    StartedAt time.Time `json:"started_at"`
-    UpdatedAt time.Time `json:"updated_at"`
-}
-```
 
 ### 3.2 VersionManager接口
 
-版本管理接口，负责服务实例版本信息的查询和管理。
+版本管理接口，负责服务实例版本信息的查询。
 
 ```go
 type VersionManager interface {
-    GetServiceInstanceVersions(serviceName string, includeStopped bool) (*ServiceVersions, error)
+    GetServiceInstanceVersions(serviceName string) (*ServiceVersions, error)
     GetServiceInstances(params *InstanceQueryParams) (*ServiceInstances, error)
 }
 ```
@@ -146,7 +109,7 @@ type VersionManager interface {
 
 **方法签名：**
 ```go
-GetServiceInstanceVersions(serviceName string, includeStopped bool) (*ServiceVersions, error)
+GetServiceInstanceVersions(serviceName string) (*ServiceVersions, error)
 ```
 
 **输入参数：**
@@ -161,7 +124,6 @@ type ServiceVersions struct {
     Instances []struct {
         InstanceID  string    `json:"instance_id"`
         Version     string    `json:"version"`
-        Status      string    `json:"status"`
         LastUpdated time.Time `json:"last_updated"`
     } `json:"instances"`
     VersionSummary map[string]int `json:"version_summary"`
@@ -177,7 +139,12 @@ GetServiceInstances(params *InstanceQueryParams) (*ServiceInstances, error)
 
 **输入参数：**
 ```go
-serviceName string // 服务名称
+type InstanceQueryParams struct {
+    ServiceName string `json:"service_name"` // 服务名称
+    Version     string `json:"version"`      // 版本过滤
+    Limit       int    `json:"limit"`        // 返回数量限制，默认100
+    Offset      int    `json:"offset"`       // 偏移量，默认0
+}
 ```
 
 **返回结果：**
@@ -188,7 +155,6 @@ type ServiceInstances struct {
         InstanceID string `json:"instance_id"`
         Host       string `json:"host"`
         Port       int    `json:"port"`
-        Status     string `json:"status"`
         Version    string `json:"version"`
     } `json:"instances"`
     Total int `json:"total"`
@@ -197,14 +163,12 @@ type ServiceInstances struct {
 
 ### 3.3 RollbackManager接口
 
-回滚管理接口，负责回滚操作的执行和状态管理。
+回滚管理接口，负责回滚操作的执行。
 
 ```go
 type RollbackManager interface {
     RollbackInstance(params *InstanceRollbackParams) (*RollbackResult, error)
     RollbackBatch(params *BatchRollbackParams) (*BatchRollbackResult, error)
-    GetRollbackStatus(rollbackID string) (*RollbackStatus, error)
-    CancelRollback(rollbackID string) (*CancelResult, error)
 }
 ```
 
@@ -262,35 +226,6 @@ type BatchRollbackResult struct {
 }
 ```
 
-#### 3.3.3 GetRollbackStatus方法
-
-**方法签名：**
-```go
-GetRollbackStatus(rollbackID string) (*RollbackStatus, error)
-```
-
-**输入参数：**
-```go
-rollbackID string // 回滚任务ID
-```
-
-**返回结果：**
-```go
-type RollbackStatus struct {
-    RollbackID    string `json:"rollback_id"`
-    Service       string `json:"service"`
-    TargetVersion string `json:"target_version"`
-    Status        string `json:"status"`
-    Instances     []struct {
-        InstanceID string    `json:"instance_id"`
-        Status     string    `json:"status"`
-        Version    string    `json:"version"`
-        UpdatedAt  time.Time `json:"updated_at"`
-    } `json:"instances"`
-    StartedAt   time.Time `json:"started_at"`
-    CompletedAt time.Time `json:"completed_at"`
-}
-```
 
 ## 4. 系统架构
 
