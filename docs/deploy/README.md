@@ -84,8 +84,8 @@
 
 ```go
 type DeployService interface {
-    ExecuteDeployment(params *DeployParams) (*DeployResult, error)
-    ExecuteRollback(params *RollbackParams) (*RollbackResult, error)
+    ExecuteDeployment(params *DeployParams) (*OperationResult, error)
+    ExecuteRollback(params *RollbackParams) (*OperationResult, error)
 }
 ```
 

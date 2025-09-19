@@ -15,8 +15,8 @@
 
 ```go
 type DeployService interface {
-    ExecuteDeployment(params *DeployParams) (*DeployResult, error)
-    ExecuteRollback(params *RollbackParams) (*RollbackResult, error)
+    ExecuteDeployment(params *DeployParams) (*OperationResult, error)
+    ExecuteRollback(params *RollbackParams) (*OperationResult, error)
 }
 ```
 
@@ -26,7 +26,7 @@ type DeployService interface {
 
 **方法签名**:
 ```go
-ExecuteDeployment(params *DeployParams) (*DeployResult, error)
+ExecuteDeployment(params *DeployParams) (*OperationResult, error)
 ```
 
 **输入参数**:
@@ -41,13 +41,13 @@ type DeployParams struct {
 
 **返回结果**:
 ```go
-type DeployResult struct {
+type OperationResult struct {
     Service        string    `json:"service"`         // 必填，服务名称
-    Version        string    `json:"version"`         // 必填，发布的目标版本
-    Message        string    `json:"message"`         // 必填，发布完成状态描述
-    Instances      []string  `json:"instances"`       // 必填，实际发布的实例ID列表
-    TotalInstances int       `json:"total_instances"` // 必填，发布的实例总数
-    CompletedAt    time.Time `json:"completed_at"`    // 必填，发布完成时间
+    Version        string    `json:"version"`         // 必填，操作的目标版本
+    Message        string    `json:"message"`         // 必填，操作完成状态描述
+    Instances      []string  `json:"instances"`       // 必填，实际操作的实例ID列表
+    TotalInstances int       `json:"total_instances"` // 必填，操作的实例总数
+    CompletedAt    time.Time `json:"completed_at"`    // 必填，操作完成时间
 }
 ```
 
@@ -57,7 +57,7 @@ type DeployResult struct {
 
 **方法签名**:
 ```go
-ExecuteRollback(params *RollbackParams) (*RollbackResult, error)
+ExecuteRollback(params *RollbackParams) (*OperationResult, error)
 ```
 
 **输入参数**:
@@ -70,17 +70,7 @@ type RollbackParams struct {
 }
 ```
 
-**返回结果**:
-```go
-type RollbackResult struct {
-    Service        string    `json:"service"`         // 必填，服务名称
-    TargetVersion  string    `json:"target_version"`  // 必填，回滚的目标版本
-    Message        string    `json:"message"`         // 必填，回滚完成状态描述
-    Instances      []string  `json:"instances"`       // 必填，实际回滚的实例ID列表
-    TotalInstances int       `json:"total_instances"` // 必填，回滚的实例总数
-    CompletedAt    time.Time `json:"completed_at"`    // 必填，回滚完成时间
-}
-```
+**返回结果**: `*OperationResult` - 使用通用的操作结果结构体
 
 ## 3. InstanceManager接口
 
