@@ -118,8 +118,10 @@ type InstanceManager interface {
 
 **ValidatePackageURL**: 验证包URL的有效性和安全性
 
+**GetServiceInstanceIDs**: 根据服务名和版本获取实例ID列表，用于内部批量操作
+
 **GetInstanceHost**: 根据实例ID获取实例的IP地址
 
-**GetInstancePort**: 根据服务名和实例IP获取实例的端口号
+**GetInstancePort**: 根据实例ID获取实例的端口号
 
 **CheckInstanceHealth**: 检查单个实例是否有响应，用于发布前验证目标实例的可用性

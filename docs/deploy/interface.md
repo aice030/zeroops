@@ -166,19 +166,24 @@ packageURL string // 必填，包下载URL
 
 **返回结果**: `error` - 验证失败时返回错误信息
 
-**使用示例**:
+### 4.2 GetServiceInstanceIDs函数
+
+**函数描述**: 根据服务名和版本获取实例ID列表，用于内部批量操作
+
+**函数签名**:
 ```go
-func (fd *floyDeployService) ExecuteDeployment(params *DeployParams) (*DeployResult, error) {
-    // 验证包URL
-    if err := ValidatePackageURL(params.PackageURL); err != nil {
-        return nil, fmt.Errorf("无效的包URL: %v", err)
-    }
-    
-    // 继续执行发布逻辑...
-}
+func GetServiceInstanceIDs(serviceName string, version ...string) ([]string, error)
 ```
 
-### 4.2 GetInstanceHost函数
+**输入参数**:
+```go
+serviceName string   // 必填，服务名称
+version     ...string // 选填，指定版本号进行过滤，未输入则默认获取全部版本的运行实例
+```
+
+**返回结果**: `[]string` - 实例ID数组
+
+### 4.3 GetInstanceHost函数
 
 **函数描述**: 根据实例ID获取实例的IP地址
 
@@ -194,24 +199,23 @@ instanceID string // 必填，实例ID
 
 **返回结果**: `string` - 实例的IP地址，获取失败时返回错误信息
 
-### 4.3 GetInstancePort函数
+### 4.4 GetInstancePort函数
 
-**函数描述**: 根据服务名和实例IP获取实例的端口号
+**函数描述**: 根据实例ID获取实例的端口号
 
 **函数签名**:
 ```go
-func GetInstancePort(serviceName, instanceHost string) (int, error)
+func GetInstancePort(instanceID string) (int, error)
 ```
 
 **输入参数**:
 ```go
-serviceName  string // 必填，服务名称
-instanceHost string // 必填，实例IP地址
+instanceID string // 必填，实例ID
 ```
 
 **返回结果**: `int` - 实例的端口号，获取失败时返回错误信息
 
-### 4.4 CheckInstanceHealth函数
+### 4.5 CheckInstanceHealth函数
 
 **函数描述**: 检查单个实例是否有响应，用于发布前验证目标实例的可用性
 
