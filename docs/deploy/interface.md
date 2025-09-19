@@ -94,8 +94,7 @@ type RollbackResult struct {
 
 ```go
 type InstanceManager interface {
-    GetServiceInstances(serviceName string, version ...string) ([]string, error)
-    GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
+    GetServiceInstances(serviceName string, version ...string) ([]*InstanceInfo, error)
     GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
 }
 ```
@@ -122,11 +121,11 @@ type VersionInfo struct {
 
 ### 3.3 GetServiceInstances方法
 
-**方法描述**: 获取指定服务的实例列表，可选择按版本过滤
+**方法描述**: 获取指定服务的实例详细信息，可选择按版本过滤
 
 **方法签名**:
 ```go
-GetServiceInstances(serviceName string, version ...string) ([]string, error)
+GetServiceInstances(serviceName string, version ...string) ([]*InstanceInfo, error)
 ```
 
 **输入参数**:
@@ -135,29 +134,9 @@ serviceName string   // 必填，服务名称
 version     ...string // 选填，指定版本号进行过滤，未输入则默认获取全部版本的运行实例
 ```
 
-**参数说明**:
-- `serviceName`: 服务名称，如 "user-service"
-- `version`: 可选的版本号参数，如果提供则只返回该版本的实例；如果不提供则返回所有版本的实例
+**返回结果**: `[]*InstanceInfo` - 实例信息数组
 
-**返回结果**: `[]string` - 实例ID数组
-
-### 3.4 GetInstancesInfo方法
-
-**方法描述**: 批量获取多个实例的详细信息
-
-**方法签名**:
-```go
-GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
-```
-
-**输入参数**:
-```go
-instanceIDs []string // 必填，实例ID数组
-```
-
-**返回结果**: `map[string]*InstanceInfo` - 实例ID到实例信息的映射
-
-### 3.5 GetInstanceVersionHistory方法
+### 3.4 GetInstanceVersionHistory方法
 
 **方法描述**: 获取指定实例的版本历史记录
 

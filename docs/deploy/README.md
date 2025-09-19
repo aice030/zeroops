@@ -103,17 +103,14 @@ type DeployService interface {
 
 ```go
 type InstanceManager interface {
-    GetServiceInstances(serviceName string, version ...string) ([]string, error)
-    GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
+    GetServiceInstances(serviceName string, version ...string) ([]*InstanceInfo, error)
     GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
 }
 ```
 
 #### 4.2.1 方法说明
 
-**GetServiceInstances**: 获取指定服务的实例列表，可选择按版本过滤
-
-**GetInstancesInfo**: 批量获取多个实例的详细信息
+**GetServiceInstances**: 获取指定服务的实例详细信息，可选择按版本过滤
 
 **GetInstanceVersionHistory**: 获取指定实例的版本历史记录
 
