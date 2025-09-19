@@ -32,7 +32,6 @@ ExecuteDeployment(params *DeployParams) (*DeployResult, error)
 **输入参数**:
 ```go
 type DeployParams struct {
-    DeployID   string   `json:"deploy_id"`   // 必填，发布任务ID
     Service    string   `json:"service"`     // 必填，服务名称
     Version    string   `json:"version"`     // 必填，目标版本号
     Instances  []string `json:"instances"`   // 必填，实例ID列表
@@ -43,13 +42,12 @@ type DeployParams struct {
 **返回结果**:
 ```go
 type DeployResult struct {
-    DeployID       string    `json:"deploy_id"`       // 发布任务ID
-    Service        string    `json:"service"`         // 服务名称
-    Version        string    `json:"version"`         // 发布的目标版本
-    Message        string    `json:"message"`         // 发布完成状态描述
-    Instances      []string  `json:"instances"`       // 实际发布的实例ID列表
-    TotalInstances int       `json:"total_instances"` // 发布的实例总数
-    CompletedAt    time.Time `json:"completed_at"`    // 发布完成时间
+    Service        string    `json:"service"`         // 必填，服务名称
+    Version        string    `json:"version"`         // 必填，发布的目标版本
+    Message        string    `json:"message"`         // 必填，发布完成状态描述
+    Instances      []string  `json:"instances"`       // 必填，实际发布的实例ID列表
+    TotalInstances int       `json:"total_instances"` // 必填，发布的实例总数
+    CompletedAt    time.Time `json:"completed_at"`    // 必填，发布完成时间
 }
 ```
 
@@ -65,7 +63,6 @@ ExecuteRollback(params *RollbackParams) (*RollbackResult, error)
 **输入参数**:
 ```go
 type RollbackParams struct {
-    RollbackID    string   `json:"rollback_id"`    // 必填，回滚任务ID
     Service       string   `json:"service"`        // 必填，服务名称
     TargetVersion string   `json:"target_version"` // 必填，目标版本号
     Instances     []string `json:"instances"`      // 必填，实例ID列表
@@ -76,13 +73,12 @@ type RollbackParams struct {
 **返回结果**:
 ```go
 type RollbackResult struct {
-    RollbackID     string    `json:"rollback_id"`     // 回滚任务ID
-    Service        string    `json:"service"`         // 服务名称
-    TargetVersion  string    `json:"target_version"`  // 回滚的目标版本
-    Message        string    `json:"message"`         // 回滚完成状态描述
-    Instances      []string  `json:"instances"`       // 实际回滚的实例ID列表
-    TotalInstances int       `json:"total_instances"` // 回滚的实例总数
-    CompletedAt    time.Time `json:"completed_at"`    // 回滚完成时间
+    Service        string    `json:"service"`         // 必填，服务名称
+    TargetVersion  string    `json:"target_version"`  // 必填，回滚的目标版本
+    Message        string    `json:"message"`         // 必填，回滚完成状态描述
+    Instances      []string  `json:"instances"`       // 必填，实际回滚的实例ID列表
+    TotalInstances int       `json:"total_instances"` // 必填，回滚的实例总数
+    CompletedAt    time.Time `json:"completed_at"`    // 必填，回滚完成时间
 }
 ```
 
