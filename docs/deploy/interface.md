@@ -1,9 +1,5 @@
 # 发布系统接口参考文档
 
-## 基础信息
-
-本文档描述发布系统的Go接口设计，采用面向接口编程的方式，将功能按职责划分为多个接口。
-
 ## 1. 接口概览
 
 发布系统提供以下外部接口：
@@ -219,86 +215,9 @@ instanceID string // 实例ID
 
 **返回结果**: `[]*VersionInfo` - 版本历史数组
 
-## 4. 使用示例
+## 4. 内部工具函数
 
-### 4.1 接口实现示例
-
-```go
-// 实现结构体
-type floyDeployService struct {
-    logger   Logger
-    executor Executor
-    database Database
-}
-
-// 实现DeployService接口
-func (fd *floyDeployService) ExecuteDeployment(params *DeployParams) (*DeployResult, error) {
-    // 实现逻辑
-}
-
-func (fd *floyDeployService) ExecuteRollback(params *RollbackParams) (*RollbackResult, error) {
-    // 实现逻辑
-}
-
-// 构造函数
-func NewDeployService(logger Logger, executor Executor, database Database) DeployService {
-    return &floyDeployService{
-        logger:   logger,
-        executor: executor,
-        database: database,
-    }
-}
-```
-
-### 4.2 完整发布流程示例
-
-```go
-package main
-
-import (
-    "fmt"
-    "log"
-)
-
-func main() {
-    // 初始化服务
-    floyDeployService := NewDeployService(logger, executor, database)
-    
-    // 1. 触发发布
-    deployParams := &DeployParams{
-        DeployID:   "deploy-12345",
-        Service:    "user-service",
-        Version:    "v1.2.3",
-        Instances:  []string{"instance-1", "instance-2"},
-        PackageURL: "https://packages.example.com/user-service/v1.2.3.tar.gz",
-    }
-    
-    result, err := floyDeployService.ExecuteDeployment(deployParams)
-    if err != nil {
-        log.Fatalf("发布失败: %v", err)
-    }
-    fmt.Printf("发布启动成功: %s\n", result.DeployID)
-    
-    // 2. 如果需要，执行回滚操作
-    rollbackParams := &RollbackParams{
-        RollbackID:    "rollback-67890",
-            Service:       "user-service",
-            TargetVersion: "v1.2.2",
-        Instances:     []string{"instance-1", "instance-2"},
-            PackageURL:    "https://packages.example.com/user-service/v1.2.2.tar.gz",
-        }
-        
-    rollbackResult, err := floyDeployService.ExecuteRollback(rollbackParams)
-        if err != nil {
-            log.Fatalf("回滚失败: %v", err)
-        }
-        fmt.Printf("回滚启动成功: %s\n", rollbackResult.RollbackID)
-    }
-```
-
-## 5. 内部工具函数
-
-### 5.1 ValidatePackageURL函数
+### 4.1 ValidatePackageURL函数
 
 **函数描述**: 验证包URL的有效性和安全性
 
@@ -332,7 +251,7 @@ func (fd *floyDeployService) ExecuteDeployment(params *DeployParams) (*DeployRes
 }
 ```
 
-### 5.2 GetInstanceHost函数
+### 4.2 GetInstanceHost函数
 
 **函数描述**: 根据实例ID获取实例的IP地址
 
@@ -348,7 +267,7 @@ instanceID string // 实例ID
 
 **返回结果**: `string` - 实例的IP地址，获取失败时返回错误信息
 
-### 5.3 GetInstancePort函数
+### 4.3 GetInstancePort函数
 
 **函数描述**: 根据服务名和实例IP获取实例的端口号
 
@@ -365,7 +284,7 @@ instanceHost string // 实例IP地址
 
 **返回结果**: `int` - 实例的端口号，获取失败时返回错误信息
 
-### 5.4 CheckInstanceHealth函数
+### 4.4 CheckInstanceHealth函数
 
 **函数描述**: 检查单个实例是否有响应，用于发布前验证目标实例的可用性
 
