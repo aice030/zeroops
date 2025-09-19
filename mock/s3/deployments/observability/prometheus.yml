@@ -14,14 +14,14 @@ scrape_configs:
   # OpenTelemetry Collector指标
   - job_name: 'otel-collector'
     static_configs:
-      - targets: ['otel-collector:8888']
+      - targets: ['172.21.0.24:8889']  # 使用otel-collector的固定IP和新端口
     scrape_interval: 10s
     metrics_path: /metrics
 
   # Mock S3服务通过Consul服务发现
   - job_name: 'mock-s3-services'
     consul_sd_configs:
-      - server: 'consul:8500'
+      - server: '172.21.0.10:8500'  # 使用Consul的固定IP地址
         services: 
           - metadata-service
           - storage-service  
