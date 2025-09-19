@@ -40,13 +40,6 @@ type DeployParams struct {
 }
 ```
 
-**参数说明**:
-- `DeployID`: 发布任务唯一标识
-- `Service`: 服务名称，如 "user-service"
-- `Version`: 版本号，如 "v1.2.3"
-- `Instances`: 实例ID数组，如 ["instance-1", "instance-2"]
-- `PackageURL`: 包的下载地址，必须是HTTPS
-
 **返回结果**:
 ```go
 type DeployResult struct {
@@ -59,15 +52,6 @@ type DeployResult struct {
     CompletedAt    time.Time `json:"completed_at"`    // 发布完成时间
 }
 ```
-
-**字段说明**:
-- `DeployID`: 发布任务的唯一标识符，与请求参数中的DeployID一致
-- `Service`: 发布的服务名称
-- `Version`: 成功发布的版本号
-- `Message`: 发布操作的完成状态描述，如"发布成功"、"部分实例发布失败"等
-- `Instances`: 实际参与发布的实例ID列表，可能与请求中的实例列表有差异
-- `TotalInstances`: 实际发布的实例数量
-- `CompletedAt`: 发布操作完成的时间戳
 
 ### 2.3 ExecuteRollback方法
 
@@ -89,13 +73,6 @@ type RollbackParams struct {
 }
 ```
 
-**参数说明**:
-- `RollbackID`: 回滚任务唯一标识
-- `Service`: 服务名称，如 "user-service"
-- `TargetVersion`: 目标版本号，如 "v1.2.2"
-- `Instances`: 实例ID数组，单实例回滚传入一个元素，批量回滚传入多个元素
-- `PackageURL`: 包的下载地址，HTTP或者本地路径
-
 **返回结果**:
 ```go
 type RollbackResult struct {
@@ -108,15 +85,6 @@ type RollbackResult struct {
     CompletedAt    time.Time `json:"completed_at"`    // 回滚完成时间
 }
 ```
-
-**字段说明**:
-- `RollbackID`: 回滚任务的唯一标识符，与请求参数中的RollbackID一致
-- `Service`: 回滚的服务名称
-- `TargetVersion`: 成功回滚到的目标版本号
-- `Message`: 回滚操作的完成状态描述，如"回滚成功"、"部分实例回滚失败"等
-- `Instances`: 实际参与回滚的实例ID列表，可能与请求中的实例列表有差异
-- `TotalInstances`: 实际回滚的实例数量
-- `CompletedAt`: 回滚操作完成的时间戳
 
 ## 3. InstanceManager接口
 
@@ -140,27 +108,17 @@ type InstanceInfo struct {
     InstanceID  string `json:"instance_id"`  // 实例唯一标识符
     ServiceName string `json:"service_name"` // 所属服务名称
     Version     string `json:"version"`      // 当前运行的版本号
-    Status      string `json:"status"`       // 实例运行状态
+    Status      string `json:"status"`       // 实例运行状态 - 'active'运行中；'pending'发布中；'error'出现故障
 }
 ```
-
-**字段说明**:
-- `InstanceID`: 实例的全局唯一标识符，如"user-service-001"
-- `ServiceName`: 实例所属的服务名称，如"user-service"
-- `Version`: 实例当前运行的软件版本号，如"v1.2.3"
-- `Status`: 实例的运行状态，如"running"、"stopped"、"starting"等
 
 **VersionInfo结构体**:
 ```go
 type VersionInfo struct {
     Version string `json:"version"` // 版本号
-    Status  string `json:"status"`  // 版本状态
+    Status  string `json:"status"`  // 版本状态 - 'acitve'当前运行版本；'stable'稳定版本；'deprecated'已废弃版本
 }
 ```
-
-**字段说明**:
-- `Version`: 版本号，如"v1.2.3"
-- `Status`: 版本状态，"deploy"表示通过正常发布，"rollback"表示通过回滚发布
 
 ### 3.3 GetServiceInstances方法
 
@@ -173,8 +131,8 @@ GetServiceInstances(serviceName string, version ...string) ([]string, error)
 
 **输入参数**:
 ```go
-serviceName string   // 服务名称
-version     ...string // 可选参数，指定版本号进行过滤
+serviceName string   // 必填，服务名称
+version     ...string // 选填，指定版本号进行过滤，未输入则默认获取全部版本的运行实例
 ```
 
 **参数说明**:
@@ -194,7 +152,7 @@ GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
 
 **输入参数**:
 ```go
-instanceIDs []string // 实例ID数组
+instanceIDs []string // 必填，实例ID数组
 ```
 
 **返回结果**: `map[string]*InstanceInfo` - 实例ID到实例信息的映射
@@ -210,7 +168,7 @@ GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
 
 **输入参数**:
 ```go
-instanceID string // 实例ID
+instanceID string // 必填，实例ID
 ```
 
 **返回结果**: `[]*VersionInfo` - 版本历史数组
@@ -219,7 +177,7 @@ instanceID string // 实例ID
 
 ### 4.1 ValidatePackageURL函数
 
-**函数描述**: 验证包URL的有效性和安全性
+**函数描述**: 验证是否能通过URL找到包
 
 **函数签名**:
 ```go
@@ -228,16 +186,10 @@ func ValidatePackageURL(packageURL string) error
 
 **输入参数**:
 ```go
-packageURL string // 包下载URL
+packageURL string // 必填，包下载URL
 ```
 
 **返回结果**: `error` - 验证失败时返回错误信息
-
-**验证规则**:
-- URL必须使用HTTPS协议
-- URL格式必须正确
-- 域名必须在白名单中（可选）
-- 文件扩展名必须符合要求（如.tar.gz, .zip等）
 
 **使用示例**:
 ```go
@@ -262,7 +214,7 @@ func GetInstanceHost(instanceID string) (string, error)
 
 **输入参数**:
 ```go
-instanceID string // 实例ID
+instanceID string // 必填，实例ID
 ```
 
 **返回结果**: `string` - 实例的IP地址，获取失败时返回错误信息
@@ -278,8 +230,8 @@ func GetInstancePort(serviceName, instanceHost string) (int, error)
 
 **输入参数**:
 ```go
-serviceName  string // 服务名称
-instanceHost string // 实例IP地址
+serviceName  string // 必填，服务名称
+instanceHost string // 必填，实例IP地址
 ```
 
 **返回结果**: `int` - 实例的端口号，获取失败时返回错误信息
@@ -295,7 +247,7 @@ func CheckInstanceHealth(instanceID string) (bool, error)
 
 **输入参数**:
 ```go
-instanceID string // 实例ID
+instanceID string // 必填，实例ID
 ```
 
 **返回结果**: `bool` - 健康检查结果，true表示实例有响应，false表示无响应
