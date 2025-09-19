@@ -161,9 +161,8 @@ type RollbackResult struct {
 
 ```go
 type InstanceManager interface {
-    GetServiceInstances(serviceName string) ([]string, error)
+    GetServiceInstances(serviceName string, version ...string) ([]string, error)
     GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
-    GetInstancesVersion(instanceIDs []string) (map[string]string, error)
     GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
 }
 ```
@@ -189,32 +188,24 @@ type InstanceInfo struct {
 **VersionInfo结构体**:
 ```go
 type VersionInfo struct {
-    Version    string    `json:"version"`     // 版本号
-    DeployedAt time.Time `json:"deployed_at"` // 发布时间
-    DeployID   string    `json:"deploy_id"`   // 发布任务ID
-    Status     string    `json:"status"`      // 发布方式状态
+    Version string `json:"version"` // 版本号
+    Status  string `json:"status"`  // 版本状态
 }
 ```
 
 **字段说明**:
 - `Version`: 版本号，如"v1.2.3"
-- `DeployedAt`: 该版本发布到实例的时间戳
-- `DeployID`: 执行发布的任务ID，用于追溯发布来源
-- `Status`: 发布方式状态，"deploy"表示通过正常发布，"rollback"表示通过回滚发布
+- `Status`: 版本状态，"deploy"表示通过正常发布，"rollback"表示通过回滚发布
 
 #### 3.2.2 方法说明
 
-**GetServiceInstances方法**: 获取指定服务的所有实例ID列表
-- 输入: 服务名称
+**GetServiceInstances方法**: 获取指定服务的实例列表，可选择按版本过滤
+- 输入: 服务名称，可选版本号参数
 - 返回: 实例ID数组
 
 **GetInstancesInfo方法**: 批量获取多个实例的详细信息
 - 输入: 实例ID数组
 - 返回: 实例ID到实例信息的映射
-
-**GetInstancesVersion方法**: 批量获取多个实例的当前版本
-- 输入: 实例ID数组
-- 返回: 实例ID到版本号的映射
 
 **GetInstanceVersionHistory方法**: 获取指定实例的版本历史记录
 - 输入: 实例ID

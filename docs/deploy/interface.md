@@ -130,9 +130,8 @@ type RollbackResult struct {
 
 ```go
 type InstanceManager interface {
-    GetServiceInstances(serviceName string) ([]string, error)
+    GetServiceInstances(serviceName string, version ...string) ([]string, error)
     GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
-    GetInstancesVersion(instanceIDs []string) (map[string]string, error)
     GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
 }
 ```
@@ -158,32 +157,33 @@ type InstanceInfo struct {
 **VersionInfo结构体**:
 ```go
 type VersionInfo struct {
-    Version    string    `json:"version"`     // 版本号
-    DeployedAt time.Time `json:"deployed_at"` // 发布时间
-    DeployID   string    `json:"deploy_id"`   // 发布任务ID
-    Status     string    `json:"status"`      // 发布方式状态
+    Version string `json:"version"` // 版本号
+    Status  string `json:"status"`  // 版本状态
 }
 ```
 
 **字段说明**:
 - `Version`: 版本号，如"v1.2.3"
-- `DeployedAt`: 该版本发布到实例的时间戳
-- `DeployID`: 执行发布的任务ID，用于追溯发布来源
-- `Status`: 发布方式状态，"deploy"表示通过正常发布，"rollback"表示通过回滚发布
+- `Status`: 版本状态，"deploy"表示通过正常发布，"rollback"表示通过回滚发布
 
 ### 3.3 GetServiceInstances方法
 
-**方法描述**: 获取指定服务的所有实例列表
+**方法描述**: 获取指定服务的实例列表，可选择按版本过滤
 
 **方法签名**:
 ```go
-GetServiceInstances(serviceName string) ([]string, error)
+GetServiceInstances(serviceName string, version ...string) ([]string, error)
 ```
 
 **输入参数**:
 ```go
-serviceName string // 服务名称
+serviceName string   // 服务名称
+version     ...string // 可选参数，指定版本号进行过滤
 ```
+
+**参数说明**:
+- `serviceName`: 服务名称，如 "user-service"
+- `version`: 可选的版本号参数，如果提供则只返回该版本的实例；如果不提供则返回所有版本的实例
 
 **返回结果**: `[]string` - 实例ID数组
 
@@ -203,23 +203,7 @@ instanceIDs []string // 实例ID数组
 
 **返回结果**: `map[string]*InstanceInfo` - 实例ID到实例信息的映射
 
-### 3.5 GetInstancesVersion方法
-
-**方法描述**: 批量获取多个实例的当前版本
-
-**方法签名**:
-```go
-GetInstancesVersion(instanceIDs []string) (map[string]string, error)
-```
-
-**输入参数**:
-```go
-instanceIDs []string // 实例ID数组
-```
-
-**返回结果**: `map[string]string` - 实例ID到版本号的映射
-
-### 3.6 GetInstanceVersionHistory方法
+### 3.5 GetInstanceVersionHistory方法
 
 **方法描述**: 获取指定实例的版本历史记录
 
@@ -298,18 +282,18 @@ func main() {
     // 2. 如果需要，执行回滚操作
     rollbackParams := &RollbackParams{
         RollbackID:    "rollback-67890",
-        Service:       "user-service",
-        TargetVersion: "v1.2.2",
+            Service:       "user-service",
+            TargetVersion: "v1.2.2",
         Instances:     []string{"instance-1", "instance-2"},
-        PackageURL:    "https://packages.example.com/user-service/v1.2.2.tar.gz",
-    }
-    
+            PackageURL:    "https://packages.example.com/user-service/v1.2.2.tar.gz",
+        }
+        
     rollbackResult, err := floyDeployService.ExecuteRollback(rollbackParams)
-    if err != nil {
-        log.Fatalf("回滚失败: %v", err)
+        if err != nil {
+            log.Fatalf("回滚失败: %v", err)
+        }
+        fmt.Printf("回滚启动成功: %s\n", rollbackResult.RollbackID)
     }
-    fmt.Printf("回滚启动成功: %s\n", rollbackResult.RollbackID)
-}
 ```
 
 ## 5. 内部工具函数
