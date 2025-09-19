@@ -42,12 +42,10 @@ type DeployParams struct {
 **返回结果**:
 ```go
 type OperationResult struct {
-    Service        string    `json:"service"`         // 必填，服务名称
-    Version        string    `json:"version"`         // 必填，操作的目标版本
-    Message        string    `json:"message"`         // 必填，操作完成状态描述
-    Instances      []string  `json:"instances"`       // 必填，实际操作的实例ID列表
-    TotalInstances int       `json:"total_instances"` // 必填，操作的实例总数
-    CompletedAt    time.Time `json:"completed_at"`    // 必填，操作完成时间
+    Service        string   `json:"service"`         // 服务名称
+    Version        string   `json:"version"`         // 操作的目标版本
+    Instances      []string `json:"instances"`       // 实际操作的实例ID列表
+    TotalInstances int      `json:"total_instances"` // 操作的实例总数
 }
 ```
 
