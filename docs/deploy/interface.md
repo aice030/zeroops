@@ -20,7 +20,6 @@
 ```go
 type DeployService interface {
     ExecuteDeployment(params *DeployParams) (*DeployResult, error)
-    CancelDeployment(deployID string) (*CancelResult, error)
     ExecuteRollback(params *RollbackParams) (*RollbackResult, error)
 }
 ```
@@ -74,35 +73,7 @@ type DeployResult struct {
 - `TotalInstances`: 实际发布的实例数量
 - `CompletedAt`: 发布操作完成的时间戳
 
-### 2.3 CancelDeployment方法
-
-**方法描述**: 取消正在执行的发布任务
-
-**方法签名**:
-```go
-CancelDeployment(deployID string) (*CancelResult, error)
-```
-
-**输入参数**:
-```go
-deployID string // 发布任务ID
-```
-
-**返回结果**:
-```go
-type CancelResult struct {
-    DeployID    string    `json:"deploy_id"`    // 被取消的发布任务ID
-    Message     string    `json:"message"`      // 取消操作状态描述
-    CancelledAt time.Time `json:"cancelled_at"` // 取消操作完成时间
-}
-```
-
-**字段说明**:
-- `DeployID`: 被取消的发布任务唯一标识符
-- `Message`: 取消操作的状态描述，如"发布已成功取消"、"发布已完成无法取消"等
-- `CancelledAt`: 取消操作完成的时间戳
-
-### 2.4 ExecuteRollback方法
+### 2.3 ExecuteRollback方法
 
 **方法描述**: 对指定实例执行回滚操作，支持单实例或批量实例回滚
 
@@ -163,7 +134,6 @@ type InstanceManager interface {
     GetInstancesInfo(instanceIDs []string) (map[string]*InstanceInfo, error)
     GetInstancesVersion(instanceIDs []string) (map[string]string, error)
     GetInstanceVersionHistory(instanceID string) ([]*VersionInfo, error)
-    CheckInstanceHealth(instanceIDs []string) (map[string]*HealthStatus, error)
 }
 ```
 
@@ -184,22 +154,6 @@ type InstanceInfo struct {
 - `ServiceName`: 实例所属的服务名称，如"user-service"
 - `Version`: 实例当前运行的软件版本号，如"v1.2.3"
 - `Status`: 实例的运行状态，如"running"、"stopped"、"starting"等
-
-**HealthStatus结构体**:
-```go
-type HealthStatus struct {
-    InstanceID string    `json:"instance_id"`           // 实例唯一标识符
-    IsHealthy  bool      `json:"is_healthy"`            // 健康检查结果
-    CheckedAt  time.Time `json:"checked_at"`            // 健康检查时间
-    Message    string    `json:"message,omitempty"`     // 健康状态描述信息
-}
-```
-
-**字段说明**:
-- `InstanceID`: 被检查实例的唯一标识符
-- `IsHealthy`: 健康检查结果，true表示健康，false表示不健康
-- `CheckedAt`: 执行健康检查的时间戳
-- `Message`: 健康状态的详细描述信息，如"HTTP 200 响应正常"、"连接超时"等
 
 **VersionInfo结构体**:
 ```go
@@ -249,22 +203,6 @@ instanceIDs []string // 实例ID数组
 
 **返回结果**: `map[string]*InstanceInfo` - 实例ID到实例信息的映射
 
-### 3.7 CheckInstanceHealth方法
-
-**方法描述**: 检查实例的健康状态，支持单个或多个实例
-
-**方法签名**:
-```go
-CheckInstanceHealth(instanceIDs []string) (map[string]*HealthStatus, error)
-```
-
-**输入参数**:
-```go
-instanceIDs []string // 实例ID数组
-```
-
-**返回结果**: `map[string]*HealthStatus` - 实例ID到健康状态的映射
-
 ### 3.5 GetInstancesVersion方法
 
 **方法描述**: 批量获取多个实例的当前版本
@@ -311,10 +249,6 @@ type floyDeployService struct {
 
 // 实现DeployService接口
 func (fd *floyDeployService) ExecuteDeployment(params *DeployParams) (*DeployResult, error) {
-    // 实现逻辑
-}
-
-func (fd *floyDeployService) CancelDeployment(deployID string) (*CancelResult, error) {
     // 实现逻辑
 }
 
@@ -446,3 +380,19 @@ instanceHost string // 实例IP地址
 ```
 
 **返回结果**: `int` - 实例的端口号，获取失败时返回错误信息
+
+### 5.4 CheckInstanceHealth函数
+
+**函数描述**: 检查单个实例是否有响应，用于发布前验证目标实例的可用性
+
+**函数签名**:
+```go
+func CheckInstanceHealth(instanceID string) (bool, error)
+```
+
+**输入参数**:
+```go
+instanceID string // 实例ID
+```
+
+**返回结果**: `bool` - 健康检查结果，true表示实例有响应，false表示无响应
