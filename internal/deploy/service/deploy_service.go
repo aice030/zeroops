@@ -646,7 +646,7 @@ func (f *floyDeployService) deployToSingleInstance(instanceIP, service, version,
 	}
 
 	// 5. 运行服务
-	if err := f.runService(instanceIP, service, "start.sh", fmt.Sprintf("/home/qboxserver/%s", installDir), 300); err != nil {
+	if err := f.runService(instanceIP, service, "start.sh", fmt.Sprintf("/home/qboxserver/.zeroops-floyd/%s", installDir), 300); err != nil {
 		return fmt.Errorf("运行服务失败: %v", err)
 	}
 
@@ -684,7 +684,7 @@ func (f *floyDeployService) rollbackToSingleInstance(instanceIP, service, target
 	}
 
 	// 5. 运行服务
-	if err := f.runService(instanceIP, service, "start.sh", fmt.Sprintf("/home/qboxserver/%s", installDir), 300); err != nil {
+	if err := f.runService(instanceIP, service, "start.sh", fmt.Sprintf("/home/qboxserver/.zeroops-floyd/%s", installDir), 300); err != nil {
 		return fmt.Errorf("运行服务失败: %v", err)
 	}
 
@@ -1289,12 +1289,8 @@ func (f *floyDeployService) processPackageWithPort(packagePath, serviceName stri
 		return "", nil, fmt.Errorf("修改启动脚本失败: %v", err)
 	}
 
-	// 4. 重新打包到临时目录
-	tempPackagePath := filepath.Join(tempDir, "modified-"+filepath.Base(packagePath))
-	err = f.createTarGz(tempDir, tempPackagePath)
-	if err != nil {
-		return "", nil, fmt.Errorf("重新打包失败: %v", err)
-	}
+	// 4. 跳过重新打包，直接使用原始包文件（临时解决方案）
+	tempPackagePath := packagePath
 
 	// 5. 计算修改后包文件的MD5值
 	newMd5sum, err := f.calculateFileMD5(tempPackagePath)
@@ -1302,14 +1298,8 @@ func (f *floyDeployService) processPackageWithPort(packagePath, serviceName stri
 		return "", nil, fmt.Errorf("计算MD5失败: %v", err)
 	}
 
-	// 6. 将修改后的包文件移动到系统临时目录，避免被清理
-	finalPackagePath := filepath.Join(os.TempDir(), "modified-"+filepath.Base(packagePath))
-	err = os.Rename(tempPackagePath, finalPackagePath)
-	if err != nil {
-		return "", nil, fmt.Errorf("移动修改后的包文件失败: %v", err)
-	}
-
-	return finalPackagePath, newMd5sum, nil
+	// 6. 直接使用原始包文件
+	return tempPackagePath, newMd5sum, nil
 }
 
 // calculateFileMD5 计算文件的MD5值

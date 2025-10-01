@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net"
 	"os/exec"
+	"runtime"
 	"sync"
 	"time"
 
@@ -145,8 +146,16 @@ func CheckHostHealth(hostIpAddress string) (bool, error) {
 		return false, fmt.Errorf("invalid IP address format: %s", hostIpAddress)
 	}
 
-	// 使用ping命令检查主机是否可达
-	cmd := exec.Command("ping", "-c", "1", "-W", "3", hostIpAddress)
+	// 使用ping命令检查主机是否可达（跨平台支持）
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		// Windows: ping -n 1 -w 3000
+		cmd = exec.Command("ping", "-n", "1", "-w", "3000", hostIpAddress)
+	} else {
+		// Linux/macOS: ping -c 1 -W 3
+		cmd = exec.Command("ping", "-c", "1", "-W", "3", hostIpAddress)
+	}
+
 	err := cmd.Run()
 	if err != nil {
 		return false, nil // ping失败，主机不可达
