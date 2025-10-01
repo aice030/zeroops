@@ -203,10 +203,10 @@ func (f *floyDeployService) DeployNewService(params *model.DeployNewServiceParam
 		defer os.Remove(modifiedPackagePath) // 清理修改后的包文件
 
 		// 6.7 为当前实例计算包含包内容和配置的fversion
-		instanceFversion := f.calculateFversion(params.Service, "prod", params.Version, modifiedPackagePath)
+		instanceFversion := f.calculateFversion(params.Service, "prod", params.Version, modifiedPackagePath, instancePort)
 
 		// 6.8 部署服务到新创建的实例（使用新的MD5值）
-		if err := f.deployToSingleInstance(instanceIP, params.Service, params.Version, instanceFversion, modifiedPackagePath, newMd5sum); err != nil {
+		if err := f.deployToSingleInstance(instanceIP, params.Service, params.Version, instanceFversion, modifiedPackagePath, newMd5sum, instancePort); err != nil {
 			// 记录错误但继续处理其他实例
 			fmt.Printf("部署到实例 %s (%s) 失败: %v\n", hostIP, hostIP, err)
 			continue
@@ -301,10 +301,10 @@ func (f *floyDeployService) DeployNewVersion(params *model.DeployNewVersionParam
 		defer os.Remove(modifiedPackagePath) // 清理修改后的包文件
 
 		// 4.4 为当前实例计算fversion
-		instanceFversion := f.calculateFversion(params.Service, "prod", params.Version, modifiedPackagePath)
+		instanceFversion := f.calculateFversion(params.Service, "prod", params.Version, modifiedPackagePath, instancePort)
 
 		// 4.5 部署到单个实例（使用修改后的包文件）
-		if err := f.deployToSingleInstance(instanceIP, params.Service, params.Version, instanceFversion, modifiedPackagePath, newMd5sum); err != nil {
+		if err := f.deployToSingleInstance(instanceIP, params.Service, params.Version, instanceFversion, modifiedPackagePath, newMd5sum, instancePort); err != nil {
 			// 记录错误但继续处理其他实例
 			fmt.Printf("部署到实例 %s (%s) 失败: %v\n", instanceID, instanceIP, err)
 			continue
@@ -406,10 +406,10 @@ func (f *floyDeployService) ExecuteRollback(params *model.RollbackParams) (*mode
 		defer os.Remove(modifiedPackagePath) // 清理修改后的包文件
 
 		// 4.4 为当前实例计算fversion
-		instanceFversion := f.calculateFversion(params.Service, "prod", params.TargetVersion, modifiedPackagePath)
+		instanceFversion := f.calculateFversion(params.Service, "prod", params.TargetVersion, modifiedPackagePath, instancePort)
 
 		// 4.5 回滚到单个实例（使用修改后的包文件）
-		if err := f.rollbackToSingleInstance(instanceIP, params.Service, params.TargetVersion, instanceFversion, modifiedPackagePath, newMd5sum); err != nil {
+		if err := f.rollbackToSingleInstance(instanceIP, params.Service, params.TargetVersion, instanceFversion, modifiedPackagePath, newMd5sum, instancePort); err != nil {
 			// 记录错误但继续处理其他实例
 			fmt.Printf("回滚到实例 %s (%s) 失败: %v\n", instanceID, instanceIP, err)
 			continue
@@ -591,9 +591,10 @@ func (f *floyDeployService) copyFromLocal(filePath string) (string, []byte, erro
 }
 
 // calculateFversion 计算版本号，包含包内容和配置文件内容
-func (f *floyDeployService) calculateFversion(service, env, version string, packageFilePath string) string {
+func (f *floyDeployService) calculateFversion(service, env, version string, packageFilePath string, port int) string {
 	h := md5.New()
-	io.WriteString(h, fmt.Sprintf("%s:%s:%s", service, env, version))
+	// 在fversion计算中包含端口信息，确保不同端口的实例有不同的fversion
+	io.WriteString(h, fmt.Sprintf("%s:%s:%s:%d", service, env, version, port))
 
 	// 添加包文件内容（二进制tar文件）
 	packageContent, err := os.ReadFile(packageFilePath)
@@ -615,38 +616,37 @@ func (f *floyDeployService) calculateFversion(service, env, version string, pack
 }
 
 // deployToSingleInstance 部署到单个实例
-func (f *floyDeployService) deployToSingleInstance(instanceIP, service, version, fversion string, packageFilePath string, md5sum []byte) error {
+func (f *floyDeployService) deployToSingleInstance(instanceIP, service, version, fversion string, packageFilePath string, md5sum []byte, port int) error {
+	// 为当前实例生成独立的installDir
+	installDir := fmt.Sprintf("storage-%d", port)
+
 	// 1. Ping检查
-	wantPkg, wantConfig, err := f.ping(instanceIP, service, fversion, version, "Auto deploy")
+	wantPkg, wantConfig, err := f.ping(instanceIP, service, fversion, version, "Auto deploy", installDir)
 	if err != nil {
 		return fmt.Errorf("ping检查失败: %v", err)
 	}
 
 	// 2. 推送包文件
 	if wantPkg {
-		if err := f.pushPackage(instanceIP, service, fversion, version, packageFilePath, md5sum); err != nil {
+		if err := f.pushPackage(instanceIP, service, fversion, version, packageFilePath, md5sum, installDir); err != nil {
 			return fmt.Errorf("推送包文件失败: %v", err)
 		}
 	}
-	// // 2. 推送包文件
-	// if err := f.pushPackage(instanceIP, service, fversion, version, packageFilePath, md5sum); err != nil {
-	// 	return fmt.Errorf("推送包文件失败: %v", err)
-	// }
 
 	// 3. 推送配置文件
 	if wantConfig {
-		if err := f.pushConfig(instanceIP, service, fversion, version, packageFilePath); err != nil {
+		if err := f.pushConfig(instanceIP, service, fversion, version, packageFilePath, port, installDir); err != nil {
 			return fmt.Errorf("推送配置文件失败: %v", err)
 		}
 	}
 
 	// 4. 切换版本（激活新版本）
-	if err := f.switchVersion(instanceIP, service, fversion, false); err != nil {
+	if err := f.switchVersion(instanceIP, service, fversion, false, installDir); err != nil {
 		return fmt.Errorf("版本切换失败: %v", err)
 	}
 
 	// 5. 运行服务
-	if err := f.runService(instanceIP, service, "start.sh", "/home/qboxserver", 300); err != nil {
+	if err := f.runService(instanceIP, service, "start.sh", fmt.Sprintf("/home/qboxserver/%s", installDir), 300); err != nil {
 		return fmt.Errorf("运行服务失败: %v", err)
 	}
 
@@ -654,38 +654,37 @@ func (f *floyDeployService) deployToSingleInstance(instanceIP, service, version,
 }
 
 // rollbackToSingleInstance 回滚到单个实例
-func (f *floyDeployService) rollbackToSingleInstance(instanceIP, service, targetVersion, fversion string, packageFilePath string, md5sum []byte) error {
+func (f *floyDeployService) rollbackToSingleInstance(instanceIP, service, targetVersion, fversion string, packageFilePath string, md5sum []byte, port int) error {
+	// 为当前实例生成独立的installDir
+	installDir := fmt.Sprintf("storage-%d", port)
+
 	// 1. Ping检查
-	wantPkg, wantConfig, err := f.ping(instanceIP, service, fversion, targetVersion, "Auto rollback")
+	wantPkg, wantConfig, err := f.ping(instanceIP, service, fversion, targetVersion, "Auto rollback", installDir)
 	if err != nil {
 		return fmt.Errorf("ping检查失败: %v", err)
 	}
 
 	// 2. 推送回滚包文件
 	if wantPkg {
-		if err := f.pushPackage(instanceIP, service, fversion, targetVersion, packageFilePath, md5sum); err != nil {
+		if err := f.pushPackage(instanceIP, service, fversion, targetVersion, packageFilePath, md5sum, installDir); err != nil {
 			return fmt.Errorf("推送回滚包文件失败: %v", err)
 		}
 	}
-	// 2. 推送回滚包文件
-	// if err := f.pushPackage(instanceIP, service, fversion, targetVersion, packageFilePath, md5sum); err != nil {
-	// 	return fmt.Errorf("推送回滚包文件失败: %v", err)
-	// }
 
 	// 3. 推送配置文件
 	if wantConfig {
-		if err := f.pushConfig(instanceIP, service, fversion, targetVersion, packageFilePath); err != nil {
+		if err := f.pushConfig(instanceIP, service, fversion, targetVersion, packageFilePath, port, installDir); err != nil {
 			return fmt.Errorf("推送配置文件失败: %v", err)
 		}
 	}
 
 	// 4. 切换版本（激活回滚版本）
-	if err := f.switchVersion(instanceIP, service, fversion, false); err != nil {
+	if err := f.switchVersion(instanceIP, service, fversion, false, installDir); err != nil {
 		return fmt.Errorf("版本切换失败: %v", err)
 	}
 
 	// 5. 运行服务
-	if err := f.runService(instanceIP, service, "start.sh", "/home/qboxserver", 300); err != nil {
+	if err := f.runService(instanceIP, service, "start.sh", fmt.Sprintf("/home/qboxserver/%s", installDir), 300); err != nil {
 		return fmt.Errorf("运行服务失败: %v", err)
 	}
 
@@ -731,7 +730,7 @@ func (f *floyDeployService) signRequest(req *http.Request) error {
 }
 
 // ping 检查floyd服务状态
-func (f *floyDeployService) ping(instanceIP, service, fversion, version, message string) (bool, bool, error) {
+func (f *floyDeployService) ping(instanceIP, service, fversion, version, message, installDir string) (bool, bool, error) {
 	// 构造请求URL
 	baseURL := fmt.Sprintf("http://%s:%s", instanceIP, f.port)
 
@@ -740,7 +739,7 @@ func (f *floyDeployService) ping(instanceIP, service, fversion, version, message
 	params.Add("service", service)
 	params.Add("fversion", fversion)
 	params.Add("pkgOwner", "qboxserver")
-	params.Add("installDir", "")
+	params.Add("installDir", installDir)
 	params.Add("pkg", version)
 	params.Add("message", base64.URLEncoding.EncodeToString([]byte(message)))
 
@@ -785,7 +784,7 @@ func (f *floyDeployService) ping(instanceIP, service, fversion, version, message
 }
 
 // pushPackage 推送包文件
-func (f *floyDeployService) pushPackage(instanceIP, service, fversion, version string, packageFilePath string, md5sum []byte) error {
+func (f *floyDeployService) pushPackage(instanceIP, service, fversion, version string, packageFilePath string, md5sum []byte, installDir string) error {
 	baseURL := fmt.Sprintf("http://%s:%s", instanceIP, f.port)
 
 	// 使用 multipart.Writer 构造请求体
@@ -796,7 +795,7 @@ func (f *floyDeployService) pushPackage(instanceIP, service, fversion, version s
 	writer.WriteField("service", service)
 	writer.WriteField("fversion", fversion)
 	writer.WriteField("pkgOwner", "qboxserver")
-	writer.WriteField("installDir", "")
+	writer.WriteField("installDir", installDir)
 
 	// 打开包文件
 	packageFile, err := os.Open(packageFilePath)
@@ -859,7 +858,7 @@ func (f *floyDeployService) pushPackage(instanceIP, service, fversion, version s
 }
 
 // pushConfig 推送配置文件
-func (f *floyDeployService) pushConfig(instanceIP, service, fversion, version, packageFilePath string) error {
+func (f *floyDeployService) pushConfig(instanceIP, service, fversion, version, packageFilePath string, port int, installDir string) error {
 	baseURL := fmt.Sprintf("http://%s:%s", instanceIP, f.port)
 
 	// 从修改后的包文件中提取配置文件内容
@@ -877,11 +876,11 @@ func (f *floyDeployService) pushConfig(instanceIP, service, fversion, version, p
 	writer.WriteField("service", service)
 	writer.WriteField("fversion", fversion)
 	writer.WriteField("pkgOwner", "qboxserver")
-	writer.WriteField("installDir", "")
+	writer.WriteField("installDir", installDir)
 
-	// 创建文件字段，设置 Content-Md5 头
+	// 创建文件字段，设置 Content-Md5 头，文件名包含端口信息
 	header := make(map[string][]string)
-	header["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name="file"; filename="%s/config.yaml"`, version)}
+	header["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name="file"; filename="%s/config%d.yaml"`, version, port)}
 	header["Content-Type"] = []string{"application/octet-stream"}
 	header["Content-Md5"] = []string{base64.URLEncoding.EncodeToString(configMD5[:])}
 	header["File-Mode"] = []string{"644"}
@@ -934,7 +933,7 @@ func (f *floyDeployService) pushConfig(instanceIP, service, fversion, version, p
 }
 
 // switchVersion 切换版本
-func (f *floyDeployService) switchVersion(instanceIP, service, fversion string, force bool) error {
+func (f *floyDeployService) switchVersion(instanceIP, service, fversion string, force bool, installDir string) error {
 	baseURL := fmt.Sprintf("http://%s:%s", instanceIP, f.port)
 
 	// 构造请求参数
@@ -942,7 +941,7 @@ func (f *floyDeployService) switchVersion(instanceIP, service, fversion string, 
 	params.Add("service", service)
 	params.Add("fversion", fversion)
 	params.Add("pkgOwner", "qboxserver")
-	params.Add("installDir", "")
+	params.Add("installDir", installDir)
 	if force {
 		params.Add("force", "1")
 	}
