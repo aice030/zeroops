@@ -205,8 +205,9 @@ func (f *floyDeployService) DeployNewService(params *model.DeployNewServiceParam
 		// 6.7 为当前实例计算包含包内容和配置的fversion
 		instanceFversion := f.calculateFversion(params.Service, "prod", params.Version, modifiedPackagePath, instancePort)
 
-		// 6.8 部署服务到新创建的实例（使用新的MD5值）
-		if err := f.deployToSingleInstance(instanceIP, params.Service, params.Version, instanceFversion, modifiedPackagePath, newMd5sum, instancePort); err != nil {
+		// 6.8 部署服务到新创建的实例（传递原始包和精简包）
+		// modifiedPackagePath 是精简包（只包含可执行文件），packageFilePath 是原始包（用于提取配置）
+		if err := f.deployToSingleInstance(instanceIP, params.Service, params.Version, instanceFversion, packageFilePath, modifiedPackagePath, newMd5sum, instancePort); err != nil {
 			// 记录错误但继续处理其他实例
 			fmt.Printf("部署到实例 %s (%s) 失败: %v\n", hostIP, hostIP, err)
 			continue
@@ -303,8 +304,9 @@ func (f *floyDeployService) DeployNewVersion(params *model.DeployNewVersionParam
 		// 4.4 为当前实例计算fversion
 		instanceFversion := f.calculateFversion(params.Service, "prod", params.Version, modifiedPackagePath, instancePort)
 
-		// 4.5 部署到单个实例（使用修改后的包文件）
-		if err := f.deployToSingleInstance(instanceIP, params.Service, params.Version, instanceFversion, modifiedPackagePath, newMd5sum, instancePort); err != nil {
+		// 4.5 部署到单个实例（传递原始包和精简包）
+		// modifiedPackagePath 是精简包（只包含可执行文件），packageFilePath 是原始包（用于提取配置）
+		if err := f.deployToSingleInstance(instanceIP, params.Service, params.Version, instanceFversion, packageFilePath, modifiedPackagePath, newMd5sum, instancePort); err != nil {
 			// 记录错误但继续处理其他实例
 			fmt.Printf("部署到实例 %s (%s) 失败: %v\n", instanceID, instanceIP, err)
 			continue
@@ -408,8 +410,9 @@ func (f *floyDeployService) ExecuteRollback(params *model.RollbackParams) (*mode
 		// 4.4 为当前实例计算fversion
 		instanceFversion := f.calculateFversion(params.Service, "prod", params.TargetVersion, modifiedPackagePath, instancePort)
 
-		// 4.5 回滚到单个实例（使用修改后的包文件）
-		if err := f.rollbackToSingleInstance(instanceIP, params.Service, params.TargetVersion, instanceFversion, modifiedPackagePath, newMd5sum, instancePort); err != nil {
+		// 4.5 回滚到单个实例（传递原始包和精简包）
+		// modifiedPackagePath 是精简包（只包含可执行文件），packageFilePath 是原始包（用于提取配置）
+		if err := f.rollbackToSingleInstance(instanceIP, params.Service, params.TargetVersion, instanceFversion, packageFilePath, modifiedPackagePath, newMd5sum, instancePort); err != nil {
 			// 记录错误但继续处理其他实例
 			fmt.Printf("回滚到实例 %s (%s) 失败: %v\n", instanceID, instanceIP, err)
 			continue
@@ -616,7 +619,9 @@ func (f *floyDeployService) calculateFversion(service, env, version string, pack
 }
 
 // deployToSingleInstance 部署到单个实例
-func (f *floyDeployService) deployToSingleInstance(instanceIP, service, version, fversion string, packageFilePath string, md5sum []byte, port int) error {
+// originalPackagePath: 原始包路径，用于提取配置文件
+// slimPackagePath: 精简包路径（只包含可执行文件），用于推送包
+func (f *floyDeployService) deployToSingleInstance(instanceIP, service, version, fversion string, originalPackagePath string, slimPackagePath string, md5sum []byte, port int) error {
 	// 为当前实例生成独立的installDir
 	installDir := fmt.Sprintf("storage-%d", port)
 
@@ -625,36 +630,49 @@ func (f *floyDeployService) deployToSingleInstance(instanceIP, service, version,
 	if err != nil {
 		return fmt.Errorf("ping检查失败: %v", err)
 	}
+	fmt.Printf("📡 Ping 响应：wantPkg=%v, wantConfig=%v\n", wantPkg, wantConfig)
 
-	// 2. 推送包文件
-	if wantPkg {
-		if err := f.pushPackage(instanceIP, service, fversion, version, packageFilePath, md5sum, installDir); err != nil {
-			return fmt.Errorf("推送包文件失败: %v", err)
-		}
+	// 2. 推送包文件（使用精简包，只包含可执行文件）
+	// 临时：强制推送包文件，忽略 wantPkg 检查
+	fmt.Printf("📦 强制推送包文件（忽略 Ping 响应）...\n")
+	if err := f.pushPackage(instanceIP, service, fversion, version, slimPackagePath, md5sum, installDir); err != nil {
+		return fmt.Errorf("推送包文件失败: %v", err)
 	}
+	fmt.Printf("✅ 包文件推送成功\n")
 
-	// 3. 推送配置文件
+	// 3. 推送配置文件（从原始包中提取并修改端口）
 	if wantConfig {
-		if err := f.pushConfig(instanceIP, service, fversion, version, packageFilePath, port, installDir); err != nil {
+		fmt.Printf("📄 推送配置文件...\n")
+		if err := f.pushConfig(instanceIP, service, fversion, version, originalPackagePath, port, installDir); err != nil {
 			return fmt.Errorf("推送配置文件失败: %v", err)
 		}
+		fmt.Printf("✅ 配置文件推送成功\n")
+	} else {
+		fmt.Printf("⏭️  跳过配置文件推送（服务器已有最新配置）\n")
 	}
 
 	// 4. 切换版本（激活新版本）
-	if err := f.switchVersion(instanceIP, service, fversion, false, installDir); err != nil {
+	// 使用 force=true 强制切换，跳过文件冲突检查（因为是自动部署）
+	fmt.Printf("🔄 开始切换版本（强制模式）：service=%s, fversion=%s, installDir=%s\n", service, fversion, installDir)
+	if err := f.switchVersion(instanceIP, service, fversion, true, installDir); err != nil {
 		return fmt.Errorf("版本切换失败: %v", err)
 	}
+	fmt.Printf("✅ 版本切换成功\n")
 
 	// 5. 运行服务
+	fmt.Printf("🚀 启动服务：%s (端口: %d)\n", service, port)
 	if err := f.runService(instanceIP, service, "start.sh", fmt.Sprintf("/home/qboxserver/.zeroops-floyd/%s", installDir), 300); err != nil {
 		return fmt.Errorf("运行服务失败: %v", err)
 	}
+	fmt.Printf("✅ 服务启动成功\n")
 
 	return nil
 }
 
 // rollbackToSingleInstance 回滚到单个实例
-func (f *floyDeployService) rollbackToSingleInstance(instanceIP, service, targetVersion, fversion string, packageFilePath string, md5sum []byte, port int) error {
+// originalPackagePath: 原始包路径，用于提取配置文件
+// slimPackagePath: 精简包路径（只包含可执行文件），用于推送包
+func (f *floyDeployService) rollbackToSingleInstance(instanceIP, service, targetVersion, fversion string, originalPackagePath string, slimPackagePath string, md5sum []byte, port int) error {
 	// 为当前实例生成独立的installDir
 	installDir := fmt.Sprintf("storage-%d", port)
 
@@ -663,30 +681,41 @@ func (f *floyDeployService) rollbackToSingleInstance(instanceIP, service, target
 	if err != nil {
 		return fmt.Errorf("ping检查失败: %v", err)
 	}
+	fmt.Printf("📡 Ping 响应：wantPkg=%v, wantConfig=%v\n", wantPkg, wantConfig)
 
-	// 2. 推送回滚包文件
-	if wantPkg {
-		if err := f.pushPackage(instanceIP, service, fversion, targetVersion, packageFilePath, md5sum, installDir); err != nil {
-			return fmt.Errorf("推送回滚包文件失败: %v", err)
-		}
+	// 2. 推送回滚包文件（使用精简包，只包含可执行文件）
+	// 临时：强制推送包文件，忽略 wantPkg 检查
+	fmt.Printf("📦 强制推送包文件（忽略 Ping 响应）...\n")
+	if err := f.pushPackage(instanceIP, service, fversion, targetVersion, slimPackagePath, md5sum, installDir); err != nil {
+		return fmt.Errorf("推送回滚包文件失败: %v", err)
 	}
+	fmt.Printf("✅ 包文件推送成功\n")
 
-	// 3. 推送配置文件
+	// 3. 推送配置文件（从原始包中提取并修改端口）
 	if wantConfig {
-		if err := f.pushConfig(instanceIP, service, fversion, targetVersion, packageFilePath, port, installDir); err != nil {
+		fmt.Printf("📄 推送配置文件...\n")
+		if err := f.pushConfig(instanceIP, service, fversion, targetVersion, originalPackagePath, port, installDir); err != nil {
 			return fmt.Errorf("推送配置文件失败: %v", err)
 		}
+		fmt.Printf("✅ 配置文件推送成功\n")
+	} else {
+		fmt.Printf("⏭️  跳过配置文件推送（服务器已有最新配置）\n")
 	}
 
 	// 4. 切换版本（激活回滚版本）
-	if err := f.switchVersion(instanceIP, service, fversion, false, installDir); err != nil {
+	// 使用 force=true 强制切换，跳过文件冲突检查（因为是自动回滚）
+	fmt.Printf("🔄 开始切换版本（强制模式）：service=%s, fversion=%s, installDir=%s\n", service, fversion, installDir)
+	if err := f.switchVersion(instanceIP, service, fversion, true, installDir); err != nil {
 		return fmt.Errorf("版本切换失败: %v", err)
 	}
+	fmt.Printf("✅ 版本切换成功\n")
 
 	// 5. 运行服务
+	fmt.Printf("🚀 启动服务（回滚）：%s (端口: %d)\n", service, port)
 	if err := f.runService(instanceIP, service, "start.sh", fmt.Sprintf("/home/qboxserver/.zeroops-floyd/%s", installDir), 300); err != nil {
 		return fmt.Errorf("运行服务失败: %v", err)
 	}
+	fmt.Printf("✅ 服务启动成功\n")
 
 	return nil
 }
@@ -805,8 +834,11 @@ func (f *floyDeployService) pushPackage(instanceIP, service, fversion, version s
 	defer packageFile.Close()
 
 	// 创建文件字段，设置 Content-Md5 头
+	// 文件名必须包含 .tar.gz 后缀，Floyd 才能正确识别和解压
+	packageFileName := fmt.Sprintf("%s.tar.gz", version)
+	fmt.Printf("   → 包文件名: %s\n", packageFileName)
 	header := make(map[string][]string)
-	header["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name="file"; filename="%s"`, version)}
+	header["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name="file"; filename="%s"`, packageFileName)}
 	header["Content-Type"] = []string{"application/octet-stream"}
 	header["Content-Md5"] = []string{base64.URLEncoding.EncodeToString(md5sum)}
 
@@ -857,16 +889,15 @@ func (f *floyDeployService) pushPackage(instanceIP, service, fversion, version s
 	return nil
 }
 
-// pushConfig 推送配置文件
+// pushConfig 推送配置文件（支持推送多个文件：config.yaml 和 start.sh）
 func (f *floyDeployService) pushConfig(instanceIP, service, fversion, version, packageFilePath string, port int, installDir string) error {
 	baseURL := fmt.Sprintf("http://%s:%s", instanceIP, f.port)
 
-	// 从修改后的包文件中提取配置文件内容
-	configContent, err := f.extractConfigFromPackage(packageFilePath)
+	// 从原始包文件中提取并修改配置文件
+	configFiles, err := f.extractAndModifyConfigFiles(packageFilePath, service, port)
 	if err != nil {
-		return fmt.Errorf("failed to extract config from package: %v", err)
+		return fmt.Errorf("failed to extract and modify config files: %v", err)
 	}
-	configMD5 := md5.Sum(configContent)
 
 	// 使用 multipart.Writer 构造请求体
 	var buf bytes.Buffer
@@ -878,22 +909,36 @@ func (f *floyDeployService) pushConfig(instanceIP, service, fversion, version, p
 	writer.WriteField("pkgOwner", "qboxserver")
 	writer.WriteField("installDir", installDir)
 
-	// 创建文件字段，设置 Content-Md5 头，文件名包含端口信息
-	header := make(map[string][]string)
-	header["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name="file"; filename="%s/config%d.yaml"`, version, port)}
-	header["Content-Type"] = []string{"application/octet-stream"}
-	header["Content-Md5"] = []string{base64.URLEncoding.EncodeToString(configMD5[:])}
-	header["File-Mode"] = []string{"644"}
+	// 推送所有配置文件
+	for filename, content := range configFiles {
+		// 计算文件MD5
+		contentMD5 := md5.Sum(content)
 
-	fileWriter, err := writer.CreatePart(header)
-	if err != nil {
-		return fmt.Errorf("failed to create form file: %v", err)
-	}
+		// 创建文件字段，设置 Content-Md5 头
+		header := make(map[string][]string)
+		header["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name="file"; filename="%s/%s"`, version, filename)}
+		header["Content-Type"] = []string{"application/octet-stream"}
+		header["Content-Md5"] = []string{base64.URLEncoding.EncodeToString(contentMD5[:])}
 
-	// 写入配置文件内容
-	_, err = fileWriter.Write(configContent)
-	if err != nil {
-		return fmt.Errorf("failed to write config data: %v", err)
+		// 为start.sh设置可执行权限
+		if filename == "start.sh" {
+			header["File-Mode"] = []string{"755"}
+		} else {
+			header["File-Mode"] = []string{"644"}
+		}
+
+		fileWriter, err := writer.CreatePart(header)
+		if err != nil {
+			return fmt.Errorf("failed to create form file for %s: %v", filename, err)
+		}
+
+		// 写入文件内容
+		_, err = fileWriter.Write(content)
+		if err != nil {
+			return fmt.Errorf("failed to write %s data: %v", filename, err)
+		}
+
+		fmt.Printf("准备推送配置文件: %s (端口: %d)\n", filename, port)
 	}
 
 	// 关闭 writer 以完成 multipart 格式
@@ -929,6 +974,7 @@ func (f *floyDeployService) pushConfig(instanceIP, service, fversion, version, p
 		return fmt.Errorf("pushConfig failed: status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 
+	fmt.Printf("成功推送 %d 个配置文件到 %s\n", len(configFiles), instanceIP)
 	return nil
 }
 
@@ -1262,7 +1308,7 @@ func (f *floyDeployService) isPortInUse(port int, existingPorts []int) bool {
 	return false
 }
 
-// processPackageWithPort 处理包文件，修改配置文件中的端口
+// processPackageWithPort 处理包文件，创建精简包（只包含可执行文件），配置文件单独处理
 func (f *floyDeployService) processPackageWithPort(packagePath, serviceName string, port int) (string, []byte, error) {
 	// 1. 创建临时目录
 	tempDir, err := os.MkdirTemp("", "deploy-*")
@@ -1277,29 +1323,44 @@ func (f *floyDeployService) processPackageWithPort(packagePath, serviceName stri
 		return "", nil, fmt.Errorf("解压包文件失败: %v", err)
 	}
 
-	// 3. 修改配置文件中的端口
-	err = f.modifyConfigPort(tempDir, serviceName, port)
+	// 3. 创建精简包目录（只包含可执行文件，不包含配置和数据目录）
+	slimDir, err := os.MkdirTemp("", "slim-package-*")
 	if err != nil {
-		return "", nil, fmt.Errorf("修改配置文件失败: %v", err)
+		return "", nil, fmt.Errorf("创建精简目录失败: %v", err)
+	}
+	defer os.RemoveAll(slimDir)
+
+	// 4. 只复制可执行文件到精简目录
+	err = f.copyExecutableFiles(tempDir, slimDir, serviceName)
+	if err != nil {
+		return "", nil, fmt.Errorf("复制可执行文件失败: %v", err)
 	}
 
-	// 3.1 修改start.sh脚本中的端口逻辑
-	err = f.modifyStartScript(tempDir, port)
+	// 5. 打包精简后的目录（只包含可执行文件）
+	newPackageFile, err := os.CreateTemp("", "slim-package-*.tar.gz")
 	if err != nil {
-		return "", nil, fmt.Errorf("修改启动脚本失败: %v", err)
+		return "", nil, fmt.Errorf("创建临时包文件失败: %v", err)
+	}
+	newPackagePath := newPackageFile.Name()
+	newPackageFile.Close()
+
+	// 重新打包精简后的目录
+	err = f.createTarGz(slimDir, newPackagePath)
+	if err != nil {
+		os.Remove(newPackagePath)
+		return "", nil, fmt.Errorf("重新打包失败: %v", err)
 	}
 
-	// 4. 跳过重新打包，直接使用原始包文件（临时解决方案）
-	tempPackagePath := packagePath
-
-	// 5. 计算修改后包文件的MD5值
-	newMd5sum, err := f.calculateFileMD5(tempPackagePath)
+	// 6. 计算精简包文件的MD5值
+	newMd5sum, err := f.calculateFileMD5(newPackagePath)
 	if err != nil {
+		os.Remove(newPackagePath)
 		return "", nil, fmt.Errorf("计算MD5失败: %v", err)
 	}
 
-	// 6. 直接使用原始包文件
-	return tempPackagePath, newMd5sum, nil
+	// 7. 返回精简包的文件路径
+	fmt.Printf("成功创建精简包（只包含可执行文件），配置文件将通过 pushConfig 单独推送\n")
+	return newPackagePath, newMd5sum, nil
 }
 
 // calculateFileMD5 计算文件的MD5值
@@ -1351,7 +1412,7 @@ func (f *floyDeployService) extractTarGz(src, dest string) error {
 			os.MkdirAll(targetPath, os.FileMode(header.Mode))
 		case tar.TypeReg:
 			os.MkdirAll(filepath.Dir(targetPath), 0755)
-			outFile, err := os.Create(targetPath)
+			outFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
 				return err
 			}
@@ -1515,6 +1576,16 @@ func (f *floyDeployService) createTarGz(src, dest string) error {
 		}
 		header.Name = relPath
 
+		// 确保可执行文件（如 storage-service, start.sh）有正确的权限
+		// 检查文件名或原有权限，为可执行文件设置 0755 权限
+		if info.Mode().IsRegular() {
+			baseName := filepath.Base(path)
+			// 如果是 .sh 结尾的脚本或名字包含 -service 的文件，确保有可执行权限
+			if strings.HasSuffix(baseName, ".sh") || strings.Contains(baseName, "-service") {
+				header.Mode = header.Mode | 0111 // 添加可执行权限 (x bit)
+			}
+		}
+
 		err = tarWriter.WriteHeader(header)
 		if err != nil {
 			return err
@@ -1537,27 +1608,118 @@ func (f *floyDeployService) createTarGz(src, dest string) error {
 	})
 }
 
-// extractConfigFromPackage 从包文件中提取配置文件内容
+// extractConfigFromPackage 从包文件中提取配置文件内容（已修改端口）
 func (f *floyDeployService) extractConfigFromPackage(packageFilePath string) ([]byte, error) {
-	// 创建临时目录
+	// 注意：这个方法现在不再使用，因为配置文件需要单独从原始包中提取并修改
+	// 保留此方法是为了兼容性
+	return nil, fmt.Errorf("此方法已废弃，请使用 extractAndModifyConfigFiles")
+}
+
+// copyExecutableFiles 只复制可执行文件到目标目录，排除配置文件和数据目录
+func (f *floyDeployService) copyExecutableFiles(srcDir, destDir, serviceName string) error {
+	// 遍历源目录
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		return fmt.Errorf("读取源目录失败: %v", err)
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(srcDir, entry.Name())
+		destPath := filepath.Join(destDir, entry.Name())
+
+		// 跳过配置文件和数据目录
+		if entry.Name() == "config.yaml" ||
+			entry.Name() == "start.sh" ||
+			entry.Name() == "data" ||
+			strings.HasPrefix(entry.Name(), ".") {
+			fmt.Printf("跳过文件/目录: %s\n", entry.Name())
+			continue
+		}
+
+		if entry.IsDir() {
+			// 递归复制目录
+			err = os.MkdirAll(destPath, 0755)
+			if err != nil {
+				return fmt.Errorf("创建目录失败: %v", err)
+			}
+			err = f.copyExecutableFiles(srcPath, destPath, serviceName)
+			if err != nil {
+				return err
+			}
+		} else {
+			// 复制文件，保留权限
+			srcFile, err := os.Open(srcPath)
+			if err != nil {
+				return fmt.Errorf("打开源文件失败: %v", err)
+			}
+
+			srcInfo, err := srcFile.Stat()
+			if err != nil {
+				srcFile.Close()
+				return fmt.Errorf("获取文件信息失败: %v", err)
+			}
+
+			destFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
+			if err != nil {
+				srcFile.Close()
+				return fmt.Errorf("创建目标文件失败: %v", err)
+			}
+
+			_, err = io.Copy(destFile, srcFile)
+			srcFile.Close()
+			destFile.Close()
+			if err != nil {
+				return fmt.Errorf("复制文件失败: %v", err)
+			}
+
+			fmt.Printf("复制可执行文件: %s\n", entry.Name())
+		}
+	}
+
+	return nil
+}
+
+// extractAndModifyConfigFiles 从原始包中提取配置文件并修改端口
+func (f *floyDeployService) extractAndModifyConfigFiles(packageFilePath, serviceName string, port int) (map[string][]byte, error) {
+	// 1. 创建临时目录
 	tempDir, err := os.MkdirTemp("", "extract-config-*")
 	if err != nil {
 		return nil, fmt.Errorf("创建临时目录失败: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// 解压包文件到临时目录
+	// 2. 解压包文件到临时目录
 	err = f.extractTarGz(packageFilePath, tempDir)
 	if err != nil {
 		return nil, fmt.Errorf("解压包文件失败: %v", err)
 	}
 
-	// 读取配置文件
-	configPath := filepath.Join(tempDir, "config.yaml")
-	configContent, err := os.ReadFile(configPath)
+	// 3. 修改配置文件中的端口
+	err = f.modifyConfigPort(tempDir, serviceName, port)
 	if err != nil {
-		return nil, fmt.Errorf("读取配置文件失败: %v", err)
+		return nil, fmt.Errorf("修改配置文件失败: %v", err)
 	}
 
-	return configContent, nil
+	// 4. 修改start.sh脚本中的端口逻辑
+	err = f.modifyStartScript(tempDir, port)
+	if err != nil {
+		return nil, fmt.Errorf("修改启动脚本失败: %v", err)
+	}
+
+	// 5. 读取修改后的配置文件
+	configFiles := make(map[string][]byte)
+
+	// 读取 config.yaml
+	configPath := filepath.Join(tempDir, "config.yaml")
+	if configContent, err := os.ReadFile(configPath); err == nil {
+		configFiles["config.yaml"] = configContent
+	}
+
+	// 读取 start.sh
+	startScriptPath := filepath.Join(tempDir, "start.sh")
+	if startContent, err := os.ReadFile(startScriptPath); err == nil {
+		configFiles["start.sh"] = startContent
+	}
+
+	return configFiles, nil
 }
