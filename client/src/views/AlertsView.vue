@@ -656,7 +656,7 @@ onMounted(() => {
 .alert-content {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 16px;
   padding: 16px;
 }
 
@@ -677,6 +677,8 @@ onMounted(() => {
 
 .alert-info {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .alert-header {
@@ -684,6 +686,7 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 .alert-title {
@@ -691,11 +694,16 @@ onMounted(() => {
   font-weight: 600;
   color: #1e293b;
   line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  flex: 1;
+  min-width: 0;
 }
 
 .alert-badges {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .alert-labels {
@@ -703,10 +711,24 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 8px;
+  max-width: 100%;
 }
 
 .label-tag {
   font-size: 12px;
+  max-width: 200px;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+.label-tag :deep(.el-tag__content) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .alert-time {
@@ -718,6 +740,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .analysis-dialog {
